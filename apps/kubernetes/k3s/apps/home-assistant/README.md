@@ -66,6 +66,24 @@ kubectl delete pod copy -n home-assistant
 kubectl scale deployment home-assistant -n home-assistant --replicas=1
 ```
 
+## IoT VLAN Firewall Rule (add after deploying)
+
+Smart home devices live on VLAN 50 (10.10.50.0/24). After HA is running, add this rule
+in UniFi → Security → Firewall → Policies — **above** the "Block internal from initiating into IoT" rule:
+
+- Action: **Allow**
+- Source zone: **Internal**
+- Destination zone: **IoT**
+- Source: `10.10.30.11`, `10.10.30.12`, `10.10.30.13` (k3s worker node IPs)
+- Destination: Any (10.10.50.0/24)
+- Description: `Home Assistant → IoT devices`
+
+HA uses `hostNetwork: true` so it runs on the worker node's IP, not a pod IP.
+If you pin HA to a specific node with `nodeSelector`, only add that node's IP as the source.
+
+Also enable **mDNS forwarding** in UniFi on both VLAN 30 and VLAN 50 for local device
+discovery (Chromecast, Apple TV, Sonos, etc.) to work across the VLAN boundary.
+
 ## Notes
 
 - The Docker compose mounted `/config` directly. In k8s this is a Longhorn PVC — same path, different backing.
