@@ -92,9 +92,42 @@ Set MTU 9000 on switch ports carrying VLAN 40. All other VLANs use default MTU 1
 > Newer UniFi firmware serves `ipxe.efi` via HTTP on port 8080, not TFTP.
 > The netboot container must serve on port 8080. TFTP-only setups silently fail.
 
-**DNS — two-phase approach:**
-1. **Bootstrap:** set DHCP DNS to `9.9.9.9` / `1.1.1.1` temporarily for all VLANs
-2. **Post-Bind9 cutover:** change DHCP DNS servers to `10.10.10.8` (Athena/Bind9) for all VLANs, update firewall rules to restrict DNS to Athena
+**DNS servers (set per-network, not at gateway level):**
+
+Configure DNS on each network individually for full control:
+
+- Settings → Networks → [Network] → Advanced → DHCP Name Server
+- **Uncheck "Auto"** and enter all four manually:
+
+| Priority | IP | Role |
+| --- | --- | --- |
+| 1 | `10.10.10.10` | AdGuard Home (primary, filtering) |
+| 2 | `10.10.10.9` | bind9 current (swap to `.8` after Athena consolidation) |
+| 3 | `10.10.10.8` | Athena / bind9 future home |
+| 4 | `9.9.9.9` | External fallback (if internal DNS is fully down) |
+
+**DNS port group** (create in UniFi, reference in firewall rules):
+
+| Protocol | Port | Transport |
+| --- | --- | --- |
+| Plain DNS | 53 | UDP + TCP |
+| DNS over TLS (DoT) | 853 | TCP |
+| DNS over HTTPS (DoH) | 443 | TCP (shared with HTTPS — scope by destination IP, not port alone) |
+
+> [!IMPORTANT]
+> Because DHCP is handing out internal IPs (`10.10.10.x`) as DNS servers, each zone needs an explicit firewall rule allowing DNS to the MGMT zone. Zones that can't reach MGMT will have broken DNS.
+>
+> Required per-zone DNS firewall rules (Src Zone → MGMT, dst `10.10.10.10`, port 53):
+>
+> | Zone | Status |
+> | --- | --- |
+> | k3s | Add when bringing up k3s |
+> | Storage | Add when bringing up Storage |
+> | IoT | Add when bringing up IoT |
+> | Provisioning | Add when bringing up Provisioning |
+> | Guest | Add when bringing up Guest |
+
+**Torrent (VLAN 49) exception:** Use `9.9.9.9` only. Internal DNS IPs are RFC1918 and would break the airgap. Set manually in the Torrent network DHCP settings.
 
 ---
 
@@ -191,7 +224,7 @@ See [`Unifi/Static Clients.md`](Unifi/Static%20Clients.md) for the network assig
 Mode: **Subnet Router** — not Exit Node. Only homelab traffic routes through the tunnel.
 
 ```sh
-tailscale up --advertise-routes=10.10.10.0/24,10.10.30.0/24 --accept-routes
+tailscale up --advertise-routes=10.10.10.0/24,10.10.20.0/24,10.10.30.0/24,10.10.40.0/24,10.10.50.0/24,10.10.80.0/24,10.10.99.0/24,172.16.20.0/24 --accept-routes
 ```
 
 Required static route in UniFi after Tailscale VM is running:
@@ -202,6 +235,18 @@ Required static route in UniFi after Tailscale VM is running:
 
 > [!TIP]
 > Running Tailscale in Subnet Router mode (not Exit Node) means only homelab-bound traffic routes through the tunnel. Your regular internet traffic still goes direct from your client, which is what you want.
+
+### Future: WireGuard (when a public IP is available)
+
+Tailscale is used because the current ISP does not provide a static public IP (CGNAT). When a public IP becomes available, UniFi has a built-in **WireGuard VPN server** that can replace Tailscale entirely:
+
+- Settings → VPN → VPN Server → WireGuard
+- UniFi generates the server config and peer QR codes natively
+- No separate VM needed — the UXG Max runs the WireGuard endpoint
+- Replace the Tailscale VM on VLAN 80 with a WireGuard peer config
+- Update firewall: VPN zone rules stay the same, just the transport changes
+
+Advantages over Tailscale: no third-party relay, no account dependency, lower latency (direct tunnel), full control over keys. Requires: static public IP or DDNS, port forward UDP 51820 on UXG Max.
 
 ---
 

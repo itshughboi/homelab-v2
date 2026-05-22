@@ -254,8 +254,8 @@ chmod 600 ~/.kube/config && kubectl get nodes
 
 ```sh
 # Bootstrap Athena from laptop
-cd ansible/playbooks/ubuntu/
-ansible-playbook bootstrap-athena.yml -i inventory.yaml
+ansible-playbook ansible/playbooks/ubuntu/setup-athena/main.yaml \
+  -i ansible/playbooks/ubuntu/setup-athena/inventory.yaml
 ```
 
 SOPS setup (on Athena — do before pushing any secrets):
@@ -325,14 +325,22 @@ kubectl rollout status daemonset/longhorn-manager -n longhorn-system --timeout=5
 kubectl patch storageclass longhorn \
   -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
-# Sealed Secrets (BEFORE ArgoCD)
+# Sealed Secrets (MUST be BEFORE ArgoCD — ArgoCD will try to apply SealedSecrets on first sync)
 helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+helm repo update
 helm install sealed-secrets sealed-secrets/sealed-secrets \
-  -n kube-system --set fullnameOverride=sealed-secrets-controller
-# Backup key immediately:
+  -n kube-system \
+  -f apps/kubernetes/k3s/infra/sealed-secrets/values.yaml
+kubectl rollout status deployment/sealed-secrets -n kube-system
+
+# Install kubeseal CLI (needed to seal secrets from your machine)
+brew install kubeseal   # or download binary from releases page
+
+# Backup controller key IMMEDIATELY — if this key is lost, all sealed secrets are unrecoverable
 kubectl get secret -n kube-system -l sealedsecrets.bitnami.com/sealed-secrets-key \
-  -o yaml > sealed-secrets-key-backup.yaml
-# → store in Vaultwarden, DO NOT commit to git
+  -o yaml > ~/sealed-secrets-master.key
+# → Open Vaultwarden and store the contents of sealed-secrets-master.key there
+# → DO NOT commit this file to git
 ```
 
 → [Full k3s infrastructure detail](8-k3s/index.md)
@@ -425,7 +433,7 @@ argocd repo add https://gitea.hughboi.cc/hughboi/homelab.git \
 kubectl apply -f apps/root-app.yaml
 ```
 
-**Before ArgoCD syncs any app:** check the app's `secret.yaml` for the `kubectl create secret` commands to run first. If ArgoCD syncs before secrets exist, pods crash — delete the Secret and recreate it correctly.
+**Secrets are handled via Sealed Secrets** — encrypted `SealedSecret` manifests live in git. ArgoCD applies them and the controller decrypts them automatically. No manual `kubectl create secret` needed for sealed secrets. If a pod crashes on first sync, check the app's `secret.yaml` — some apps may still use imperative secrets during early migration.
 
 → [Full GitOps detail](9-gitops/index.md)
 

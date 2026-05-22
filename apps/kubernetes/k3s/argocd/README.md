@@ -31,14 +31,76 @@ The **App of Apps** pattern means you only need to register the `root` Applicati
 
 ## Secret Strategy
 
-ArgoCD syncs everything in git **except** Secrets (via `ignoreDifferences` on the `/data` field). Secrets are created imperatively with `kubectl create secret` before the first sync. ArgoCD will see the Secret exists and leave it alone.
+**Primary: Sealed Secrets** — secrets are encrypted and committed to Git. ArgoCD applies `SealedSecret` resources; the sealed-secrets controller decrypts them into real `Secret` objects in-cluster. Full cluster rebuilds need no manual secret re-entry.
+
+**Reference: Imperative secrets** — documented below as fallback/break-glass. Useful during initial bootstrap before the sealed-secrets controller is running.
 
 This means:
-- ✅ All YAML manifests (Deployments, Services, IngressRoutes, ConfigMaps) are GitOps-managed
+- ✅ All YAML manifests (Deployments, Services, IngressRoutes, ConfigMaps, SealedSecrets) are GitOps-managed
 - ✅ New apps appear automatically when you add a directory
-- ⚠️ Secrets are NOT in git — you must run the `kubectl create secret` commands in each app's README when deploying a new app
+- ✅ Secrets live in git encrypted — rebuild = `helm install` + `argocd app sync`, no manual steps
+- ⚠️ Sealed Secrets controller must be installed **before** ArgoCD first syncs (see bootstrap order below)
 
-If you want fully automated secrets, consider migrating to [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) later.
+### Sealed Secrets Workflow (Primary)
+
+The sealed-secrets controller must be running before you seal anything. Install it once during cluster bootstrap — see [`infra/sealed-secrets/`](../infra/sealed-secrets/) for the full install + key backup procedure.
+
+```bash
+# 1. Create secret as a dry-run (never apply this directly)
+kubectl create secret generic my-app-secret -n my-app \
+  --from-literal=api-key=<value> \
+  --from-literal=db-password=<value> \
+  --dry-run=client -o yaml \
+  | kubeseal --format yaml > apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml
+
+# 2. Commit and push
+git add apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml
+git commit -m "feat: add my-app sealed secret"
+git push
+
+# ArgoCD applies the SealedSecret → controller decrypts → Secret appears in cluster
+```
+
+> [!IMPORTANT]
+> **Back up the controller key immediately after install.** Without it, all sealed secrets are permanently unreadable if the cluster is rebuilt.
+> ```bash
+> kubectl get secret -n kube-system -l sealedsecrets.bitnami.com/sealed-secrets-key -o yaml \
+>   > ~/sealed-secrets-master.key
+> # Store in Vaultwarden — NEVER commit to git
+> ```
+
+### Imperative Secrets (Reference / Break-Glass)
+
+Use this when the sealed-secrets controller isn't running yet (early bootstrap) or for one-off emergency access.
+
+```bash
+kubectl create secret generic my-app-secret \
+  -n my-app \
+  --from-literal=api-key=<value> \
+  --from-literal=db-password=<value>
+```
+
+Each app that uses imperative secrets has a `secret.yaml` in its directory containing only comments — no plaintext values:
+
+```yaml
+# Create this secret imperatively before ArgoCD syncs:
+# kubectl create secret generic my-app-secret \
+#   -n my-app \
+#   --from-literal=api-key=<value>
+#
+# Get the value from Vaultwarden: homelab / my-app / api-key
+```
+
+ArgoCD ignores existing Secrets (via `ignoreDifferences` on `/data`) so it won't overwrite or delete imperatively-created secrets.
+
+### SOPS + Age vs Sealed Secrets
+
+These are complementary tools operating at different layers — not alternatives:
+
+| Tool | Layer | What it encrypts | Who decrypts |
+|------|-------|------------------|--------------|
+| SOPS + Age | Ansible / Terraform | `.tfvars`, `secrets.yaml` for provisioning | Athena at runtime |
+| Sealed Secrets | Kubernetes / ArgoCD | k8s `Secret` objects | In-cluster controller |
 
 ## Install
 
@@ -96,7 +158,7 @@ ArgoCD will immediately start syncing:
 ## Adding a New App
 
 1. Create `apps/kubernetes/k3s/apps/<appname>/` with your manifests
-2. Create the secret imperatively: `kubectl create secret generic ... -n <appname>`
+2. Seal any secrets: `kubectl create secret generic ... --dry-run=client -o yaml | kubeseal --format yaml > sealed-secret.yaml`
 3. Push to git
 4. ArgoCD auto-discovers the new directory and creates an Application for it within ~3 minutes
 

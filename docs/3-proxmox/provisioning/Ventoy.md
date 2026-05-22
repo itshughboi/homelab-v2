@@ -63,7 +63,7 @@ zfs.raid = "single"
 The `answer.toml` can be pulled from the IAC repo so you don't have to recreate it:
 
 ```sh
-git clone https://github.com/itshughboi/iac.git
+git clone https://github.com/itshughboi/homelab-v2.git
 ```
 
-Look in `/bootstrap/` for the per-node TOML files.
+Look in `bootstrap/` for the per-node TOML files.

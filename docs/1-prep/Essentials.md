@@ -11,7 +11,7 @@
 - Each node's MAC must be mapped to its hostname in `local.ipxe`
 - Each node needs a MAC reservation in UniFi for VLAN 10
 
-These files live in the IAC repo. Push changes and the Libre Potato picks them up within 5 minutes via the git pull timer.
+These files live in the homelab repo (`https://github.com/itshughboi/homelab-v2`). Push changes and the Libre Potato picks them up within 5 minutes via the git pull timer.
 
 
 **Verify netboot is serving correctly:**

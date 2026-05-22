@@ -60,14 +60,14 @@
         name: git
         state: present
 
-    - name: Clone IaC repository
+    - name: Clone homelab repository
       ansible.builtin.git:
-        repo: "https://github.com/itshughboi/iac.git"
-        dest: /opt/iac #desired destination. Change to /home/hughboi if desired
+        repo: "https://github.com/itshughboi/homelab-v2.git"
+        dest: /opt/homelab
         version: main
         update: yes
 
     - name: Run netbootxyz docker compose
       community.docker.docker_compose_v2:
-        project_src: /opt/iac/bootstrap/netbootxyz #if I change the `dest` above ^^, need to change reference here too
+        project_src: /opt/homelab/bootstrap/netbootxyz
         state: present

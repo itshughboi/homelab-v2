@@ -1,7 +1,7 @@
 # Provisioning Overview
 
 > The netboot container is configured via Ansible playbook on first run.
-> Container lives at `/opt/iac/bootstrap/netbootxyz` on `10.10.99.99`.
+> Container lives at `/opt/homelab/bootstrap/netbootxyz` on `10.10.99.99`.
 
 ---
 
@@ -86,7 +86,7 @@ Expected: `HTTP/1.1 200 OK` on both.
 1. Copy an existing `.toml` file, update hostname, MAC, and IP values
 2. Add the new node's MAC and hostname mapping to `local.ipxe`
 3. Add MAC reservation in UniFi for VLAN 10
-4. Push to GitHub — the git pull timer picks it up within 5 minutes
+4. Push to Gitea — the git pull timer picks it up within 5 minutes (mirrors to GitHub automatically)
 5. Plug new node into port 3 and power on
 6. After install: move cable to permanent trunk port on USW Flex Mini
 
@@ -96,7 +96,7 @@ Expected: `HTTP/1.1 200 OK` on both.
 
 **Permission denied on netboot host:**
 ```sh
-sudo chown -R 1000:1000 /opt/iac/bootstrap/netbootxyz
+sudo chown -R 1000:1000 /opt/homelab/bootstrap/netbootxyz
 ```
 Then reboot the container.
 

@@ -13,7 +13,7 @@ ansible-galaxy collection install community.general
 ```
 
 3. Management network must have DHCP option pointing to the netbootxyz machine to load iPXE.
-   See `iac/bootstrap/README.md` for details.
+   See `bootstrap/README.md` in the homelab repo for details.
 
 ---
 
@@ -66,7 +66,7 @@ traffic can cause jitter and trigger a Fencing event (hard reboot). Ansible appl
 tagging (UDP 5404–5405, DSCP 46) automatically. No gateway — internal routing only.
 
 **VLAN 40 (Storage):** PBS or Longhorn can saturate the management NIC. Ansible enables
-Jumbo Frames (MTU 9000). No gateway — internal routing only.
+Jumbo Frames (MTU 9000). Gateway `10.10.40.254` exists for outbound package updates only — firewall blocks all other outbound.
 
 > [!DANGER] Jumbo Frames
 > Every device on VLAN 40 (Proxmox, TrueNAS, PBS) MUST support and be configured for

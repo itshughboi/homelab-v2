@@ -6,7 +6,7 @@ bookCollapseSection: true
 
 # 9. GitOps
 
-ArgoCD + SOPS/Age. Push to Git → cluster applies it. Secrets encrypted at rest, decrypted at runtime on Athena. Every app deployment is a `git push`.
+ArgoCD + Sealed Secrets + SOPS/Age. Push to Git → cluster applies it. App secrets encrypted in Git via Sealed Secrets (decrypted in-cluster). Ansible/Terraform secrets encrypted via SOPS+Age (decrypted on Athena). Every deployment is a `git push`.
 
 ---
 
@@ -19,10 +19,15 @@ Developer pushes to Gitea
     → ArgoCD applies what's changed
     → Cluster is now in sync with Git
 
-Secrets:
-    → SOPS encrypts values in-place before commit
+Kubernetes app secrets (Sealed Secrets):
+    → kubectl create secret --dry-run | kubeseal → sealed-secret.yaml
+    → Commit encrypted file to Gitea (safe)
+    → ArgoCD applies SealedSecret → in-cluster controller decrypts → Secret exists
+
+Ansible/Terraform secrets (SOPS + Age):
+    → sops --encrypt secrets.yaml / terraform.tfvars
     → Encrypted file pushed to Gitea (safe)
-    → At runtime: SOPS decrypts using Age key stored only on Athena
+    → At runtime: Athena decrypts using Age private key (never leaves Athena)
 ```
 
 ---

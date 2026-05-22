@@ -1,0 +1,149 @@
+---
+# Bootstrap playbook for Athena (10.10.10.8)
+# Run from laptop after Terraform creates the VM:
+#   ansible-playbook -i inventory.yaml main.yaml --ask-vault-pass
+#
+# What this does:
+#   1. Installs Docker, Git, OpenTofu, SOPS, age
+#   2. Clones the homelab repo to /opt/homelab
+#   3. Starts bind9, Gitea, and Semaphore via Docker Compose
+#
+# After this playbook completes:
+#   - Push the repo to Gitea and configure GitHub mirror
+#   - Log into Semaphore and add inventory + playbooks
+#   - All future Ansible runs go through Semaphore, not the laptop
+
+- name: Bootstrap Athena
+  hosts: athena
+  become: true
+  gather_facts: true
+
+  vars:
+    homelab_repo: "https://github.com/itshughboi/homelab-v2.git"
+    homelab_dest: /opt/homelab
+    tofu_version: "1.8.1"
+    sops_version: "3.9.0"
+    age_version: "1.2.0"
+
+  tasks:
+
+    # ── System ────────────────────────────────────────────────────────────────
+
+    - name: Update apt cache and upgrade packages
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+
+    - name: Install base dependencies
+      ansible.builtin.apt:
+        name:
+          - git
+          - curl
+          - gnupg
+          - ca-certificates
+          - apt-transport-https
+          - software-properties-common
+          - qemu-guest-agent
+          - nfs-common
+          - prometheus-node-exporter
+        state: present
+
+    - name: Enable and start qemu-guest-agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Enable and start prometheus-node-exporter
+      ansible.builtin.service:
+        name: prometheus-node-exporter
+        state: started
+        enabled: true
+
+    # ── Docker ────────────────────────────────────────────────────────────────
+
+    - name: Install Docker
+      ansible.builtin.shell: |
+        curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Install Docker Compose plugin
+      ansible.builtin.apt:
+        name: docker-compose-plugin
+        state: present
+
+    - name: Enable and start Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add ansible user to docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    # ── OpenTofu ──────────────────────────────────────────────────────────────
+
+    - name: Install OpenTofu
+      ansible.builtin.shell: |
+        curl -fsSL https://get.opentofu.org/install-opentofu.sh | sh -s -- --install-method deb
+      args:
+        creates: /usr/bin/tofu
+
+    # ── SOPS + age ────────────────────────────────────────────────────────────
+
+    - name: Install age
+      ansible.builtin.shell: |
+        curl -fsSL https://github.com/FiloSottile/age/releases/download/v{{ age_version }}/age-v{{ age_version }}-linux-amd64.tar.gz \
+          | tar -xz --strip-components=1 -C /usr/local/bin age/age age/age-keygen
+      args:
+        creates: /usr/local/bin/age
+
+    - name: Install SOPS
+      ansible.builtin.get_url:
+        url: "https://github.com/getsops/sops/releases/download/v{{ sops_version }}/sops-v{{ sops_version }}.linux.amd64"
+        dest: /usr/local/bin/sops
+        mode: "0755"
+
+    # ── Homelab repo ──────────────────────────────────────────────────────────
+
+    - name: Clone homelab repository
+      ansible.builtin.git:
+        repo: "{{ homelab_repo }}"
+        dest: "{{ homelab_dest }}"
+        version: main
+        update: yes
+
+    # ── Services ──────────────────────────────────────────────────────────────
+
+    - name: Start bind9
+      community.docker.docker_compose_v2:
+        project_src: "{{ homelab_dest }}/apps/docker/bind9"
+        state: present
+
+    - name: Start Gitea
+      community.docker.docker_compose_v2:
+        project_src: "{{ homelab_dest }}/apps/docker/gitea"
+        state: present
+
+    - name: Start Semaphore
+      community.docker.docker_compose_v2:
+        project_src: "{{ homelab_dest }}/apps/docker/semaphore"
+        state: present
+
+    # ── Post-install reminder ─────────────────────────────────────────────────
+
+    - name: Print next steps
+      ansible.builtin.debug:
+        msg:
+          - "Athena is up. Complete these steps manually:"
+          - "1. Run ./scripts/age-setup.sh on Athena to generate the AGE key and update .sops.yaml"
+          - "2. Push repo to Gitea: http://{{ ansible_host }}:3000 — configure GitHub push mirror"
+          - "3. Log into Semaphore: http://{{ ansible_host }}:3001 — add inventory and repo"
+          - "4. Enable TOTP on Gitea admin account"
+          - "5. Set SIGNUPS_ALLOWED=false in Vaultwarden after it's deployed"
+          - "6. Run terraform init -migrate-state once Gitea is confirmed running"

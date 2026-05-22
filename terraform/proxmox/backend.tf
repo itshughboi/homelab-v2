@@ -51,11 +51,19 @@
 # Option B is the simplest for a self-hosted homelab — it uses Gitea you already run.
 # Set TF_HTTP_PASSWORD=<token> in your shell or pass_store/Vaultwarden before running tf.
 #
-# ── Current state: local backend (default) ───────────────────────────────────
+# ── Bootstrap order ──────────────────────────────────────────────────────────
 #
-# Uncomment one of the options above to migrate. After switching:
-#   terraform init -migrate-state
-# This copies your existing local state to the new backend.
+# Local state is correct for the initial run from your laptop.
+# Gitea and TrueNAS don't exist yet when you first run Terraform.
 #
+# Migration path (do this after Athena is up and Gitea is running):
+#   1. Generate a Gitea API token (Settings → Applications → Access Tokens)
+#   2. Set: export TF_HTTP_PASSWORD=<gitea-token>
+#   3. Uncomment the Option B block above
+#   4. Run: terraform init -migrate-state
+#      This copies local state into Gitea — no data lost.
+#   5. Delete terraform.tfstate and terraform.tfstate.backup from laptop
+#
+# From that point all state lives in Gitea and survives laptop rebuilds.
 # IMPORTANT: add terraform.tfstate and terraform.tfstate.backup to .gitignore
 # (already done) — never commit state files.

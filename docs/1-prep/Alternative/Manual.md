@@ -5,7 +5,7 @@
 	4. Git
 2. Create or clone my bootstrap repo locally
 ```sh
-	git clone https://github.com/itshughboi/iac.git
+	git clone https://github.com/itshughboi/homelab-v2.git
 ```
 1. Generate SSH Keys for the data center (injects into every node)
 

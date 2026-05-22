@@ -4,6 +4,12 @@
 > ALLOW rules must be ABOVE DENY rules in UniFi (rule order matters).
 > Verify correct rule direction (LAN IN vs LAN OUT).
 
+> [!WARNING]
+> **Always make firewall changes from [unifi.ui.com](https://unifi.ui.com) (cloud portal), not the local controller.**
+> If you create a zone or rule that blocks your own VLAN, the local controller becomes unreachable and you lock yourself out.
+> The cloud portal connects independently of your local network and lets you undo the mistake.
+> Learned this the hard way creating the MGMT zone.
+
 ---
 
 ## First — Two Things Before Any Rules
@@ -13,6 +19,21 @@
 2. Add this as the **very first rule in LAN IN**, before any VLAN-specific rules:
    `ALLOW ALL → ALL  state: established, related`
    This permits return traffic for connections you initiated, without needing explicit rules in both directions. Without it, outbound ALLOWs work but responses get dropped.
+
+> [!TIP]
+> **Rules are one direction only — always model the initiator.**
+> Only create a rule for the side that *starts* the connection. The `established/related` rule above handles the response traffic automatically.
+> Example: `MGMT → Torrent TCP 22` lets you SSH from MGMT into Torrent. You do not need a second rule for Torrent → MGMT. If you find yourself creating mirrored pairs, stop — the return rule is doing that work.
+
+> [!IMPORTANT]
+> **Always put the service port in Dst. Port — never Src. Port.**
+> When a client initiates a connection, it connects *from* a random ephemeral port (e.g. 54832) *to* the service's well-known port (22, 80, 443) on the destination.
+> A rule with `Src. Port = 22` will never match normal SSH traffic — the source port is unpredictable.
+> Leave Src. Port blank (Any). Only fill in Dst. Port.
+>
+> **You can comma-separate multiple ports in a single rule** instead of creating one rule per port.
+> Example: one rule with Dst. Port `22,80,443` replaces three separate SSH/HTTP/HTTPS rules.
+> UniFi has no named port groups in the zone-based firewall UI — consolidate inline instead.
 
 ---
 
@@ -62,7 +83,7 @@ All VLANs need DNS reachability, but the source changes over time:
 | Source | Destination | Services | Intent |
 | --- | --- | --- | --- |
 | MGMT | K3S (10.10.30.0/24) | SSH, K3S | Admin control |
-| MGMT | STORAGE (10.10.40.0/24) | SSH, WEB, STORAGE, MONITOR | Full admin + monitoring |
+| MGMT | STORAGE (10.10.40.0/24) | SSH, WEB | Admin access to TrueNAS + PBS web UIs only |
 | MGMT | TORRENT (172.16.20.0/24) | SSH | Admin access only |
 | MGMT | VPN (10.10.80.0/24) | SSH | Admin access |
 | MGMT | PROVISIONING (10.10.99.0/24) | SSH | PXE control |
@@ -110,8 +131,8 @@ All VLANs need DNS reachability, but the source changes over time:
 
 | Source | Destination | Services | Intent |
 | --- | --- | --- | --- |
-| MGMT | STORAGE | SSH, WEB, STORAGE, MONITOR | Admin + monitoring |
-| K3S | STORAGE | STORAGE | Volume access |
+| MGMT | STORAGE | SSH, WEB | Admin access to TrueNAS + PBS web UIs |
+| K3S | STORAGE | NFS 2049, rpcbind 111, iSCSI 3260, node_exporter 9100, Longhorn 9500 | Volume access + Prometheus scraping |
 | STORAGE | WAN | CORE, WEB | Updates only |
 | ANY | STORAGE | DENY | Default deny inbound |
 
@@ -191,9 +212,13 @@ All VLANs need DNS reachability, but the source changes over time:
 > Without this, the tunnel works but inter-VLAN → Tailscale peer routing fails.
 
 > [!TIP]
-> VPN users can currently reach the entire `10.10.10.0/24` mgmt subnet. Fine
-> as a solo user. If VPN access is ever shared, scope the destination to specific
-> IPs (Athena, Docker host) rather than the whole subnet.
+> **Owner access is intentionally broad** — full reach to MGMT, k3s, and Storage via Tailscale is correct for solo use.
+>
+> **Before sharing Tailscale access with anyone else**, restrict them via Tailscale ACLs in the admin console (tailscale.com/admin/acls):
+> - Tag the shared device (e.g. `tag:limited`)
+> - Write a grant that allows only specific subnets or IPs (e.g. Grafana IP only, no MGMT)
+> - Owner device keeps `*` access; tagged guests get scoped access
+> Never hand out your Tailscale auth key — generate a separate reusable key per person and revoke it when done.
 
 ---
 

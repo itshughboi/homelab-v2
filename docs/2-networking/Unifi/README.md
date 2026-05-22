@@ -15,6 +15,6 @@
 
 **VLAN 20**: Corosync is very sensitive to latency. If I'm flooding a NIC with backups or storage retrieval, it can cause jitter and fuck with Proxmox and may cause a Fencing (Hard Reboot) event. Problem is that I enjoy seeing the webUI at 10.10.10.x/24. This has **NO GATEWAY**. Only internal routing.<br>
 
-**VLAN 40**:  Similar to VLAN 20, PBS or Longhorn can saturate the management network which can slow down SSH or Athena VM. This has **NO GATEWAY**. Only internal routing. **Jumbo Frames** enabled
+**VLAN 40**:  Similar to VLAN 20, PBS or Longhorn can saturate the management network which can slow down SSH or Athena VM. Has a gateway (`10.10.40.254`) for outbound package updates only — firewall blocks all other outbound. **Jumbo Frames (MTU 9000)** required end-to-end.
 
 

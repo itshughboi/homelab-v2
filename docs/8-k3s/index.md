@@ -109,20 +109,29 @@ Longhorn UI available at `10.10.30.50` (MetalLB VIP) after MetalLB is up.
 
 ### Sealed Secrets
 
-Encrypt Kubernetes Secret objects so they can be safely committed to Git. **Install before ArgoCD** — ArgoCD will try to apply manifests that reference Sealed Secrets.
+Encrypt Kubernetes Secret objects so they can be safely committed to Git. **Install before ArgoCD** — ArgoCD will try to apply `SealedSecret` manifests on first sync and will fail if the controller isn't running.
 
 ```sh
+helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+helm repo update
 helm install sealed-secrets sealed-secrets/sealed-secrets \
-  -n kube-system --set fullnameOverride=sealed-secrets-controller
+  -n kube-system \
+  -f apps/kubernetes/k3s/infra/sealed-secrets/values.yaml
+kubectl rollout status deployment/sealed-secrets -n kube-system
+
+# Install kubeseal CLI (needed to seal secrets from your machine)
+brew install kubeseal   # macOS — or download binary from releases page
 ```
 
 > [!DANGER]
-> **Backup the controller key immediately.** Losing this key means every sealed secret is unrecoverable — you must re-seal everything from scratch.
+> **Backup the controller key immediately after install.** Losing this key means every sealed secret is permanently unrecoverable — you must re-seal everything from scratch.
 > ```sh
 > kubectl get secret -n kube-system -l sealedsecrets.bitnami.com/sealed-secrets-key \
->   -o yaml > sealed-secrets-key-backup.yaml
-> # Store in Vaultwarden — NEVER commit to git
+>   -o yaml > ~/sealed-secrets-master.key
+> # Store the contents in Vaultwarden — NEVER commit this file to git
 > ```
+
+Full install reference and migration guide: [`infra/sealed-secrets/`](../../../apps/kubernetes/k3s/infra/sealed-secrets/)
 
 ---
 
@@ -255,18 +264,23 @@ kubectl apply -f apps/root-app.yaml
 
 ArgoCD discovers every directory under `apps/kubernetes/k3s/apps/` automatically. New apps appear when you add a directory and push.
 
-**Secrets before ArgoCD syncs.** Each app has a `secret.yaml` with comments explaining what secrets to create. Run `kubectl create secret` before ArgoCD syncs that app or pods crash. If ArgoCD already synced and created empty secrets, delete and recreate:
+**Secrets via Sealed Secrets** — encrypted `SealedSecret` manifests live in git and ArgoCD applies them like any other manifest. The sealed-secrets controller (installed in Phase 9, before ArgoCD) decrypts them automatically. No pre-sync manual steps needed.
 
+To seal a secret for a new app:
 ```sh
-kubectl delete secret my-app-secret -n my-app
 kubectl create secret generic my-app-secret -n my-app \
-  --from-literal=api-key=<value>
+  --from-literal=api-key=<value> \
+  --dry-run=client -o yaml \
+  | kubeseal --format yaml > apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml
+git add apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml && git commit && git push
 ```
+
+If a pod crashes on first sync, check the app's `secret.yaml` for any remaining imperative secrets (some apps may not be migrated to Sealed Secrets yet).
 
 ### Adding a New k3s App
 
 1. Create `apps/kubernetes/k3s/apps/<name>/` with namespace, deployment, service, IngressRoute
-2. Create secrets imperatively (check the app's README)
+2. Seal any secrets: `kubectl create secret ... --dry-run=client -o yaml | kubeseal --format yaml > sealed-secret.yaml`
 3. `git add . && git commit && git push`
 4. ArgoCD discovers the new directory and syncs within 3 minutes
 5. Check ArgoCD UI to confirm sync succeeded
@@ -340,7 +354,7 @@ spec:
 | SOPS decrypt fails | Verify `SOPS_AGE_KEY_FILE` env var on Athena |
 | cert-manager not issuing | Check Cloudflare token secret exists in `cert-manager` namespace |
 | Traefik no EXTERNAL-IP | MetalLB must be running; check L2Advertisement covers the IP |
-| Pod crashlooping on start | Missing secret — check the app's `secret.yaml` for `kubectl create secret` instructions |
+| Pod crashlooping on start | Missing secret — check if `SealedSecret` was committed and synced; or check `secret.yaml` for any remaining imperative secrets |
 | k3s nodes can't reach Athena | Firewall rule: K3S → MGMT is DENY by design — use polling from Athena |
 | Longhorn prereqs missing | Run `open-iscsi` / `nfs-common` check via Ansible on all nodes |
 | Sealed Secrets won't decrypt | Key backup in Vaultwarden? If key is lost, must re-seal all secrets |

@@ -37,7 +37,7 @@ docker run --rm -it \
 ### Troubleshooting
 **Permission**: If I get permission denied, need to go onto netbootxyz host and do the following:
 ```sh
-sudo chown -R 1000:1000 /opt/iac/bootstrap/netbootxyz
+sudo chown -R 1000:1000 /opt/homelab/bootstrap/netbootxyz
 ```
 and then reboot
 
@@ -48,8 +48,8 @@ and then reboot
 
 1. Pull down the IAC repo and stand up the netboot container:
 ```sh
-git clone https://github.com/itshughboi/iac.git
-cd iac/bootstrap/netbootxyz
+git clone https://github.com/itshughboi/homelab-v2.git
+cd homelab-v2/bootstrap/netbootxyz
 docker compose up -d
 ```
 
