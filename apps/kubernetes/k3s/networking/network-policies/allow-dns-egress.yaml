@@ -1,0 +1,27 @@
+# Allows pods to reach kube-dns for name resolution.
+#
+# This MUST be applied to any namespace that has default-deny-egress.
+# Without DNS, pods cannot resolve service names or external hostnames —
+# everything breaks: image pulls, external API calls, inter-service communication.
+#
+# Port 53 UDP is standard DNS. Port 53 TCP is used for large DNS responses (> 512 bytes),
+# which happens with DNSSEC or records with many entries.
+#
+# Usage:
+#   kubectl apply -f allow-dns-egress.yaml -n <namespace>
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

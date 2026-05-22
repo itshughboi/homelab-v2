@@ -1,6 +1,23 @@
 # Network Policies
 
-Default-deny east-west isolation between namespaces. Each app namespace only accepts traffic from within itself and from the `traefik` ingress namespace. Namespaces that need to talk to each other (e.g. ArgoCD → Gitea) get explicit allow rules.
+Default-deny isolation in both directions. Ingress (inbound) and egress (outbound) are each denied by default — explicit allow rules grant only what each namespace legitimately needs.
+
+**Why both directions matter:**
+- Ingress-only deny stops external pods from reaching your app, but a compromised pod can still make outbound connections to C2 servers or exfiltrate data.
+- Egress deny ensures a compromised pod is also blind outbound — it can't call home or reach internal services it shouldn't know about.
+
+## Available policies
+
+| File | Direction | Purpose |
+|------|-----------|---------|
+| `default-deny.yaml` | Ingress | Block all inbound. Apply to every namespace. |
+| `default-deny-egress.yaml` | Egress | Block all outbound. Apply to every namespace. |
+| `allow-dns.yaml` | Ingress | Allow DNS responses into pods |
+| `allow-dns-egress.yaml` | Egress | Allow pods to reach kube-dns (port 53) — **required** |
+| `allow-traefik-ingress.yaml` | Ingress | Allow Traefik to reach pods |
+| `allow-monitoring-scrape.yaml` | Ingress | Allow Prometheus to scrape pods |
+| `allow-https-egress.yaml` | Egress | Allow pods to reach external HTTPS APIs |
+| `allow-internal-egress.yaml` | Egress | Allow pods to reach other cluster services |
 
 ## Two approaches
 
@@ -30,9 +47,23 @@ APP_NAMESPACES=(
 for ns in "${APP_NAMESPACES[@]}"; do
   echo "Applying network policies to namespace: $ns"
   kubectl apply -f default-deny.yaml -n "$ns"
+  kubectl apply -f default-deny-egress.yaml -n "$ns"
   kubectl apply -f allow-traefik-ingress.yaml -n "$ns"
   kubectl apply -f allow-monitoring-scrape.yaml -n "$ns"
   kubectl apply -f allow-dns.yaml -n "$ns"
+  kubectl apply -f allow-dns-egress.yaml -n "$ns"
+done
+
+# Apps that need internet access (external APIs, webhooks, package downloads):
+INTERNET_NAMESPACES=(home-assistant immich renovate n8n paperless-ngx mealie)
+for ns in "${INTERNET_NAMESPACES[@]}"; do
+  kubectl apply -f allow-https-egress.yaml -n "$ns"
+done
+
+# Apps that need to reach other cluster services (Prometheus, Loki, Authentik):
+CLUSTER_NAMESPACES=(gitea authentik vaultwarden semaphore)
+for ns in "${CLUSTER_NAMESPACES[@]}"; do
+  kubectl apply -f allow-internal-egress.yaml -n "$ns"
 done
 ```
 

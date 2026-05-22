@@ -1,0 +1,33 @@
+# Allows pods to reach services in other namespaces within the cluster.
+#
+# Apply to namespaces whose apps need to talk to:
+#   - Prometheus (monitoring namespace) for metrics push
+#   - Loki (monitoring namespace) for log push
+#   - Authentik (authentik namespace) for OIDC/SSO flows
+#   - PostgreSQL in a shared database namespace
+#
+# This allows egress to any cluster-internal IP. If you need finer control,
+# replace the ipBlock with explicit namespace selectors per destination service.
+#
+# The k3s pod CIDR is 10.42.0.0/16 (k3s default).
+# The k3s service CIDR is 10.43.0.0/16 (k3s default).
+# Adjust if you changed these during cluster init.
+#
+# Usage:
+#   kubectl apply -f allow-internal-egress.yaml -n <namespace>
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-egress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.42.0.0/16   # pod CIDR — all pods in the cluster
+        - ipBlock:
+            cidr: 10.43.0.0/16   # service CIDR — all ClusterIP services

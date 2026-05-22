@@ -1,0 +1,32 @@
+# Denies all egress (outbound) traffic from pods in a namespace by default.
+#
+# Apply alongside default-deny.yaml (which covers ingress).
+# After applying, pods cannot make outbound connections until you add explicit allow rules.
+#
+# Mandatory allow to add alongside this:
+#   allow-dns-egress.yaml  — pods need DNS to resolve service names
+#
+# Then add per-namespace allows for what each app legitimately needs:
+#   allow-https-egress.yaml   — apps that call external APIs (Immich ML, Home Assistant, etc.)
+#   allow-internal-egress.yaml — apps that talk to other namespaces (Prometheus, Loki)
+#
+# Usage:
+#   kubectl apply -f default-deny-egress.yaml -n <namespace>
+#
+# Apply to all app namespaces:
+#   for ns in authentik change-detection ezbookkeeping fasten-health file-browser freshrss \
+#     gatus gitea hoarder home-assistant homepage immich jellyfin mailrise mealie n8n \
+#     netbootxyz ntfy paperless-ngx pocket-id renovate romm semaphore syncthing \
+#     tube-archivist vaultwarden; do
+#     kubectl apply -f default-deny-egress.yaml -n $ns
+#   done
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress

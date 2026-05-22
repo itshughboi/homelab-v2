@@ -1,0 +1,31 @@
+# Allows pods to make outbound HTTPS (443) and HTTP (80) connections.
+#
+# Apply to namespaces whose apps need to reach external APIs or services:
+#   - Immich: ML model downloads, map tiles, reverse geocoding
+#   - Home Assistant: cloud integrations, HACS addon installs
+#   - Renovate: GitHub API, registry queries for image updates
+#   - n8n: webhook calls to external services
+#   - Paperless-NGX: IMAP fetch from email providers
+#   - Mealie: recipe scraping from external sites
+#
+# Do NOT apply fleet-wide — only to namespaces that genuinely need internet access.
+# A compromised pod in a namespace without this policy cannot exfiltrate data over HTTPS.
+#
+# Usage:
+#   kubectl apply -f allow-https-egress.yaml -n <namespace>
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-https-egress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP

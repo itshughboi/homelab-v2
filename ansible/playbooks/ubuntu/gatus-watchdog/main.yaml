@@ -1,0 +1,218 @@
+---
+# Deploys a standalone Gatus instance on Athena as an external watchdog for k3s.
+#
+# Why Athena and not inside k3s:
+#   If k3s falls over, an in-cluster Gatus dies with it — useless as a watchdog.
+#   Athena is a separate always-on management VM (VLAN 10), completely independent.
+#
+# Alerting uses Discord webhook only — ntfy lives on k3s and would be unreachable
+# during the exact outage we need to be alerted about.
+#
+# Run: ansible-playbook main.yaml -i ../../../inventories/hosts.ini --limit athena
+# Prereq: set vault_discord_webhook_url in group_vars/all.yml (ansible-vault)
+
+- name: Deploy Gatus watchdog on Athena
+  hosts: athena
+  become: true
+
+  vars:
+    gatus_data_dir: /opt/gatus
+    gatus_config_dir: /opt/gatus/config
+    gatus_container_name: gatus-watchdog
+    gatus_image: twinproduction/gatus:latest
+    gatus_port: 8888          # internal only — not exposed via Traefik
+    discord_webhook: "{{ vault_discord_webhook_url }}"
+
+  tasks:
+    - name: Install Docker if not present
+      block:
+        - name: Check if Docker is installed
+          command: docker --version
+          register: docker_check
+          failed_when: false
+          changed_when: false
+
+        - name: Install Docker
+          shell: |
+            curl -fsSL https://get.docker.com | sh
+            systemctl enable --now docker
+          when: docker_check.rc != 0
+
+    - name: Create Gatus data directory
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ gatus_data_dir }}"
+        - "{{ gatus_config_dir }}"
+
+    - name: Deploy Gatus config
+      copy:
+        dest: "{{ gatus_config_dir }}/config.yaml"
+        mode: "0644"
+        content: |
+          # Gatus watchdog on Athena — monitors k3s cluster and key services.
+          # Completely independent of k3s. Alerts via Discord when anything is down.
+
+          storage:
+            type: sqlite
+            path: /data/gatus.db
+
+          alerting:
+            discord:
+              webhook-url: "{{ discord_webhook }}"
+              default-alert:
+                description: "Health check failed"
+                send-on-resolved: true
+                failure-threshold: 2    # alert after 2 consecutive failures (avoids flapping)
+                success-threshold: 1
+
+          # Reusable check templates
+          # YAML anchors let us define a check type once and reuse it across endpoints
+          endpoint-http: &http
+            interval: 1m
+            client:
+              timeout: 10s
+            conditions:
+              - "[STATUS] == 200"
+              - "[CERTIFICATE_EXPIRATION] > 72h"
+            alerts:
+              - type: discord
+
+          endpoint-tcp: &tcp
+            interval: 1m
+            client:
+              timeout: 5s
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: discord
+
+          endpoints:
+
+            # ── k3s cluster health ──────────────────────────────────────────
+            # This is the most important check: if the k3s API is unreachable,
+            # the whole cluster is down regardless of what other services show.
+            - name: k3s API
+              group: k3s Cluster
+              <<: *tcp
+              url: "tcp://10.10.30.30:6443"    # kube-vip VIP
+
+            - name: k3s Grafana
+              group: k3s Cluster
+              <<: *http
+              url: "https://grafana.hughboi.vip"
+
+            - name: k3s Prometheus
+              group: k3s Cluster
+              <<: *http
+              url: "https://prometheus.hughboi.vip/-/healthy"
+
+            - name: k3s ArgoCD
+              group: k3s Cluster
+              <<: *http
+              url: "https://argocd.hughboi.vip"
+
+            - name: k3s Traefik
+              group: k3s Cluster
+              <<: *tcp
+              url: "tcp://10.10.30.65:443"     # MetalLB VIP
+
+            # ── k3s master nodes (direct ICMP) ──────────────────────────────
+            # Checks individual nodes — can tell you if 1 master failed vs all 3
+            - name: k3s-master-1
+              group: k3s Nodes
+              <<: *tcp
+              url: "icmp://10.10.30.1"
+
+            - name: k3s-master-2
+              group: k3s Nodes
+              <<: *tcp
+              url: "icmp://10.10.30.2"
+
+            - name: k3s-master-3
+              group: k3s Nodes
+              <<: *tcp
+              url: "icmp://10.10.30.3"
+
+            # ── key services (these need to be up even if k3s is down) ──────
+            - name: Vaultwarden
+              group: Key Services
+              <<: *http
+              url: "https://vaultwarden.hughboi.vip"
+
+            - name: Gitea
+              group: Key Services
+              <<: *http
+              url: "https://gitea.hughboi.cc"
+
+            - name: dock-prod Grafana
+              group: Key Services
+              <<: *http
+              url: "https://grafana.hughboi.cc"
+
+            # ── infrastructure ───────────────────────────────────────────────
+            - name: Proxmox pve-srv-1
+              group: Infrastructure
+              <<: *tcp
+              url: "tcp://10.10.10.1:8006"
+
+            - name: Proxmox pve-srv-2
+              group: Infrastructure
+              <<: *tcp
+              url: "tcp://10.10.10.2:8006"
+
+            - name: Proxmox pve-srv-3
+              group: Infrastructure
+              <<: *tcp
+              url: "tcp://10.10.10.3:8006"
+
+            - name: Proxmox pve-srv-4
+              group: Infrastructure
+              <<: *tcp
+              url: "tcp://10.10.10.4:8006"
+
+            - name: TrueNAS
+              group: Infrastructure
+              <<: *tcp
+              url: "icmp://10.10.10.5"
+
+            - name: Bind9 DNS
+              group: Infrastructure
+              <<: *tcp
+              url: "tcp://10.10.10.8:53"       # Athena itself — confirms DNS is responding
+
+            - name: dock-prod
+              group: Infrastructure
+              <<: *tcp
+              url: "icmp://10.10.10.10"
+
+    - name: Pull Gatus image
+      community.docker.docker_image:
+        name: "{{ gatus_image }}"
+        source: pull
+
+    - name: Run Gatus watchdog container
+      community.docker.docker_container:
+        name: "{{ gatus_container_name }}"
+        image: "{{ gatus_image }}"
+        restart_policy: unless-stopped
+        ports:
+          - "127.0.0.1:{{ gatus_port }}:8080"   # localhost only — not exposed externally
+        volumes:
+          - "{{ gatus_config_dir }}:/config:ro"
+          - "{{ gatus_data_dir }}/data:/data:rw"
+        env:
+          TZ: "America/New_York"
+
+    - name: Verify Gatus is responding
+      uri:
+        url: "http://localhost:{{ gatus_port }}/health"
+        status_code: 200
+      register: health_check
+      retries: 6
+      delay: 5
+      until: health_check.status == 200
