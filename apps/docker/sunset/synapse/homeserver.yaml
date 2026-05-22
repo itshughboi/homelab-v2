@@ -1,0 +1,35 @@
+
+server_name: "matrix.hughboi.cc"
+pid_file: /data/homeserver.pid
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client, federation]
+        compress: false
+database:
+  name: psycopg2
+  args:
+    user: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    database: ${POSTGRES_DATABASE}
+    host: synapse-db #docker DNS. Can also point to IP
+    cp_min: 5 
+    cp_max: 10
+log_config: "/data/matrix.hughboi.cc.log.config"
+media_store_path: /data/media_store
+registration_shared_secret: "XXXAUTOFILLEDXXX"
+report_stats: false
+macaroon_secret_key: "XXXAUTOFILLEDXXX"
+form_secret: "XXXAUTOFILLEDXXX"
+signing_key_path: "/data/matrix.hughboi.cc.signing.key"
+trusted_key_servers:
+  - server_name: "matrix.hughboi.cc"
+
+
+app_service_config_files:
+  - /data/registration.yml
+
+# vim:ft=yaml

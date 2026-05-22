@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-pve-exporter
+  namespace: prometheus-pve-exporter
+  labels:
+    app: prometheus-pve-exporter
+    # Label required for Prometheus ServiceMonitor selector
+    app.kubernetes.io/component: metrics
+spec:
+  selector:
+    app: prometheus-pve-exporter
+  ports:
+    - name: metrics
+      port: 9221
+      targetPort: 9221

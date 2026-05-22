@@ -1,0 +1,18 @@
+---
+services:
+  netbootxyz:
+    container_name: netbootxyz
+    image: netbootxyz/netbootxyz:0.6.9
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    ports:
+      - "3000:3000"     # web UI
+      - "69:69/udp"     # TFTP — PXE clients fetch iPXE binary here
+      - "8080:80"       # HTTP — serves iPXE scripts and Proxmox ISO assets
+    volumes:
+      - ./config:/config
+      - ./assets:/assets
+    environment:
+      - TZ=America/Denver

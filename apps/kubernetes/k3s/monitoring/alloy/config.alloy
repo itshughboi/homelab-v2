@@ -1,0 +1,80 @@
+// Grafana Alloy — Kubernetes log collection for k3s
+// Discovers all pods via k8s API, ships logs + events to Loki.
+// Metrics are handled by kube-prometheus-stack (node-exporter, kube-state-metrics).
+
+// ── POD LOG COLLECTION ──────────────────────────────────────────────────────
+
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "pod_logs" {
+  targets = discovery.kubernetes.pods.targets
+
+  // Drop pods that have explicitly opted out
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_logs_grafana_com_ignore"]
+    regex         = "true"
+    action        = "drop"
+  }
+
+  // Drop completed/failed pods
+  rule {
+    source_labels = ["__meta_kubernetes_pod_phase"]
+    regex         = "Succeeded|Failed"
+    action        = "drop"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_name"]
+    separator     = "/"
+    target_label  = "job"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_node_name"]
+    target_label  = "node"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+    target_label  = "app"
+  }
+}
+
+loki.source.kubernetes "pods" {
+  targets    = discovery.relabel.pod_logs.output
+  forward_to = [loki.write.loki.receiver]
+}
+
+// ── KUBERNETES EVENTS ────────────────────────────────────────────────────────
+
+loki.source.kubernetes_events "events" {
+  job_name   = "k8s-events"
+  log_format = "json"
+  forward_to = [loki.write.loki.receiver]
+}
+
+// ── LOKI ENDPOINT ────────────────────────────────────────────────────────────
+
+loki.write "loki" {
+  endpoint {
+    // "loki" matches the Helm release name for the loki chart
+    url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+  }
+}

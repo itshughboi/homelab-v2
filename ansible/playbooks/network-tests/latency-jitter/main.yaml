@@ -1,0 +1,84 @@
+---
+# Latency, jitter, and packet loss test using ping and hping3.
+# Each host pings a configurable list of targets and reports RTT min/avg/max/mdev and loss.
+# hping3 is used for jitter measurement (inter-packet delay variation).
+#
+# Results saved to /tmp/latency-results/ on each host and fetched back to the controller.
+
+- name: Latency and jitter test
+  hosts: all
+  become: true
+  vars:
+    ping_targets:
+      - name: gateway
+        ip: 10.10.10.1
+      - name: dns_primary
+        ip: 10.10.10.10
+      - name: google_dns
+        ip: 8.8.8.8
+      - name: cloudflare_dns
+        ip: 1.1.1.1
+    ping_count: 50
+    hping_count: 20         # packets for jitter measurement
+    hping_interval: "u10000" # 10ms between packets (u = microseconds)
+    results_dir: "/tmp/latency-results"
+
+  tasks:
+    - name: Install tools
+      apt:
+        name:
+          - iputils-ping
+          - hping3
+          - bc
+        state: present
+        update_cache: true
+
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Run ping against each target
+      shell: >
+        ping -c {{ ping_count }} -q {{ item.ip }} 2>&1
+      register: ping_results
+      loop: "{{ ping_targets }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run hping3 jitter measurement against each target
+      shell: >
+        hping3 --icmp -c {{ hping_count }}
+        -i {{ hping_interval }}
+        {{ item.ip }} 2>&1
+      register: hping_results
+      loop: "{{ ping_targets }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Write combined results
+      copy:
+        content: |
+          ===== Latency / Jitter Report =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          {% for i in range(ping_targets | length) %}
+          --- Target: {{ ping_targets[i].name }} ({{ ping_targets[i].ip }}) ---
+
+          PING ({{ ping_count }} packets):
+          {{ ping_results.results[i].stdout | default(ping_results.results[i].stderr) | default('No output') }}
+
+          HPING3 JITTER ({{ hping_count }} packets):
+          {{ hping_results.results[i].stdout | default(hping_results.results[i].stderr) | default('No output') }}
+
+          {% endfor %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/latency-results/{{ inventory_hostname }}.txt"
+        flat: true

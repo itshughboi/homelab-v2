@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hoarder-meilisearch
+  namespace: hoarder
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hoarder-meilisearch
+  template:
+    metadata:
+      labels:
+        app: hoarder-meilisearch
+    spec:
+      containers:
+        - name: meilisearch
+          image: getmeili/meilisearch:v1.15.2
+          ports:
+            - containerPort: 7700
+          env:
+            - name: MEILI_NO_ANALYTICS
+              value: "true"
+          envFrom:
+            - secretRef:
+                name: hoarder-env
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 7700
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 7700
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /meili_data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hoarder-meilisearch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hoarder-meilisearch
+  namespace: hoarder
+spec:
+  selector:
+    app: hoarder-meilisearch
+  ports:
+    - port: 7700
+      targetPort: 7700

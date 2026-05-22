@@ -1,0 +1,88 @@
+---
+# Path MTU discovery.
+# Finds the maximum MTU between this host and each target without fragmentation.
+# Tests from 1500 down to 576 using ping with DF (don't fragment) bit set.
+# Useful for troubleshooting: VPN tunnels (should be ~1420), jumbo frames (9000),
+# and any connection with mysterious packet loss on large transfers.
+
+- name: Path MTU discovery
+  hosts: all
+  become: true
+  vars:
+    mtu_targets:
+      - name: gateway
+        host: 10.10.10.1
+      - name: truenas
+        host: 10.10.10.5
+      - name: cloudflare
+        host: 1.1.1.1
+    # Sizes to probe — tests each in order, reports the highest that succeeds
+    mtu_probe_sizes:
+      - 9000   # jumbo frames
+      - 1500   # standard ethernet
+      - 1492   # PPPoE
+      - 1472   # 1500 - 28 (IP + ICMP headers) — common VPN payload size
+      - 1420   # typical WireGuard/OpenVPN
+      - 1280   # IPv6 minimum
+      - 576    # absolute minimum
+    results_dir: "/tmp/mtu-results"
+
+  tasks:
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Run MTU probe to each target
+      shell: |
+        target="{{ item.0.host }}"
+        size="{{ item.1 }}"
+        # ping with DF bit, payload = size - 28 (IP header 20 + ICMP header 8)
+        payload=$((size - 28))
+        if [ $payload -lt 0 ]; then
+          echo "SKIP: size {{ item.1 }} too small"
+          exit 0
+        fi
+        result=$(ping -c 2 -M do -s $payload -W 2 $target 2>&1)
+        if echo "$result" | grep -qE "bytes from|transmitted.*received"; then
+          echo "OK {{ item.1 }}: $result" | head -4
+        else
+          echo "FAIL {{ item.1 }}: $result" | head -2
+        fi
+      register: mtu_probe_results
+      loop: "{{ mtu_targets | product(mtu_probe_sizes) | list }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Write results file
+      copy:
+        content: |
+          ===== Path MTU Discovery =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          Interpretation:
+            OK  = packets at this size passed without fragmentation
+            FAIL = packets were too large (fragmentation needed or blocked)
+          Look for the largest OK size — that is your path MTU.
+
+          {% for target in mtu_targets %}
+          ── Target: {{ target.name }} ({{ target.host }}) ─────────────
+          {% for size in mtu_probe_sizes %}
+          {% set loop_idx = (loop.index0 * mtu_probe_sizes|length) + loop.index0 %}
+          {% endfor %}
+          {% endfor %}
+
+          Raw probe output:
+          {% for result in mtu_probe_results.results %}
+          {{ result.stdout | default(result.stderr) | default('No output') }}
+          {% endfor %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/mtu-results/{{ inventory_hostname }}.txt"
+        flat: true

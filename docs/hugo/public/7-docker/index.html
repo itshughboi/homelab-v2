@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="7. Docker# Docker services split across two hosts: Athena (management stack) and dock-prod (production services). Both are VMs on Proxmox, both provisioned from Template 9999 via Terraform.
+The Two Docker Hosts# Host IP Purpose Athena 10.10.10.8 Management: Gitea, Semaphore, Traefik, Bind9 dock-prod 10.10.10.10 Production: everything user-facing Athena runs first (Phase 8) because dock-prod depends on Athena’s DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2e3440">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/7-docker/">
+  <meta property="og:site_name" content="hughboi homelab">
+  <meta property="og:title" content="7. Docker">
+  <meta property="og:description" content="7. Docker# Docker services split across two hosts: Athena (management stack) and dock-prod (production services). Both are VMs on Proxmox, both provisioned from Template 9999 via Terraform.
+The Two Docker Hosts# Host IP Purpose Athena 10.10.10.8 Management: Gitea, Semaphore, Traefik, Bind9 dock-prod 10.10.10.10 Production: everything user-facing Athena runs first (Phase 8) because dock-prod depends on Athena’s DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="website">
+
+
+  <meta itemprop="name" content="7. Docker">
+  <meta itemprop="description" content="7. Docker# Docker services split across two hosts: Athena (management stack) and dock-prod (production services). Both are VMs on Proxmox, both provisioned from Template 9999 via Terraform.
+The Two Docker Hosts# Host IP Purpose Athena 10.10.10.8 Management: Gitea, Semaphore, Traefik, Bind9 dock-prod 10.10.10.10 Production: everything user-facing Athena runs first (Phase 8) because dock-prod depends on Athena’s DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.">
+  <meta itemprop="wordCount" content="883">
+
+<title>7. Docker • hughboi homelab</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="http://localhost:1313/7-docker/">
+<link rel="stylesheet" href="/book.min.98c83e4c8e1c8661368bcb29bbaf4dcc9d31b8164f76aae322d82d86a9750c65.css" integrity="sha256-mMg&#43;TI4chmE2i8spu69NzJ0xuBZPdqrjItgthql1DGU=" crossorigin="anonymous">
+
+
+  <script defer type="module" src="/en.search.min.31642a45f54931c0ec0bfba9b5b049b7a03da1b319409196e09290d30f543550.js" integrity="sha256-MWQqRfVJMcDsC/uptbBJt6A9obMZQJGW4JKQ0w9UNVA=" crossorigin="anonymous"></script>
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/7-docker/index.xml" title="7. Docker" />
+
+  
+</head>
+<body dir="ltr" class="book-kind-section book-type-7-docker">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>hughboi homelab</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input id="book-search-input" type="text" 
+    placeholder="Search"
+    aria-label="Search"
+    maxlength="64" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+<ul><li><a href="https://gitea.hughboi.cc" target="_blank" rel="noopener">Gitea</a></li></ul>
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/master-guide/" class="">
+      Master Guide (Runbook)</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="toggle"  />
+    <label for="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="flex">
+      <a href="/1-prep/" class="">
+        1. Prep</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-152e4d5c4ff85a42f4295919ff302d58" class="toggle"  />
+    <label for="section-152e4d5c4ff85a42f4295919ff302d58" class="flex">
+      <a href="/2-networking/" class="">
+        2. Networking</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/2-networking/unifi/" class="">
+      UniFi Overview</a>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-204a92253d65d259c235eef1715b87c4" class="toggle"  />
+    <label for="section-204a92253d65d259c235eef1715b87c4" class="flex">
+      <a href="/3-proxmox/" class="">
+        3. Proxmox</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-fd5b4a9972f8f65b869d37981c88da70" class="toggle"  />
+    <label for="section-fd5b4a9972f8f65b869d37981c88da70" class="flex">
+      <a href="/4-athena/" class="">
+        4. Athena</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-daf9554492503effc450c68f16ace296" class="toggle"  />
+    <label for="section-daf9554492503effc450c68f16ace296" class="flex">
+      <a href="/5-storage/" class="">
+        5. Storage</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-24543dab52bbdfff1afa8b897ec0b1ff" class="toggle"  />
+    <label for="section-24543dab52bbdfff1afa8b897ec0b1ff" class="flex">
+      <a role="button" class="">
+        6. Security</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-d5ace2344a534070fa2af9171bbb0f7f" class="toggle" checked />
+    <label for="section-d5ace2344a534070fa2af9171bbb0f7f" class="flex">
+      <a href="/7-docker/" class="active">
+        7. Docker</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-5dcf160d160f6c4a4dca2ea878475af7" class="toggle"  />
+    <label for="section-5dcf160d160f6c4a4dca2ea878475af7" class="flex">
+      <a href="/8-k3s/" class="">
+        8. k3s</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="toggle"  />
+    <label for="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="flex">
+      <a href="/9-gitops/" class="">
+        9. GitOps</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+<ul><li><a href="https://10.10.10.1:8006" target="_blank" rel="noopener">Proxmox</a></li></ul>
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>7. Docker</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#the-two-docker-hosts">The Two Docker Hosts</a></li>
+    <li><a href="#important-rules">Important Rules</a></li>
+    <li><a href="#athena--management-stack">Athena — Management Stack</a></li>
+    <li><a href="#dock-prod--production-services">dock-prod — Production Services</a></li>
+    <li><a href="#full-service-list">Full Service List</a></li>
+    <li><a href="#adding-a-new-docker-service">Adding a New Docker Service</a></li>
+    <li><a href="#scheduled-docker-maintenance-semaphore">Scheduled Docker Maintenance (Semaphore)</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="7-docker">7. Docker<a class="anchor" href="#7-docker">#</a></h1>
+<p>Docker services split across two hosts: <strong>Athena</strong> (management stack) and <strong>dock-prod</strong> (production services). Both are VMs on Proxmox, both provisioned from Template 9999 via Terraform.</p>
+<hr>
+<h2 id="the-two-docker-hosts">The Two Docker Hosts<a class="anchor" href="#the-two-docker-hosts">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Host</th>
+          <th>IP</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Athena</td>
+          <td>10.10.10.8</td>
+          <td>Management: Gitea, Semaphore, Traefik, Bind9</td>
+      </tr>
+      <tr>
+          <td>dock-prod</td>
+          <td>10.10.10.10</td>
+          <td>Production: everything user-facing</td>
+      </tr>
+  </tbody>
+</table>
+<p>Athena runs first (Phase 8) because dock-prod depends on Athena&rsquo;s DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.</p>
+<hr>
+<h2 id="important-rules">Important Rules<a class="anchor" href="#important-rules">#</a></h2>
+<blockquote class='book-hint important'>
+<p><strong><code>apps/docker/</code> is live production.</strong> Every compose file in that folder is running on dock-prod. Read it for reference — do not modify files here without explicit intent.</p></blockquote><p><strong>Traefik binding:</strong> Traefik on dock-prod is explicitly bound to <code>10.10.10.10</code>, not <code>0.0.0.0</code>. This is intentional — prevents Docker from publishing ports to the wrong interface or bypassing the VLAN firewall.</p>
+<p><strong>Docker and iptables:</strong> Docker bypasses iptables by default. For host-level restrictions, use the <code>DOCKER-USER</code> chain. Never use <code>--network=host</code> unless it&rsquo;s the only option (Bind9 on Athena is the deliberate exception).</p>
+<p><strong>NFS mounts before compose up:</strong> Tube Archivist and Restic require their TrueNAS NFS mounts to exist before <code>docker compose up</code>. If the mount is missing, the container starts with an empty directory and data loss follows silently. Always verify: <code>mount | grep nfs</code></p>
+<p><strong>Wazuh startup time:</strong> The Wazuh OpenSearch indexer takes 2-3 minutes to initialize. Expect connection errors in the dashboard for a few minutes after <code>docker compose up</code> — this is normal.</p>
+<p><strong>Immich version pinning:</strong> <code>immich/home</code> and <code>immich/eros</code> must run the same <code>IMMICH_VERSION</code> in their <code>.env</code> files. Mismatched versions corrupt the database.</p>
+<hr>
+<h2 id="athena--management-stack">Athena — Management Stack<a class="anchor" href="#athena--management-stack">#</a></h2>
+<p>Start in this order:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#75715e"># 1. DNS + reverse proxy (everything depends on these)</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/bind9 <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>cd apps/docker/adguard <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Traefik: fill in Cloudflare token before starting</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;your-cloudflare-token&#34;</span> &gt; /home/hughboi/code/traefik/cf_api_token.txt
+</span></span><span style="display:flex;"><span>chmod <span style="color:#ae81ff">600</span> /home/hughboi/code/traefik/cf_api_token.txt
+</span></span><span style="display:flex;"><span>cd apps/docker/traefik <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. Security middleware</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/crowdsec <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>docker exec crowdsec cscli bouncers add traefik-bouncer
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Copy the API key → add to traefik/.env as CROWDSEC_BOUNCER_API_KEY</span>
+</span></span><span style="display:flex;"><span>docker restart traefik
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 3. Notifications (so all subsequent playbooks can alert you)</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/ntfy <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>cd apps/docker/mailrise <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 4. Password manager (need this early for secrets)</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/vaultwarden <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 5. Git server + runner</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/gitea <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 6. Ansible UI (from here, retire the laptop)</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/semaphore <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Set up in Semaphore UI: SSH key, Gitea repo, inventory path</span></span></span></code></pre></div><hr>
+<h2 id="dock-prod--production-services">dock-prod — Production Services<a class="anchor" href="#dock-prod--production-services">#</a></h2>
+<p>Start in this order (DNS and Traefik from Athena must be up first):</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#75715e"># Monitoring (up before you need to debug anything)</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/promgraftail <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Security</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/wazuh <span style="color:#f92672">&amp;&amp;</span> docker compose up -d   <span style="color:#75715e"># takes 2-3 min to start</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Identity / SSO</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/pocket-id <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Automation</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/n8n <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Media (NFS mounts must be present first)</span>
+</span></span><span style="display:flex;"><span>sudo mount -a <span style="color:#f92672">&amp;&amp;</span> mount | grep nfs   <span style="color:#75715e"># verify before starting</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/jellyfin <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>cd apps/docker/immich/home <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>cd apps/docker/immich/eros <span style="color:#f92672">&amp;&amp;</span> docker compose up -d   <span style="color:#75715e"># GPU transcoding instance</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># NFS-dependent services</span>
+</span></span><span style="display:flex;"><span>cd apps/docker/tube-archivist <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>cd apps/docker/restic <span style="color:#f92672">&amp;&amp;</span> docker compose up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Everything else</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> svc in paperless-ngx romm mealie freshrss hoarder homepage <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>           gatus change-detection searxng home-assistant <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>           netbootxyz diun syncthing file-browser <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>           fasten-health ezbookkeeping unifi; <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>  cd apps/docker/$svc <span style="color:#f92672">&amp;&amp;</span> docker compose up -d <span style="color:#f92672">&amp;&amp;</span> cd -
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">done</span></span></span></code></pre></div><hr>
+<h2 id="full-service-list">Full Service List<a class="anchor" href="#full-service-list">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Service</th>
+          <th>Host</th>
+          <th>URL</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Traefik</td>
+          <td>Athena</td>
+          <td><a href="https://traefik.hughboi.cc">https://traefik.hughboi.cc</a></td>
+          <td>Reverse proxy + TLS for <code>*.hughboi.cc</code></td>
+      </tr>
+      <tr>
+          <td>Gitea</td>
+          <td>Athena</td>
+          <td><a href="https://gitea.hughboi.cc">https://gitea.hughboi.cc</a></td>
+          <td>Self-hosted Git</td>
+      </tr>
+      <tr>
+          <td>Semaphore</td>
+          <td>Athena</td>
+          <td><a href="https://semaphore.hughboi.cc">https://semaphore.hughboi.cc</a></td>
+          <td>Ansible Web UI + scheduler</td>
+      </tr>
+      <tr>
+          <td>Bind9</td>
+          <td>Athena</td>
+          <td>10.10.10.8:53</td>
+          <td>Authoritative LAN DNS</td>
+      </tr>
+      <tr>
+          <td>AdGuard (LAN)</td>
+          <td>dock-prod</td>
+          <td><a href="https://adguard.hughboi.cc">https://adguard.hughboi.cc</a></td>
+          <td>DNS resolver + ad blocker for LAN</td>
+      </tr>
+      <tr>
+          <td>Vaultwarden</td>
+          <td>dock-prod</td>
+          <td><a href="https://vault.hughboi.cc">https://vault.hughboi.cc</a></td>
+          <td>Self-hosted Bitwarden</td>
+      </tr>
+      <tr>
+          <td>CrowdSec</td>
+          <td>dock-prod</td>
+          <td>—</td>
+          <td>Intrusion detection</td>
+      </tr>
+      <tr>
+          <td>Traefik</td>
+          <td>dock-prod</td>
+          <td><a href="https://traefik.hughboi.cc">https://traefik.hughboi.cc</a></td>
+          <td>Handles dock-prod services</td>
+      </tr>
+      <tr>
+          <td>Portainer</td>
+          <td>dock-prod</td>
+          <td><a href="https://portainer.hughboi.cc">https://portainer.hughboi.cc</a></td>
+          <td>Container management UI</td>
+      </tr>
+      <tr>
+          <td>Wazuh</td>
+          <td>dock-prod</td>
+          <td><a href="https://wazuh.hughboi.cc">https://wazuh.hughboi.cc</a></td>
+          <td>SIEM / security monitoring</td>
+      </tr>
+      <tr>
+          <td>n8n</td>
+          <td>dock-prod</td>
+          <td><a href="https://n8n.hughboi.cc">https://n8n.hughboi.cc</a></td>
+          <td>Automation workflows</td>
+      </tr>
+      <tr>
+          <td>Pocket ID</td>
+          <td>dock-prod</td>
+          <td><a href="https://id.hughboi.cc">https://id.hughboi.cc</a></td>
+          <td>OIDC provider (SSO)</td>
+      </tr>
+      <tr>
+          <td>Jellyfin</td>
+          <td>dock-prod</td>
+          <td><a href="https://jellyfin.hughboi.cc">https://jellyfin.hughboi.cc</a></td>
+          <td>Media server</td>
+      </tr>
+      <tr>
+          <td>Immich</td>
+          <td>dock-prod</td>
+          <td><a href="https://immich.hughboi.cc">https://immich.hughboi.cc</a></td>
+          <td>Photo management</td>
+      </tr>
+      <tr>
+          <td>Tube Archivist</td>
+          <td>dock-prod</td>
+          <td><a href="https://tube.hughboi.cc">https://tube.hughboi.cc</a></td>
+          <td>YouTube archiver</td>
+      </tr>
+      <tr>
+          <td>RomM</td>
+          <td>dock-prod</td>
+          <td><a href="https://romm.hughboi.cc">https://romm.hughboi.cc</a></td>
+          <td>Retro gaming library</td>
+      </tr>
+      <tr>
+          <td>Paperless-ngx</td>
+          <td>dock-prod</td>
+          <td><a href="https://paperless.hughboi.cc">https://paperless.hughboi.cc</a></td>
+          <td>Document management</td>
+      </tr>
+      <tr>
+          <td>Mealie</td>
+          <td>dock-prod</td>
+          <td><a href="https://mealie.hughboi.cc">https://mealie.hughboi.cc</a></td>
+          <td>Recipe manager</td>
+      </tr>
+      <tr>
+          <td>Freshrss</td>
+          <td>dock-prod</td>
+          <td><a href="https://rss.hughboi.cc">https://rss.hughboi.cc</a></td>
+          <td>RSS reader</td>
+      </tr>
+      <tr>
+          <td>Hoarder</td>
+          <td>dock-prod</td>
+          <td><a href="https://hoarder.hughboi.cc">https://hoarder.hughboi.cc</a></td>
+          <td>Bookmark manager</td>
+      </tr>
+      <tr>
+          <td>Homepage</td>
+          <td>dock-prod</td>
+          <td><a href="https://home.hughboi.cc">https://home.hughboi.cc</a></td>
+          <td>Dashboard</td>
+      </tr>
+      <tr>
+          <td>Gatus</td>
+          <td>dock-prod</td>
+          <td><a href="https://status.hughboi.cc">https://status.hughboi.cc</a></td>
+          <td>Uptime monitoring</td>
+      </tr>
+      <tr>
+          <td>Home Assistant</td>
+          <td>dock-prod</td>
+          <td><a href="https://ha.hughboi.cc">https://ha.hughboi.cc</a></td>
+          <td>Home automation</td>
+      </tr>
+      <tr>
+          <td>Restic</td>
+          <td>dock-prod</td>
+          <td>—</td>
+          <td>Backup agent</td>
+      </tr>
+      <tr>
+          <td>ntfy</td>
+          <td>dock-prod</td>
+          <td><a href="https://ntfy.hughboi.cc">https://ntfy.hughboi.cc</a></td>
+          <td>Push notifications</td>
+      </tr>
+      <tr>
+          <td>Mailrise</td>
+          <td>dock-prod</td>
+          <td>—</td>
+          <td>Email → ntfy bridge</td>
+      </tr>
+      <tr>
+          <td>Syncthing</td>
+          <td>dock-prod</td>
+          <td><a href="https://sync.hughboi.cc">https://sync.hughboi.cc</a></td>
+          <td>File sync</td>
+      </tr>
+      <tr>
+          <td>File Browser</td>
+          <td>dock-prod</td>
+          <td><a href="https://files.hughboi.cc">https://files.hughboi.cc</a></td>
+          <td>Web file manager</td>
+      </tr>
+      <tr>
+          <td>UniFi Controller</td>
+          <td>dock-prod</td>
+          <td><a href="https://unifi.hughboi.cc">https://unifi.hughboi.cc</a></td>
+          <td>Network controller</td>
+      </tr>
+      <tr>
+          <td>netbootxyz</td>
+          <td>dock-prod</td>
+          <td><a href="https://netboot.hughboi.cc">https://netboot.hughboi.cc</a></td>
+          <td>Netboot Web UI</td>
+      </tr>
+      <tr>
+          <td>Diun</td>
+          <td>dock-prod</td>
+          <td>—</td>
+          <td>Docker image update notifier</td>
+      </tr>
+      <tr>
+          <td>Fasten Health</td>
+          <td>dock-prod</td>
+          <td><a href="https://health.hughboi.cc">https://health.hughboi.cc</a></td>
+          <td>Health records</td>
+      </tr>
+      <tr>
+          <td>EzBookkeeping</td>
+          <td>dock-prod</td>
+          <td><a href="https://money.hughboi.cc">https://money.hughboi.cc</a></td>
+          <td>Finance tracker</td>
+      </tr>
+      <tr>
+          <td>Change Detection</td>
+          <td>dock-prod</td>
+          <td><a href="https://cd.hughboi.cc">https://cd.hughboi.cc</a></td>
+          <td>Website change monitor</td>
+      </tr>
+      <tr>
+          <td>SearXNG</td>
+          <td>dock-prod</td>
+          <td><a href="https://search.hughboi.cc">https://search.hughboi.cc</a></td>
+          <td>Private search engine</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="adding-a-new-docker-service">Adding a New Docker Service<a class="anchor" href="#adding-a-new-docker-service">#</a></h2>
+<ol>
+<li>Create <code>apps/docker/&lt;name&gt;/compose.yaml</code> and <code>.env.example</code></li>
+<li>Store secrets in Vaultwarden</li>
+<li>Copy <code>.env.example</code> → <code>.env</code>, fill in values — never commit <code>.env</code></li>
+<li><code>docker compose up -d</code></li>
+<li>Add the service to the <code>docker/compose-health</code> Ansible inventory</li>
+</ol>
+<hr>
+<h2 id="scheduled-docker-maintenance-semaphore">Scheduled Docker Maintenance (Semaphore)<a class="anchor" href="#scheduled-docker-maintenance-semaphore">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Playbook</th>
+          <th>Schedule</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>docker/compose-health</code></td>
+          <td>Daily</td>
+          <td>Catch containers that crashed overnight</td>
+      </tr>
+      <tr>
+          <td><code>docker/volume-backup</code></td>
+          <td>Weekly</td>
+          <td>Named volume backup to TrueNAS</td>
+      </tr>
+      <tr>
+          <td><code>docker/postgres-maintenance</code></td>
+          <td>Monthly</td>
+          <td>VACUUM ANALYZE on all Postgres instances</td>
+      </tr>
+      <tr>
+          <td><code>ubuntu/ssl-cert-expiry</code></td>
+          <td>Daily</td>
+          <td>Know before users see cert warnings</td>
+      </tr>
+  </tbody>
+</table>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+<div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/5-storage/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Backward" />
+        <span>5. Storage</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/8-k3s/" class="flex align-center">
+        <span>8. k3s</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Forward" />
+      </a>
+    
+    </span>
+  </div>
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+  
+ 
+        
+  
+    <script>(function(){document.querySelectorAll("pre:has(code)").forEach(e=>{e.addEventListener("click",e.focus),e.addEventListener("copy",function(t){if(t.preventDefault(),navigator.clipboard){const t=window.getSelection().toString()||e.textContent;navigator.clipboard.writeText(t)}})})})()</script>
+  
+
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+  
+  <aside class="book-toc">
+    <div class="book-toc-content">
+      
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#the-two-docker-hosts">The Two Docker Hosts</a></li>
+    <li><a href="#important-rules">Important Rules</a></li>
+    <li><a href="#athena--management-stack">Athena — Management Stack</a></li>
+    <li><a href="#dock-prod--production-services">dock-prod — Production Services</a></li>
+    <li><a href="#full-service-list">Full Service List</a></li>
+    <li><a href="#adding-a-new-docker-service">Adding a New Docker Service</a></li>
+    <li><a href="#scheduled-docker-maintenance-semaphore">Scheduled Docker Maintenance (Semaphore)</a></li>
+  </ul>
+</nav>
+
+
+
+    </div>
+  </aside>
+  
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

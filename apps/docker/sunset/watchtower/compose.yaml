@@ -1,0 +1,61 @@
+
+secrets:
+  watchtower_api_token:
+    file: watchtower_api_token # used for Prometheus
+
+services:
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower:latest
+    restart: always
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    secrets:
+      - watchtower_api_token  # NEED TO CREATE THIS FILE!!!
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=America/Denver
+      - DOCKER_API_VERSION=1.52
+      - WATCHTOWER_CLEANUP=true       # remove old images after update (useful for saving space)
+      - WATCHTOWER_DISABLE_CONTAINERS=crowdsec bouncer-traefik unifi_controller adguardhome traefik
+      - WATCHTOWER_POLL_INTERVAL=86400 #24 hour run
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_REVIVE_STOPPED=true 
+      # - WATCHTOWER_MONITOR_ONLY=true # DIUN like behavior. Notify only
+      - WATCHTOWER_ROLLING_RESTART=true  # updates & restarts containers 1 at a time
+
+    ### Prometheus  
+      - WATCHTOWER_HTTP_API_METRICS=true # expose prometheus metric endpoint
+      - WATCHTOWER_HTTP_API_TOKEN=/run/secrets/watchtower_api_token # API Token 
+
+
+    ### NOTIFICATIONS
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr email
+
+    #### SMTP
+      - WATCHTOWER_NOTIFICATION_EMAIL_FROM=watchtower@hughboi.cc
+      - WATCHTOWER_NOTIFICATION_EMAIL_TO=notify@mailrise.xyz
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=mailrise.hughboi.cc
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=8025
+
+    #### Shoutrrr / Discord / Ntfy
+      - WATCHTOWER_NOTIFICATION_URL=discord://${DISCORD_TOKEN}@${DISCORD_ID}
+      - WATCHTOWER_NOTIFICATION_URL=ntfy://ntfy.hughboi.cc/watchtower
+    ports:
+      - 8765:8080 # used for prometheus metrics
+    networks:
+      - proxy
+
+     
+networks:
+  proxy:
+    external: true

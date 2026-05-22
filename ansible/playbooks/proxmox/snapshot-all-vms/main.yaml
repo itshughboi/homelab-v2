@@ -1,0 +1,101 @@
+---
+# Snapshot all running VMs across all Proxmox nodes.
+# Run this before any maintenance window, cluster update, or risky change.
+#
+# Snapshots are named: ansible-YYYY-MM-DD
+# Templates are skipped. VMs that already have a snapshot from today are skipped.
+# Sends ntfy notification on completion or failure.
+
+- name: Snapshot all running VMs
+  hosts: proxmox
+  gather_facts: true
+  become: true
+  serial: 1    # process one node at a time to avoid API contention
+
+  vars:
+    snapshot_name: "ansible-{{ ansible_date_time.date }}"
+    snapshot_description: "Pre-maintenance snapshot created by Ansible on {{ ansible_date_time.iso8601 }}"
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Snapshot VMs on {{ inventory_hostname }}
+      block:
+        - name: Get list of VMs on this node
+          ansible.builtin.shell:
+            cmd: qm list --full 2>/dev/null | awk 'NR>1 {print $1, $2, $3}'
+          register: vm_list_raw
+          changed_when: false
+
+        - name: Parse VM list (skip templates and stopped VMs if desired)
+          ansible.builtin.set_fact:
+            vms_to_snapshot: >-
+              {{
+                vm_list_raw.stdout_lines
+                | map('split', ' ')
+                | selectattr('2', 'equalto', 'running')
+                | map(attribute='0')
+                | list
+              }}
+
+        - name: Check existing snapshots (skip VMs already snapshotted today)
+          ansible.builtin.shell:
+            cmd: qm listsnapshot {{ item }} 2>/dev/null | awk '{print $2}'
+          register: existing_snapshots
+          loop: "{{ vms_to_snapshot }}"
+          changed_when: false
+
+        - name: Take snapshot for each VM not already snapshotted today
+          ansible.builtin.shell:
+            cmd: >
+              qm snapshot {{ item.item }}
+              {{ snapshot_name }}
+              --description "{{ snapshot_description }}"
+              --vmstate 0
+          loop: "{{ existing_snapshots.results }}"
+          when: snapshot_name not in (item.stdout_lines | default([]))
+          loop_control:
+            label: "vmid={{ item.item }}"
+          register: snapshot_results
+
+        - name: Summarise results
+          ansible.builtin.set_fact:
+            snapped: "{{ snapshot_results.results | selectattr('changed', 'equalto', true) | map(attribute='item.item') | list }}"
+            skipped_today: "{{ snapshot_results.results | selectattr('skipped', 'defined') | selectattr('skipped', 'equalto', true) | map(attribute='item.item') | list }}"
+
+        - name: Send success notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "PVE Snapshots: {{ inventory_hostname }}"
+              Priority: low
+              Tags: camera
+            body: |
+              Snapshots complete on {{ inventory_hostname }}
+              Snapshotted: {{ snapped | join(', ') or 'none' }}
+              Skipped (already had today's snapshot): {{ skipped_today | join(', ') or 'none' }}
+              Name: {{ snapshot_name }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Send failure notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "PVE Snapshots FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Snapshot job failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise failure
+          ansible.builtin.fail:
+            msg: "Snapshot failed on {{ inventory_hostname }} at task: {{ ansible_failed_task.name }}"

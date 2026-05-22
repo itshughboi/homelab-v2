@@ -1,0 +1,20 @@
+---
+# Order matters — nodes are updated in inventory order.
+# Put least critical first. If a node fails, the playbook halts before touching remaining nodes.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    proxmox:
+      hosts:
+        pve-srv-4:          # update this node first
+          ansible_host: 10.10.10.4
+        pve-srv-3:
+          ansible_host: 10.10.10.3
+        pve-srv-2:
+          ansible_host: 10.10.10.2
+        pve-srv-1:          # update primary/most critical last
+          ansible_host: 10.10.10.1

@@ -1,0 +1,174 @@
+---
+# Refresh Proxmox cloud-init VM template with latest Ubuntu cloud image.
+# Downloads the latest Ubuntu Noble (24.04) cloud image, imports it as a disk,
+# and creates/updates a template VM with cloud-init configured.
+# Run quarterly or before a round of new VM provisioning.
+#
+# After running, clone this template to create new VMs.
+# Template VM ID is set via the `template_vmid` var.
+
+- name: Refresh Ubuntu cloud-init template
+  hosts: proxmox_primary   # run on one node only — templates are per-node
+  gather_facts: true
+  become: true
+
+  vars:
+    template_vmid: 9999
+    template_name: "ubuntu-2404-cloud"
+    ubuntu_release: "noble"    # noble = 24.04 LTS, jammy = 22.04 LTS
+    image_url: "https://cloud-images.ubuntu.com/{{ ubuntu_release }}/current/{{ ubuntu_release }}-server-cloudimg-amd64.img"
+    image_dest: "/tmp/{{ ubuntu_release }}-cloudimg.img"
+    storage_pool: "local-lvm"   # Proxmox storage pool to use for template disk
+    cores: 2
+    memory: 2048
+    disk_size: "20G"
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Template refresh
+      block:
+        - name: Check current image checksum (if exists)
+          ansible.builtin.stat:
+            path: "{{ image_dest }}"
+          register: existing_image
+
+        - name: Get upstream SHA256 checksum
+          ansible.builtin.uri:
+            url: "https://cloud-images.ubuntu.com/{{ ubuntu_release }}/current/SHA256SUMS"
+            return_content: true
+          register: upstream_checksums
+          ignore_errors: true
+
+        - name: Extract expected checksum for our image
+          ansible.builtin.set_fact:
+            expected_sha256: >-
+              {{
+                upstream_checksums.content | default('')
+                | regex_search('([a-f0-9]{64}).*' + ubuntu_release + '-server-cloudimg-amd64.img', '\1')
+                | first | default('')
+              }}
+
+        - name: Compute existing image checksum
+          ansible.builtin.stat:
+            path: "{{ image_dest }}"
+            checksum_algorithm: sha256
+          register: existing_checksum
+          when: existing_image.stat.exists
+
+        - name: Download cloud image (skip if already current)
+          ansible.builtin.get_url:
+            url: "{{ image_url }}"
+            dest: "{{ image_dest }}"
+            mode: "0644"
+            checksum: "sha256:{{ expected_sha256 }}"
+          when: >-
+            not existing_image.stat.exists or
+            (expected_sha256 | length > 0 and
+             existing_checksum.stat.checksum | default('') != expected_sha256)
+          register: image_downloaded
+
+        - name: Destroy existing template VM (if present)
+          ansible.builtin.shell:
+            cmd: |
+              if qm status {{ template_vmid }} 2>/dev/null | grep -q 'status'; then
+                qm destroy {{ template_vmid }} --purge
+                echo "Destroyed existing template {{ template_vmid }}"
+              else
+                echo "No existing template to destroy"
+              fi
+          register: destroy_result
+          changed_when: "'Destroyed' in destroy_result.stdout"
+
+        - name: Create base VM
+          ansible.builtin.shell:
+            cmd: >
+              qm create {{ template_vmid }}
+              --name {{ template_name }}
+              --cores {{ cores }}
+              --memory {{ memory }}
+              --net0 virtio,bridge=vmbr0
+              --ostype l26
+              --agent enabled=1
+              --onboot 0
+          register: create_vm
+          changed_when: true
+
+        - name: Import cloud image as disk
+          ansible.builtin.shell:
+            cmd: >
+              qm importdisk {{ template_vmid }}
+              {{ image_dest }}
+              {{ storage_pool }}
+              --format qcow2
+          register: import_disk
+          changed_when: true
+
+        - name: Attach disk to VM
+          ansible.builtin.shell:
+            cmd: |
+              disk=$(qm config {{ template_vmid }} | grep '^unused0:' | cut -d: -f2 | tr -d ' ')
+              qm set {{ template_vmid }} --scsihw virtio-scsi-pci --scsi0 "$disk"
+              qm resize {{ template_vmid }} scsi0 {{ disk_size }}
+          changed_when: true
+
+        - name: Configure boot, display, and cloud-init
+          ansible.builtin.shell:
+            cmd: |
+              qm set {{ template_vmid }} \
+                --boot order=scsi0 \
+                --serial0 socket \
+                --vga serial0 \
+                --ide2 {{ storage_pool }}:cloudinit \
+                --ipconfig0 ip=dhcp \
+                --ciuser hughboi \
+                --sshkeys /home/hughboi/.ssh/authorized_keys
+          changed_when: true
+
+        - name: Convert VM to template
+          ansible.builtin.shell:
+            cmd: qm template {{ template_vmid }}
+          changed_when: true
+
+        - name: Clean up downloaded image
+          ansible.builtin.file:
+            path: "{{ image_dest }}"
+            state: absent
+
+        - name: Send success notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Template refreshed: {{ template_name }}"
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              VM template updated on {{ inventory_hostname }}
+              Template: {{ template_name }} (VMID {{ template_vmid }})
+              Ubuntu: {{ ubuntu_release }}
+              Image downloaded: {{ image_downloaded.changed | default(false) | string }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Template refresh FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              VM template refresh failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise
+          ansible.builtin.fail:
+            msg: "Template refresh failed: {{ ansible_failed_task.name }}"

@@ -1,0 +1,7 @@
+services:
+  generator:
+    image: wazuh/wazuh-certs-generator:0.0.2 # 0.0.4 returned a 403 everytime I ran. Downgraded to 0.0.2
+    hostname: wazuh-certs-generator
+    volumes:
+      - ${DATA_ROOT}/wazuh/wazuh_indexer_ssl_certs/:/certificates/
+      - ${CODE_ROOT}/wazuh/config/certs.yml:/config/certs.yml

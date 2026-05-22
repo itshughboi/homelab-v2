@@ -1,0 +1,185 @@
+---
+# post-install/tasks/main.yml
+# Runs on the init node (master-1) after all nodes have joined.
+# Handles: kubeconfig fetch, node labeling, final cluster verification.
+# Idempotent — safe to re-run.
+
+# ── Wait for all nodes to be Ready ────────────────────────────────────────────
+
+- name: Wait for all masters to be Ready
+  ansible.builtin.command: >
+    kubectl get node {{ item }}
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: master_ready
+  until: master_ready.stdout == "True"
+  retries: 30
+  delay: 10
+  changed_when: false
+  loop: "{{ groups['k3s_masters'] }}"
+  tags: verify
+
+- name: Wait for all workers to be Ready
+  ansible.builtin.command: >
+    kubectl get node {{ item }}
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: worker_ready
+  until: worker_ready.stdout == "True"
+  retries: 30
+  delay: 10
+  changed_when: false
+  loop: "{{ groups['k3s_workers'] }}"
+  tags: verify
+
+- name: Wait for all Longhorn storage nodes to be Ready
+  ansible.builtin.command: >
+    kubectl get node {{ item }}
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: longhorn_ready
+  until: longhorn_ready.stdout == "True"
+  retries: 30
+  delay: 10
+  changed_when: false
+  loop: "{{ groups['k3s_longhorn'] }}"
+  tags: verify
+
+# ── Label Longhorn storage nodes ──────────────────────────────────────────────
+# Longhorn uses the label node.longhorn.io/create-default-disk=config to
+# determine which nodes are storage nodes and uses the disk config we placed
+# in /etc/longhorn/disks.json during longhorn-prereqs.
+
+- name: Label Longhorn storage nodes
+  ansible.builtin.command: >
+    kubectl label node {{ item }}
+    {{ longhorn_node_label_key }}={{ longhorn_node_label_value }}
+    node-role.longhorn.io/storage=true
+    --overwrite
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  loop: "{{ groups['k3s_longhorn'] }}"
+  tags: labels
+
+- name: Label worker nodes with workload role
+  ansible.builtin.command: >
+    kubectl label node {{ item }}
+    node-role.kubernetes.io/worker=true
+    --overwrite
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  loop: "{{ groups['k3s_workers'] }}"
+  tags: labels
+
+# ── Taint Longhorn nodes so only Longhorn workloads schedule there ─────────────
+# This prevents user workloads from landing on storage nodes and competing
+# with Longhorn for I/O. Only pods with the matching toleration can schedule here.
+
+- name: Taint Longhorn storage nodes (dedicated storage)
+  ansible.builtin.command: >
+    kubectl taint node {{ item }}
+    node-role.longhorn.io/storage=true:NoSchedule
+    --overwrite
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  changed_when: true
+  loop: "{{ groups['k3s_longhorn'] }}"
+  tags: taints
+
+# ── Fetch kubeconfig to Ansible controller (your local machine) ───────────────
+
+- name: Fetch kubeconfig from init node
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: /tmp/homelab-k3s.yaml
+    flat: true
+  tags: kubeconfig
+
+- name: Update server address in fetched kubeconfig to use VIP
+  ansible.builtin.replace:
+    path: /tmp/homelab-k3s.yaml
+    regexp: 'https://127\.0\.0\.1:{{ k3s_api_port }}'
+    replace: "https://{{ k3s_api_vip }}:{{ k3s_api_port }}"
+  delegate_to: localhost
+  become: false
+  tags: kubeconfig
+
+- name: Set context name in kubeconfig to 'homelab'
+  ansible.builtin.replace:
+    path: /tmp/homelab-k3s.yaml
+    regexp: 'default'
+    replace: 'homelab'
+  delegate_to: localhost
+  become: false
+  tags: kubeconfig
+
+- name: Expand local_kubeconfig_path
+  ansible.builtin.set_fact:
+    kubeconfig_expanded: "{{ local_kubeconfig_path | expanduser }}"
+  delegate_to: localhost
+  become: false
+  tags: kubeconfig
+
+- name: Ensure local .kube directory exists
+  ansible.builtin.file:
+    path: "{{ kubeconfig_expanded | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  tags: kubeconfig
+
+- name: Copy kubeconfig to local machine
+  ansible.builtin.copy:
+    src: /tmp/homelab-k3s.yaml
+    dest: "{{ kubeconfig_expanded }}"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  tags: kubeconfig
+
+- name: Clean up temp kubeconfig file
+  ansible.builtin.file:
+    path: /tmp/homelab-k3s.yaml
+    state: absent
+  delegate_to: localhost
+  become: false
+  tags: kubeconfig
+
+# ── Final cluster status ──────────────────────────────────────────────────────
+
+- name: Get final node list
+  ansible.builtin.command: kubectl get nodes -o wide
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: final_nodes
+  changed_when: false
+  tags: verify
+
+- name: Print cluster node summary
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════
+       k3s Cluster Bootstrap Complete
+      ═══════════════════════════════════════════════════════
+      {{ final_nodes.stdout }}
+      ═══════════════════════════════════════════════════════
+       Kubeconfig: {{ kubeconfig_expanded }}
+       API VIP:    https://{{ k3s_api_vip }}:{{ k3s_api_port }}
+      ═══════════════════════════════════════════════════════
+       Next steps:
+         1. Apply infra layer:     kubectl apply -f infra/kube-vip/
+                                   helm install metallb ...
+                                   kubectl apply -f infra/longhorn/longhorn.yaml
+         2. Apply networking:      See networking/traefik/README.md
+         3. Apply monitoring:      See monitoring/README.md
+         4. Bootstrap ArgoCD:      helm install argocd ...
+         5. Apply root app:        kubectl apply -f argocd/apps/root-app.yaml
+         6. All apps auto-sync via ArgoCD from this point
+      ═══════════════════════════════════════════════════════
+  tags: verify

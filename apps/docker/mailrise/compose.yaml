@@ -1,0 +1,39 @@
+---
+services:
+  mailrise:
+    container_name: mailrise
+    image: yoryan/mailrise:1.3.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - ./mailrise.conf:/etc/mailrise.conf:ro
+    ports:
+      - "8025:8025"   # SMTP relay — external devices connect to this
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailrise.entrypoints=http"
+      - "traefik.http.routers.mailrise.rule=Host(`mailrise.hughboi.cc`)"
+      - "traefik.http.middlewares.mailrise-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.mailrise.middlewares=mailrise-https-redirect"
+      - "traefik.http.routers.mailrise-secure.entrypoints=https"
+      - "traefik.http.routers.mailrise-secure.rule=Host(`mailrise.hughboi.cc`)"
+      - "traefik.http.routers.mailrise-secure.tls=true"
+      - "traefik.http.services.mailrise.loadbalancer.server.port=8025"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

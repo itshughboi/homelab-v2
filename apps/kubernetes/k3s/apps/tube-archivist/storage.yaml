@@ -1,0 +1,70 @@
+# NFS PersistentVolume for TrueNAS media — replace TRUENAS_IP and NFS_PATH before applying.
+# NFS export must be configured on TrueNAS with no_root_squash (needed for HOST_UID=1000 writes).
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: tube-archivist-media
+spec:
+  capacity:
+    storage: 10Ti  # set to match your actual dataset quota
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: TRUENAS_IP   # e.g. 10.10.10.50
+    path: NFS_PATH       # e.g. /mnt/tank/yt-audios
+  storageClassName: ""
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tube-archivist-media
+  namespace: tube-archivist
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: tube-archivist-media
+  resources:
+    requests:
+      storage: 10Ti
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tube-archivist-cache
+  namespace: tube-archivist
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: tube-archivist
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-data
+  namespace: tube-archivist
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 20Gi

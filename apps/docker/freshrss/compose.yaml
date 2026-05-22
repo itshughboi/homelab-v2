@@ -1,0 +1,42 @@
+---
+services:
+  freshrss:
+    container_name: freshrss
+    image: lscr.io/linuxserver/freshrss:1.29.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Denver
+    volumes:
+      - /home/hughboi/data/rss:/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.freshrss.entrypoints=http"
+      - "traefik.http.routers.freshrss.rule=Host(`freshrss.hughboi.cc`)"
+      - "traefik.http.middlewares.freshrss-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.freshrss.middlewares=freshrss-https-redirect"
+      - "traefik.http.routers.freshrss-secure.entrypoints=https"
+      - "traefik.http.routers.freshrss-secure.rule=Host(`freshrss.hughboi.cc`)"
+      - "traefik.http.routers.freshrss-secure.tls=true"
+      - "traefik.http.routers.freshrss-secure.service=freshrss"
+      - "traefik.http.services.freshrss.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

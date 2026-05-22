@@ -1,0 +1,9 @@
+---
+- name: Configure firewall
+  import_tasks: firewall.yml
+
+- name: Configure fail2ban
+  import_tasks: fail2ban.yml
+
+- name: Add hughboi to sudo
+  import_tasks: sudo.yml

@@ -1,0 +1,135 @@
+services:
+  navidrome:
+    container_name: navidrome
+    image: deluan/navidrome:latest
+    restart: unless-stopped
+    environment:
+      ND_MUSICFOLDER: /data/music
+      ND_DBPATH: /data/navidrome.db
+      ND_SCANINTERVAL: 1h
+      ND_LOGLEVEL: info
+      ND_PORT: 4533
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /home/hughboi/data/navidrome/data:/data
+      - /home/hughboi/data/navidrome/data/music:/music:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.navidrome.entrypoints=http"
+      - "traefik.http.routers.navidrome.rule=Host(`navidrome.hughboi.cc`)"
+      - "traefik.http.middlewares.navidrome-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.navidrome.middlewares=navidrome-https-redirect"
+      - "traefik.http.routers.navidrome-secure.entrypoints=https"
+      - "traefik.http.routers.navidrome-secure.rule=Host(`navidrome.hughboi.cc`)"
+      - "traefik.http.routers.navidrome-secure.tls=true"
+      - "traefik.http.services.navidrome.loadbalancer.server.port=4533"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+  
+
+
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Denver
+    volumes:
+      - /home/hughboi/data/navidrome/lidarr/config:/config
+      - /home/hughboi/data/navidrome/music:/data/music
+    restart: unless-stopped
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lidarr.entrypoints=http"
+      - "traefik.http.routers.lidarr.rule=Host(`lidarr.hughboi.cc`)"
+      - "traefik.http.middlewares.lidarr-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.lidarr.middlewares=lidarr-https-redirect"
+      - "traefik.http.routers.lidarr-secure.entrypoints=https"
+      - "traefik.http.routers.lidarr-secure.rule=Host(`lidarr.hughboi.cc`)"
+      - "traefik.http.routers.lidarr-secure.tls=true"
+      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+
+  slskd:
+    image: slskd/slskd
+    container_name: soulseek
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"  
+    hostname: soulseek
+    user: 1000:1000
+    environment:
+      - TZ=America/Denver
+      - SLSKD_REMOTE_CONFIGURATION=true
+    ports:
+      - 5030:5030
+      - 5031:5031
+      - 50300:50300
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.soulseek.entrypoints=http"
+      - "traefik.http.routers.soulseek.rule=Host(`soulseek.hughboi.cc`)"
+      - "traefik.http.middlewares.soulseek-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.soulseek.middlewares=soulseek-https-redirect"
+      - "traefik.http.routers.soulseek-secure.entrypoints=https"
+      - "traefik.http.routers.soulseek-secure.rule=Host(`soulseek.hughboi.cc`)"
+      - "traefik.http.routers.soulseek-secure.tls=true"
+      - "traefik.http.services.soulseek.loadbalancer.server.port=5030"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+    volumes:
+      - /home/hughboi/data/navidrome/soulseek/:/app
+    restart: unless-stopped
+
+
+  soularr:
+    image: mrusse08/soularr:latest
+    container_name: soularr
+    hostname: soularr
+    user: 1000:1000
+    environment:
+      - TZ=Etc/UTC
+      - SCRIPT_INTERVAL=300 # Script interval in seconds
+    volumes:
+      # "You can set /downloads to whatever you want but will then need to change the Slskd download dir in your config file"
+      - /home/hughboi/data/navidrome/data/downloads/:/downloads
+      # Select where you are storing your config file.
+      # Leave "/data" since thats where the script expects the config file to be
+      - /home/hughboi/data/navidrome/soularr:/data
+    restart: unless-stopped
+
+
+
+networks:
+  proxy:
+    external: true

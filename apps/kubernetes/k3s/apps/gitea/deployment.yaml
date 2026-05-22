@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z gitea-postgres 5432; do sleep 2; done"]
+      containers:
+        - name: gitea
+          image: gitea/gitea:1.26
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 22
+              name: ssh
+          env:
+            - name: USER_UID
+              value: "1000"
+            - name: USER_GID
+              value: "1000"
+            - name: GITEA__database__DB_TYPE
+              value: postgres
+            - name: GITEA__database__HOST
+              value: gitea-postgres:5432
+            - name: GITEA__database__NAME
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-env
+                  key: POSTGRES_DB
+            - name: GITEA__database__USER
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-env
+                  key: POSTGRES_USER
+            - name: GITEA__database__PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-env
+                  key: POSTGRES_PASSWORD
+            - name: GITEA__server__DOMAIN
+              value: gitea.hughboi.vip
+            - name: GITEA__server__ROOT_URL
+              value: https://gitea.hughboi.vip
+            - name: GITEA__server__SSH_DOMAIN
+              value: gitea.hughboi.vip
+            - name: GITEA__server__SSH_PORT
+              value: "2222"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 40
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gitea-data

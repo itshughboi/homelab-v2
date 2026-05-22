@@ -1,0 +1,40 @@
+services:
+  cloudbeaver:
+    container_name: cloudbeaver
+    image: dbeaver/cloudbeaver:latest
+    restart: unless-stopped    
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    tty: true
+    stdin_open: true
+    volumes:
+      - workspace:/opt/cloudbeaver/workspace
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cloudbeaver.entrypoints=http"
+      - "traefik.http.routers.cloudbeaver.rule=Host(`cloudbeaver.hughboi.cc`)"
+      - "traefik.http.middlewares.cloudbeaver-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.cloudbeaver.middlewares=cloudbeaver-https-redirect"
+      - "traefik.http.routers.cloudbeaver-secure.entrypoints=https"
+      - "traefik.http.routers.cloudbeaver-secure.rule=Host(`cloudbeaver.hughboi.cc`)"
+      - "traefik.http.routers.cloudbeaver-secure.tls=true"
+      - "traefik.http.services.cloudbeaver.loadbalancer.server.port=8978"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+volumes:
+  workspace:    
+
+networks:
+  proxy:
+    external: true
+

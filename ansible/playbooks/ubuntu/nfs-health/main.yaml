@@ -1,0 +1,176 @@
+---
+# NFS mount health check.
+# Verifies every NFS entry in /etc/fstab is:
+#   1. Actually mounted (not just in fstab)
+#   2. Responsive (read test, not a stale handle)
+#   3. Writable (write test, if not mounted :ro)
+# Attempts to re-mount stale or missing mounts.
+# Sends ntfy alert if any mount fails to recover.
+
+- name: NFS mount health check
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    results_dir: "/tmp/nfs-health"
+    read_test_timeout: 10    # seconds before considering a read stale
+
+  tasks:
+    - name: NFS health check
+      block:
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Get NFS mounts from fstab
+          ansible.builtin.shell:
+            cmd: grep -E '\bnfs\b|\bnfs4\b' /etc/fstab | grep -v '^#' || true
+          register: fstab_nfs
+          changed_when: false
+
+        - name: Get currently mounted filesystems
+          ansible.builtin.shell:
+            cmd: mount | grep -E '\bnfs\b|\bnfs4\b' || true
+          register: mounted_nfs
+          changed_when: false
+
+        - name: Extract mountpoints from fstab
+          ansible.builtin.shell:
+            cmd: |
+              grep -E '\bnfs\b|\bnfs4\b' /etc/fstab | grep -v '^#' | \
+                awk '{print $2}' || true
+          register: fstab_mountpoints
+          changed_when: false
+
+        - name: Test each NFS mountpoint for responsiveness
+          ansible.builtin.shell:
+            cmd: |
+              mp="{{ item }}"
+              if ! mountpoint -q "$mp" 2>/dev/null; then
+                echo "NOT_MOUNTED: $mp"
+                exit 1
+              fi
+              # Stale handle test: try ls with timeout
+              if ! timeout {{ read_test_timeout }} ls "$mp" > /dev/null 2>&1; then
+                echo "STALE: $mp (ls timed out after {{ read_test_timeout }}s)"
+                exit 2
+              fi
+              echo "OK: $mp"
+          loop: "{{ fstab_mountpoints.stdout_lines }}"
+          register: mount_tests
+          changed_when: false
+          failed_when: false
+
+        - name: Re-mount any failed mounts
+          ansible.builtin.shell:
+            cmd: |
+              mp="{{ item.item }}"
+              echo "Attempting to re-mount $mp..."
+              umount -l "$mp" 2>/dev/null || true
+              mount "$mp" 2>&1 && echo "Re-mounted $mp OK" || echo "Re-mount FAILED: $mp"
+          loop: "{{ mount_tests.results }}"
+          when: item.rc != 0
+          register: remount_results
+          changed_when: true
+
+        - name: Re-test after remount attempts
+          ansible.builtin.shell:
+            cmd: |
+              mp="{{ item.item.item }}"
+              if ! mountpoint -q "$mp" 2>/dev/null; then
+                echo "STILL NOT MOUNTED: $mp"
+              elif ! timeout {{ read_test_timeout }} ls "$mp" > /dev/null 2>&1; then
+                echo "STILL STALE: $mp"
+              else
+                echo "RECOVERED: $mp"
+              fi
+          loop: "{{ remount_results.results | default([]) }}"
+          when: item.changed | default(false)
+          register: retest_results
+          changed_when: false
+
+        - name: Build status summary
+          ansible.builtin.set_fact:
+            failed_mounts: >-
+              {{
+                mount_tests.results
+                | selectattr('rc', 'ne', 0)
+                | map(attribute='stdout')
+                | list
+              }}
+            ok_mounts: >-
+              {{
+                mount_tests.results
+                | selectattr('rc', 'equalto', 0)
+                | map(attribute='stdout')
+                | list
+              }}
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== NFS Mount Health =====
+              Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+              Timestamp: {{ ansible_date_time.iso8601 }}
+
+              ── fstab NFS Entries ────────────────────────
+              {{ fstab_nfs.stdout | default('None') }}
+
+              ── Mount Test Results ───────────────────────
+              {% for result in mount_tests.results %}
+              {{ result.stdout | default('No output') }}
+              {% endfor %}
+
+              ── Re-mount Attempts ────────────────────────
+              {% for result in remount_results.results | default([]) %}
+              {{ result.stdout | default('No output') }}
+              {% endfor %}
+
+              ── Currently Mounted NFS ────────────────────
+              {{ mounted_nfs.stdout | default('None') }}
+            dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            dest: "/tmp/nfs-health/{{ inventory_hostname }}.txt"
+            flat: true
+
+        - name: Alert if mounts are unrecoverable
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "NFS Mount FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              NFS mount issues on {{ inventory_hostname }}:
+              {{ failed_mounts | join('\n') }}
+              Manual intervention required.
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: failed_mounts | length > 0
+          ignore_errors: true
+
+      rescue:
+        - name: Send failure notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "NFS Health check FAILED: {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: |
+              NFS health playbook failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

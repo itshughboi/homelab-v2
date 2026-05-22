@@ -1,0 +1,193 @@
+---
+# Disk health check using smartmontools.
+# Checks SMART status on all physical drives: overall health, reallocated sectors,
+# pending sectors, uncorrectable errors, and temperature.
+# Sends ntfy alert if any drive is degraded or shows warning signs.
+#
+# Run weekly as a scheduled Semaphore job. Catches failing drives before they fail completely.
+
+- name: Disk health check (SMART)
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    results_dir: "/tmp/disk-health"
+    temp_warning_c: 50    # flag drives over this temperature
+    temp_critical_c: 60
+
+  tasks:
+    - name: Disk health check
+      block:
+        - name: Install smartmontools
+          ansible.builtin.apt:
+            name: smartmontools
+            state: present
+            update_cache: true
+
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Discover physical drives
+          ansible.builtin.shell:
+            cmd: |
+              smartctl --scan 2>/dev/null | awk '{print $1}' || \
+              lsblk -d -o NAME,TYPE | awk '$2=="disk" {print "/dev/"$1}'
+          register: drives_raw
+          changed_when: false
+
+        - name: Run SMART short self-test check on each drive
+          ansible.builtin.shell:
+            cmd: smartctl -H {{ item }} 2>&1 || true
+          loop: "{{ drives_raw.stdout_lines }}"
+          register: smart_health
+          changed_when: false
+
+        - name: Get full SMART attributes for each drive
+          ansible.builtin.shell:
+            cmd: smartctl -A {{ item }} 2>&1 || true
+          loop: "{{ drives_raw.stdout_lines }}"
+          register: smart_attrs
+          changed_when: false
+
+        - name: Analyse SMART data for critical attributes
+          ansible.builtin.shell:
+            cmd: |
+              python3 -c "
+              import subprocess, re
+
+              drives = {{ drives_raw.stdout_lines | to_json }}
+              issues = []
+              warnings = []
+
+              critical_attrs = {
+                  '5':   'Reallocated_Sector_Ct',
+                  '187': 'Reported_Uncorrect',
+                  '188': 'Command_Timeout',
+                  '196': 'Reallocated_Event_Count',
+                  '197': 'Current_Pending_Sector',
+                  '198': 'Offline_Uncorrectable',
+                  '199': 'UDMA_CRC_Error_Count',
+              }
+
+              for drive in drives:
+                  result = subprocess.run(
+                      ['smartctl', '-A', drive],
+                      capture_output=True, text=True
+                  )
+                  health = subprocess.run(
+                      ['smartctl', '-H', drive],
+                      capture_output=True, text=True
+                  )
+
+                  if 'FAILED' in health.stdout:
+                      issues.append(f'!! DRIVE FAILING: {drive}')
+
+                  for line in result.stdout.split('\n'):
+                      for attr_id, attr_name in critical_attrs.items():
+                          if re.search(rf'^\s*{attr_id}\s+{attr_name}', line):
+                              parts = line.split()
+                              if len(parts) >= 10:
+                                  raw_val = int(parts[9]) if parts[9].isdigit() else 0
+                                  if raw_val > 0:
+                                      issues.append(f'!! {drive}: {attr_name} = {raw_val}')
+
+                  # Temperature check
+                  temp_match = re.search(r'(?:Temperature_Celsius|Airflow_Temperature_Cel).*?(\d+)$',
+                                         result.stdout, re.MULTILINE)
+                  if temp_match:
+                      temp = int(temp_match.group(1))
+                      if temp >= {{ temp_critical_c }}:
+                          issues.append(f'!! {drive}: CRITICAL temperature {temp}C')
+                      elif temp >= {{ temp_warning_c }}:
+                          warnings.append(f'WARN {drive}: temperature {temp}C')
+
+              if issues:
+                  print('!! DISK ISSUES DETECTED:')
+                  for i in issues:
+                      print(f'   {i}')
+              if warnings:
+                  print('WARNINGS:')
+                  for w in warnings:
+                      print(f'   {w}')
+              if not issues and not warnings:
+                  print('OK: All drives SMART healthy')
+
+              # Exit non-zero if critical issues
+              import sys
+              if issues:
+                  sys.exit(1)
+              "
+          register: smart_analysis
+          changed_when: false
+          failed_when: smart_analysis.rc > 1    # rc=1 means issues found, not a script error
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== Disk Health (SMART) =====
+              Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+              Timestamp: {{ ansible_date_time.iso8601 }}
+              Drives found: {{ drives_raw.stdout_lines | join(', ') }}
+
+              ── Analysis Summary ─────────────────────────
+              {{ smart_analysis.stdout }}
+
+              ── SMART Health Status per Drive ────────────
+              {% for result in smart_health.results %}
+              Drive {{ result.item }}:
+              {{ result.stdout | default('No output') }}
+
+              {% endfor %}
+
+              ── SMART Attributes per Drive ───────────────
+              {% for result in smart_attrs.results %}
+              === {{ result.item }} ===
+              {{ result.stdout | default('No output') }}
+
+              {% endfor %}
+            dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            dest: "/tmp/disk-health/{{ inventory_hostname }}.txt"
+            flat: true
+
+        - name: Send alert if issues found
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Disk Health WARNING: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              SMART issues detected on {{ inventory_hostname }}:
+              {{ smart_analysis.stdout }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: "'!!' in smart_analysis.stdout"
+          ignore_errors: true
+
+      rescue:
+        - name: Send failure notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Disk Health check FAILED: {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: |
+              Disk health check failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

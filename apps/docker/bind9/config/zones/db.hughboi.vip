@@ -1,0 +1,29 @@
+$TTL    2d      ; 2 day TTL
+@       IN      SOA     ns1.hughboi.vip. admin.hughboi.vip. (
+                        2025080820  ; Serial (YYYYMMDDNN)
+                        1w          ; Refresh (1 week)
+                        1d          ; Retry (1 day)
+                        4w          ; Expire (4 weeks)
+                        1w )        ; Negative Cache TTL (1 week)
+
+; Nameserver definition
+@       IN      NS      ns1.hughboi.vip.
+
+
+; A records for the domain
+@                   IN      A       10.10.30.75     ; traefik
+ns1                 IN      A       10.10.10.9	    ; local server IP
+*                   IN      A       10.10.30.75     ; Wildcard for subdomains of hughboi.cc -> NGINX
+
+;production-servers
+ansible              IN	     A	     10.10.10.8
+bind9                IN      A       10.10.10.9
+;pihole              IN      A       10.10.30.69
+
+; test dig/nslookup
+testing             IN      A       10.33.33.33    ; test
+testing2	        IN 	    A 	    10.69.69.69    ; testing2
+
+
+
+; ------------------------------------------------------------------------------------------------

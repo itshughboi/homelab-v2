@@ -1,0 +1,65 @@
+---
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: https://loki.hughboi.cc/loki/api/v1/push
+    batchsize: 512000 # 500 KB per batch instead of 1 MB. Performance decision
+    batchwait: 2s # wait 2 seconds before sending batch. Performance decision
+
+
+
+scrape_configs:
+  - job_name: dock-prod_system
+    static_configs:
+      - targets:
+          - 10.10.10.10
+        labels:
+          job: dock-prod_varlogs
+          __path__: /var/log/*log
+
+
+
+  - job_name: pve-srv-1_system
+    static_configs:
+      - targets:
+          - 10.10.10.1
+        labels:
+          job: pve-srv-1_varlogs
+          __path__: /var/log/*log
+
+
+
+
+  - job_name: pve-srv-2_system
+    static_configs:
+      - targets:
+          - 10.10.10.2
+        labels:
+          job: pve-srv-2_varlogs
+          __path__: /var/log/*log
+
+
+
+  - job_name: pve-srv-3_system
+    static_configs:
+      - targets:
+          - 10.10.10.3
+        labels:
+          job: pve-srv-3_varlogs
+          __path__: /var/log/*log
+
+
+
+  - job_name: pve-srv-4_system
+    static_configs:
+      - targets:
+          - 10.10.10.4
+        labels:
+          job: pve-srv-4_varlogs
+          __path__: /var/log/*log
+

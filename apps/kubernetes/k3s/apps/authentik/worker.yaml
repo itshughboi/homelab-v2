@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentik-worker
+  namespace: authentik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authentik-worker
+  template:
+    metadata:
+      labels:
+        app: authentik-worker
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z authentik-postgres 5432; do echo waiting for postgres; sleep 2; done']
+        - name: wait-for-redis
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z authentik-redis 6379; do echo waiting for redis; sleep 2; done']
+      containers:
+        - name: authentik-worker
+          image: ghcr.io/goauthentik/server:2024.12
+          args: ["worker"]
+          env:
+            - name: AUTHENTIK_REDIS__HOST
+              value: authentik-redis
+            - name: AUTHENTIK_POSTGRESQL__HOST
+              value: authentik-postgres
+            - name: AUTHENTIK_POSTGRESQL__USER
+              value: authentik
+            - name: AUTHENTIK_POSTGRESQL__NAME
+              value: authentik
+            - name: AUTHENTIK_POSTGRESQL__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_POSTGRESQL__PASSWORD
+            - name: AUTHENTIK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_SECRET_KEY
+            - name: AUTHENTIK_EMAIL__HOST
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_EMAIL__HOST
+            - name: AUTHENTIK_EMAIL__PORT
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_EMAIL__PORT
+            - name: AUTHENTIK_EMAIL__USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_EMAIL__USERNAME
+            - name: AUTHENTIK_EMAIL__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_EMAIL__PASSWORD
+            - name: AUTHENTIK_EMAIL__FROM
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-env
+                  key: AUTHENTIK_EMAIL__FROM
+            - name: AUTHENTIK_EMAIL__USE_TLS
+              value: "true"
+            - name: AUTHENTIK_ERROR_REPORTING__ENABLED
+              value: "false"
+          # Worker needs to write temp files for blueprint processing
+          securityContext:
+            readOnlyRootFilesystem: false
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

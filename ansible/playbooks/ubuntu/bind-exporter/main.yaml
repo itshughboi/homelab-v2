@@ -1,0 +1,149 @@
+---
+# Deploy bind_exporter on Athena so Prometheus can scrape Bind9 metrics.
+#
+# What this does:
+#   1. Enables the Bind9 XML statistics channel on 127.0.0.1:8053
+#   2. Downloads and installs the bind_exporter binary
+#   3. Creates a systemd service (runs as nobody, port 9119)
+#
+# After running: add a scrape job in kube-prometheus-stack/values.yaml:
+#   - job_name: bind9
+#     static_configs:
+#       - targets: ['10.10.10.8:9119']
+#
+# Grafana dashboard ID 1666 is the standard bind_exporter dashboard.
+#
+# Run: ansible-playbook -i inventory.ini main.yaml
+
+- name: Deploy bind_exporter on Athena
+  hosts: athena
+  become: true
+
+  vars:
+    bind_exporter_version: "0.7.0"
+    bind_exporter_port: 9119
+    bind_stats_port: 8053
+    bind_exporter_user: nobody
+
+  tasks:
+    # ── Bind9 statistics channel ─────────────────────────────────────────────
+
+    - name: Enable Bind9 statistics channel
+      ansible.builtin.blockinfile:
+        path: /etc/bind/named.conf.options
+        marker: "// {mark} ANSIBLE MANAGED — bind_exporter stats channel"
+        insertbefore: "};"
+        block: |
+          statistics-channels {
+            inet 127.0.0.1 port {{ bind_stats_port }} allow { 127.0.0.1; };
+          };
+
+    - name: Validate Bind9 config
+      ansible.builtin.command: named-checkconf
+      changed_when: false
+
+    - name: Reload Bind9
+      ansible.builtin.service:
+        name: named
+        state: reloaded
+
+    - name: Wait for stats channel to come up
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ bind_stats_port }}"
+        timeout: 15
+
+    # ── Install bind_exporter ─────────────────────────────────────────────────
+
+    - name: Download bind_exporter
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus-community/bind_exporter/releases/download/v{{ bind_exporter_version }}/bind_exporter-{{ bind_exporter_version }}.linux-amd64.tar.gz"
+        dest: /tmp/bind_exporter.tar.gz
+        mode: "0644"
+
+    - name: Extract bind_exporter
+      ansible.builtin.unarchive:
+        src: /tmp/bind_exporter.tar.gz
+        dest: /tmp/
+        remote_src: true
+
+    - name: Install bind_exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-amd64/bind_exporter"
+        dest: /usr/local/bin/bind_exporter
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart bind_exporter
+
+    - name: Clean up download
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/bind_exporter.tar.gz
+        - "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-amd64"
+
+    # ── systemd service ───────────────────────────────────────────────────────
+
+    - name: Create bind_exporter systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/bind_exporter.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Prometheus Bind9 Exporter
+          After=network.target named.service
+          Requires=named.service
+
+          [Service]
+          User={{ bind_exporter_user }}
+          ExecStart=/usr/local/bin/bind_exporter \
+            --web.listen-address=:{{ bind_exporter_port }} \
+            --bind.stats-url=http://127.0.0.1:{{ bind_stats_port }}/ \
+            --bind.stats-groups=server,view,tasks
+          Restart=on-failure
+          RestartSec=5s
+          NoNewPrivileges=true
+          ProtectSystem=strict
+          ProtectHome=true
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart bind_exporter
+
+    - name: Enable and start bind_exporter
+      ansible.builtin.systemd:
+        name: bind_exporter
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Verify bind_exporter is exposing metrics
+      ansible.builtin.uri:
+        url: "http://localhost:{{ bind_exporter_port }}/metrics"
+        return_content: false
+        status_code: 200
+      retries: 3
+      delay: 3
+
+    # ── UFW / firewall ────────────────────────────────────────────────────────
+
+    - name: Allow Prometheus to scrape bind_exporter (k3s VLAN range)
+      community.general.ufw:
+        rule: allow
+        port: "{{ bind_exporter_port }}"
+        proto: tcp
+        src: 10.10.30.0/24
+        comment: "Prometheus scrape bind_exporter"
+      ignore_errors: true  # ufw may not be active; fail silently
+
+  handlers:
+    - name: Restart bind_exporter
+      ansible.builtin.systemd:
+        name: bind_exporter
+        state: restarted
+        daemon_reload: true

@@ -1,0 +1,43 @@
+services:
+  dockge:
+    container_name: dockge    
+    image: louislam/dockge:1
+    restart: unless-stopped    
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/hughboi/data/dockge/data:/app/data
+      - /home/hughboi:/home/hughboi
+    environment:
+      - DOCKGE_STACKS_DIR=/home/hughboi
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockge.entrypoints=http"
+      - "traefik.http.routers.dockge.rule=Host(`dockge.hughboi.cc`)"
+      - "traefik.http.middlewares.dockge-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.dockge.middlewares=dockge-https-redirect"
+      - "traefik.http.routers.dockge-secure.entrypoints=https"
+      - "traefik.http.routers.dockge-secure.rule=Host(`dockge.hughboi.cc`)"
+      - "traefik.http.routers.dockge-secure.tls=true"
+      - "traefik.http.services.dockge.loadbalancer.server.port=5001"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+volumes:
+  data:
+
+
+networks:
+  proxy:
+    external: true
+

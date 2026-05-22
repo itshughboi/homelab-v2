@@ -1,0 +1,53 @@
+---
+services:
+  crowdsec:
+    container_name: crowdsec
+    image: crowdsecurity/crowdsec:v1.7.8
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - GID=${GID:-1000}
+      - COLLECTIONS=crowdsecurity/linux crowdsecurity/traefik
+    volumes:
+      - /home/hughboi/code/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml
+      - /home/hughboi/data/crowdsec/config:/etc/crowdsec/
+      - /home/hughboi/data/crowdsec/db:/var/lib/crowdsec/data/
+      - /home/hughboi/data/traefik/logs:/var/log/traefik/:ro
+    ports:
+      - "127.0.0.1:6060:6060"   # Prometheus metrics
+    labels:
+      - "diun.enable=true"
+    networks:
+      - proxy
+
+  bouncer-traefik:
+    container_name: bouncer-traefik
+    image: docker.io/fbonalair/traefik-crowdsec-bouncer:0.5.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      crowdsec:
+        condition: service_started
+    environment:
+      - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
+      - CROWDSEC_AGENT_HOST=crowdsec:8080
+    labels:
+      - "diun.enable=true"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

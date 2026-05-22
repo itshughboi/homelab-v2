@@ -1,0 +1,136 @@
+---
+# ARP / neighbor table audit.
+# Dumps each host's ARP table and checks for:
+#   - Duplicate IPs (same IP mapped to multiple MACs — potential ARP spoofing or misconfiguration)
+#   - Stale FAILED entries (neighbors that no longer respond)
+#   - Gateway MAC consistency (all hosts should see the same MAC for the gateway)
+#
+# Useful for: VLAN troubleshooting, detecting ARP spoofing, verifying gateway reachability.
+
+- name: ARP table audit
+  hosts: all
+  become: true
+  vars:
+    gateway_ip: "10.10.10.1"
+    results_dir: "/tmp/arp-results"
+
+  tasks:
+    - name: Install tools
+      apt:
+        name:
+          - net-tools
+          - iproute2
+          - arping
+        state: present
+        update_cache: true
+
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Flush stale ARP entries (forces fresh lookup)
+      shell: ip neigh flush nud stale || true
+      changed_when: false
+
+    - name: Ping gateway to ensure ARP entry is current
+      shell: ping -c 3 -W 2 {{ gateway_ip }} > /dev/null 2>&1 || true
+      changed_when: false
+
+    - name: Get full ARP/neighbor table
+      shell: ip neigh show
+      register: arp_table
+      changed_when: false
+
+    - name: Get legacy arp -n output
+      shell: arp -n
+      register: arp_legacy
+      changed_when: false
+
+    - name: Check for duplicate IPs (ARP conflicts)
+      shell: |
+        python3 -c "
+        import subprocess
+        result = subprocess.run(['ip', 'neigh', 'show'], capture_output=True, text=True)
+        lines = result.stdout.strip().split('\n')
+        ip_to_macs = {}
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 5:
+                continue
+            ip = parts[0]
+            if 'lladdr' in parts:
+                mac_idx = parts.index('lladdr') + 1
+                mac = parts[mac_idx]
+                ip_to_macs.setdefault(ip, set()).add(mac)
+        duplicates = {ip: macs for ip, macs in ip_to_macs.items() if len(macs) > 1}
+        failed = [l for l in lines if 'FAILED' in l or 'INCOMPLETE' in l]
+        if duplicates:
+            print('!! DUPLICATE IP/MAC MAPPINGS DETECTED:')
+            for ip, macs in duplicates.items():
+                print(f'   {ip} -> {macs}')
+        else:
+            print('OK: No duplicate IP/MAC mappings')
+        if failed:
+            print('')
+            print('!! FAILED/INCOMPLETE NEIGHBORS:')
+            for f in failed:
+                print(f'   {f}')
+        else:
+            print('OK: No failed neighbors')
+        "
+      register: arp_check
+      changed_when: false
+
+    - name: Get gateway MAC
+      shell: |
+        ip neigh show {{ gateway_ip }} | awk '{print $5}'
+      register: gateway_mac
+      changed_when: false
+
+    - name: Write results file
+      copy:
+        content: |
+          ===== ARP Table Audit =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Gateway: {{ gateway_ip }}
+
+          ── Conflict / Integrity Check ────────────────────
+          {{ arp_check.stdout }}
+
+          ── Gateway MAC ──────────────────────────────────
+          {{ gateway_ip }} -> {{ gateway_mac.stdout | default('not found') }}
+
+          ── Full Neighbor Table (ip neigh) ───────────────
+          {{ arp_table.stdout }}
+
+          ── Legacy ARP Table (arp -n) ────────────────────
+          {{ arp_legacy.stdout }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/arp-results/{{ inventory_hostname }}.txt"
+        flat: true
+
+- name: Cross-host gateway MAC consistency check
+  hosts: localhost
+  gather_facts: false
+  vars:
+    results_dir: "/tmp/arp-results"
+  tasks:
+    - name: Check gateway MACs are consistent across all hosts
+      shell: |
+        grep -h "Gateway MAC" {{ results_dir }}/*.txt | sort -u | wc -l
+      register: unique_macs
+      changed_when: false
+
+    - name: Report MAC consistency
+      debug:
+        msg: >-
+          {{ 'OK: All hosts see the same gateway MAC' if unique_macs.stdout | int <= 1
+          else 'WARNING: Hosts see different gateway MACs — possible ARP spoofing or failover event' }}

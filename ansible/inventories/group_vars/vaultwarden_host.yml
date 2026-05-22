@@ -1,0 +1,5 @@
+ntfy_url: https://ntfy.hughboi.cc/n8n
+
+loki_url: https://loki.hughboi.cc/loki/api/v1/push
+loki_host: dock-prod
+loki_job: vaultwarden-backup

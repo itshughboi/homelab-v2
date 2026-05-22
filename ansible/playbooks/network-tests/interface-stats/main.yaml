@@ -1,0 +1,118 @@
+---
+# NIC interface statistics audit.
+# Reports: speed, duplex, MTU, RX/TX errors, drops, overruns, carrier errors.
+# Flags interfaces with errors > 0 or speed/duplex mismatches.
+# Useful for identifying degraded links, autoneg failures, and bad cables.
+
+- name: Interface statistics audit
+  hosts: all
+  become: true
+  vars:
+    expected_speed: 1000      # Mbps — flag any NIC not at this speed
+    results_dir: "/tmp/interface-stats"
+
+  tasks:
+    - name: Install tools
+      apt:
+        name:
+          - ethtool
+          - net-tools
+        state: present
+        update_cache: true
+
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Get list of physical interfaces
+      shell: >
+        ls /sys/class/net/ | grep -v -E '^(lo|docker|br-|veth|virbr|tun|tap)'
+      register: interfaces
+      changed_when: false
+
+    - name: Get ip link stats (errors, drops)
+      shell: ip -s link show
+      register: ip_link_stats
+      changed_when: false
+
+    - name: Get ethtool info per interface
+      shell: ethtool {{ item }} 2>&1 || echo "ethtool not available for {{ item }}"
+      register: ethtool_output
+      loop: "{{ interfaces.stdout_lines }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get interface counters from /proc/net/dev
+      shell: cat /proc/net/dev
+      register: proc_net_dev
+      changed_when: false
+
+    - name: Check for error/drop conditions
+      shell: |
+        python3 -c "
+        import subprocess, re
+        ifaces = '{{ interfaces.stdout }}'.split()
+        flagged = []
+        with open('/proc/net/dev') as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) < 17:
+                    continue
+                name = parts[0].strip(':')
+                if name not in ifaces:
+                    continue
+                rx_errs = int(parts[3])
+                rx_drop = int(parts[4])
+                rx_over = int(parts[5])
+                tx_errs = int(parts[11])
+                tx_drop = int(parts[12])
+                if any(v > 0 for v in [rx_errs, rx_drop, rx_over, tx_errs, tx_drop]):
+                    flagged.append(f'{name}: RX_err={rx_errs} RX_drop={rx_drop} RX_over={rx_over} TX_err={tx_errs} TX_drop={tx_drop}')
+        if flagged:
+            print('INTERFACES WITH ERRORS OR DROPS:')
+            for f in flagged:
+                print(f'  !! {f}')
+        else:
+            print('OK: No errors or drops detected on any interface')
+        "
+      register: error_check
+      changed_when: false
+
+    - name: Write results file
+      copy:
+        content: |
+          ===== Interface Statistics Audit =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Expected link speed: {{ expected_speed }} Mbps
+
+          ── Error / Drop Summary ──────────────────────────
+          {{ error_check.stdout }}
+
+          ── /proc/net/dev (raw counters) ──────────────────
+          {{ proc_net_dev.stdout }}
+
+          ── ip link stats ─────────────────────────────────
+          {{ ip_link_stats.stdout }}
+
+          ── ethtool (speed / duplex / autoneg) ────────────
+          {% for item in ethtool_output.results %}
+          Interface: {{ item.item }}
+          {{ item.stdout | default('No output') }}
+
+          {% endfor %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/interface-stats/{{ inventory_hostname }}.txt"
+        flat: true
+
+    - name: Fail playbook if errors detected (optional — comment out if unwanted)
+      fail:
+        msg: "Interface errors detected on {{ inventory_hostname }} — check results"
+      when: "'!!' in error_check.stdout"

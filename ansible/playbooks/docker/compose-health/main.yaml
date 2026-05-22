@@ -1,0 +1,148 @@
+---
+# Docker Compose fleet health check.
+# Finds all compose projects on each Docker host, checks container status,
+# and reports any containers that are stopped, unhealthy, restarting, or missing.
+# Sends ntfy alert if any issues are found. Safe to run as a scheduled Semaphore job.
+
+- name: Docker Compose health check
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  vars:
+    compose_search_dirs:
+      - /home/hughboi/code
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    results_dir: "/tmp/compose-health"
+
+  tasks:
+    - name: Docker Compose health check
+      block:
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Find all compose files
+          ansible.builtin.find:
+            paths: "{{ compose_search_dirs }}"
+            patterns:
+              - "compose.yaml"
+              - "compose.yml"
+              - "docker-compose.yaml"
+              - "docker-compose.yml"
+            recurse: true
+          register: compose_files
+
+        - name: Check status of each compose project
+          ansible.builtin.shell:
+            cmd: |
+              dir="{{ item.path | dirname }}"
+              project=$(basename "$dir")
+              echo "=== PROJECT: $project ($dir) ==="
+              docker compose -f "{{ item.path }}" ps --format \
+                'table {{.Name}}\t{{.Status}}\t{{.Health}}' 2>&1
+          loop: "{{ compose_files.files }}"
+          loop_control:
+            label: "{{ item.path | dirname | basename }}"
+          register: compose_status
+          changed_when: false
+          ignore_errors: true
+
+        - name: Find unhealthy/stopped containers
+          ansible.builtin.shell:
+            cmd: |
+              docker ps -a --format '{{.Names}}\t{{.Status}}' | \
+                grep -v -E '^$|Up [0-9]' | \
+                grep -v 'Exited (0)' || true
+          register: unhealthy_containers
+          changed_when: false
+
+        - name: Get count of running vs total containers
+          ansible.builtin.shell:
+            cmd: |
+              total=$(docker ps -a -q | wc -l)
+              running=$(docker ps -q | wc -l)
+              echo "$running/$total running"
+          register: container_count
+          changed_when: false
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== Docker Compose Health =====
+              Host: {{ inventory_hostname }}
+              Timestamp: {{ ansible_date_time.iso8601 }}
+              Containers: {{ container_count.stdout }}
+
+              {% if unhealthy_containers.stdout | length > 0 %}
+              !! UNHEALTHY / STOPPED CONTAINERS:
+              {{ unhealthy_containers.stdout }}
+              {% else %}
+              OK: All containers running
+              {% endif %}
+
+              ── Per-Project Status ────────────────────────
+              {% for result in compose_status.results %}
+              {{ result.stdout | default('No output') }}
+
+              {% endfor %}
+            dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            dest: "/tmp/compose-health/{{ inventory_hostname }}.txt"
+            flat: true
+
+        - name: Send alert if unhealthy containers found
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker Health: issues on {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: |
+              Unhealthy/stopped containers on {{ inventory_hostname }}:
+              {{ unhealthy_containers.stdout }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: unhealthy_containers.stdout | length > 0
+          ignore_errors: true
+
+        - name: Send all-clear if healthy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker Health: {{ inventory_hostname }} OK"
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              All containers healthy on {{ inventory_hostname }}
+              {{ container_count.stdout }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: unhealthy_containers.stdout | length == 0
+          ignore_errors: true
+
+      rescue:
+        - name: Send failure notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker Health check FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Health check playbook failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

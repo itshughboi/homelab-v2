@@ -1,0 +1,41 @@
+# Sealed Secrets Helm values
+# Chart: sealed-secrets/sealed-secrets
+# Docs: https://github.com/bitnami-labs/sealed-secrets/tree/main/helm/sealed-secrets
+
+fullnameOverride: sealed-secrets-controller
+
+# Resources — controller is lightweight, just needs to watch for SealedSecret CRs
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Metrics for Prometheus scraping
+metrics:
+  serviceMonitor:
+    enabled: true
+    namespace: kube-system
+    additionalLabels:
+      # Must match kube-prometheus-stack's serviceMonitorSelector
+      release: kube-prometheus-stack
+
+# Key rotation: controller rotates its own key annually by default.
+# Old keys are kept so existing SealedSecrets still decrypt.
+# keyRenewPeriod: "720h"  # 30 days — tighter rotation if desired
+
+# Log level: info is fine; debug is very verbose
+commandArgs:
+  - "--log-format=json"
+  - "--log-level=info"
+
+# Node affinity — run on masters or system nodes, not on user workload nodes
+# Uncomment if you want to pin it:
+# nodeSelector:
+#   node-role.kubernetes.io/control-plane: "true"
+# tolerations:
+#   - key: node-role.kubernetes.io/control-plane
+#     operator: Exists
+#     effect: NoSchedule

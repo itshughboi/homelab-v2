@@ -1,0 +1,39 @@
+---
+services:
+  pocket-id:
+    container_name: pocket-id
+    image: ghcr.io/pocket-id/pocket-id:v2.7.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    env_file: .env
+    volumes:
+      - /home/hughboi/data/pocket-id:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pocket.entrypoints=http"
+      - "traefik.http.routers.pocket.rule=Host(`pocket.hughboi.cc`)"
+      - "traefik.http.middlewares.pocket-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.pocket.middlewares=pocket-https-redirect"
+      - "traefik.http.routers.pocket-secure.entrypoints=https"
+      - "traefik.http.routers.pocket-secure.rule=Host(`pocket.hughboi.cc`)"
+      - "traefik.http.routers.pocket-secure.tls=true"
+      - "traefik.http.routers.pocket-secure.service=pocket"
+      - "traefik.http.services.pocket.loadbalancer.server.port=1411"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

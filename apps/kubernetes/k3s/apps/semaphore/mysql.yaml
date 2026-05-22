@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: semaphore-mysql
+  namespace: semaphore
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: semaphore-mysql
+  template:
+    metadata:
+      labels:
+        app: semaphore-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_RANDOM_ROOT_PASSWORD
+              value: "yes"
+          envFrom:
+            - secretRef:
+                name: semaphore-env
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: semaphore-mysql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: semaphore-mysql
+  namespace: semaphore
+spec:
+  selector:
+    app: semaphore-mysql
+  ports:
+    - port: 3306
+      targetPort: 3306

@@ -1,0 +1,119 @@
+---
+# Systemd journal cleanup.
+# Vacuums journald logs to a max size and max age on all hosts.
+# Without this, /var/log/journal grows without bound and eventually fills the root disk.
+# Reports freed space per host and sends ntfy summary.
+#
+# Safe to run at any time — does not affect running services.
+# Schedule weekly in Semaphore.
+
+- name: Journal cleanup
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    max_size: "500M"      # keep at most this much journal data per host
+    max_age: "30d"        # keep at most this many days of logs
+    results_dir: "/tmp/journal-cleanup"
+
+  tasks:
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Get journal size before cleanup
+      ansible.builtin.shell:
+        cmd: journalctl --disk-usage 2>/dev/null | awk '{print $NF}'
+      register: size_before
+      changed_when: false
+
+    - name: Vacuum by size
+      ansible.builtin.shell:
+        cmd: journalctl --vacuum-size={{ max_size }} 2>&1
+      register: vacuum_size
+      changed_when: "'Deleted archived journal' in vacuum_size.stdout"
+
+    - name: Vacuum by age
+      ansible.builtin.shell:
+        cmd: journalctl --vacuum-time={{ max_age }} 2>&1
+      register: vacuum_age
+      changed_when: "'Deleted archived journal' in vacuum_age.stdout"
+
+    - name: Get journal size after cleanup
+      ansible.builtin.shell:
+        cmd: journalctl --disk-usage 2>/dev/null | awk '{print $NF}'
+      register: size_after
+      changed_when: false
+
+    - name: Check for large log files outside journald
+      ansible.builtin.shell:
+        cmd: |
+          find /var/log -type f -size +100M 2>/dev/null | while read f; do
+            size=$(du -sh "$f" | awk '{print $1}')
+            echo "LARGE: $size $f"
+          done || true
+      register: large_logs
+      changed_when: false
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== Journal Cleanup =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Max size: {{ max_size }} | Max age: {{ max_age }}
+
+          Journal size before: {{ size_before.stdout }}
+          Journal size after:  {{ size_after.stdout }}
+
+          ── Vacuum by size ────────────────────────────
+          {{ vacuum_size.stdout }}
+
+          ── Vacuum by age ─────────────────────────────
+          {{ vacuum_age.stdout }}
+
+          {% if large_logs.stdout | length > 0 %}
+          ── Large log files (>100M) outside journald ──
+          {{ large_logs.stdout }}
+          {% endif %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      ansible.builtin.fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/journal-cleanup/{{ inventory_hostname }}.txt"
+        flat: true
+
+- name: Send summary notification
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Compile host count
+      ansible.builtin.debug:
+        msg: "Journal cleanup complete on {{ groups['all'] | length }} hosts"
+
+    - name: Send ntfy summary
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "Journal Cleanup Complete"
+          Priority: low
+          Tags: broom
+        body: |
+          Journal vacuum complete on {{ groups['all'] | length }} hosts
+          Max size: {{ hostvars[groups['all'][0]].max_size | default('500M') }}
+          Max age: {{ hostvars[groups['all'][0]].max_age | default('30d') }}
+          Time: {{ ansible_date_time.iso8601 }}
+        body_format: raw
+        status_code: 200
+      ignore_errors: true

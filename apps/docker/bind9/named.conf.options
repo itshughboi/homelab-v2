@@ -1,0 +1,47 @@
+acl "tailscale" {
+    100.64.0.0/10;  // Covers full Tailnet
+};
+
+acl "home-vlans" {
+    10.10.10.0/24;
+    10.10.20.0/24;
+    10.10.30.0/24;
+    10.10.40.0/24;
+    10.10.50.0/24;
+    10.10.60.0/24;
+    10.10.70.0/24;
+    10.10.80.0/24;
+    10.10.90.0/24;
+    10.100.100.0/24;
+    10.200.200.0/24;
+};
+
+
+options {
+    directory "/etc/bind";
+
+    
+	   
+
+allow-query {            // If not on this list, Bind will **refuse** the query
+        10.150.0.0/16;   // Work
+        10.0.0.0/24;     // Family network   
+        tailscale;
+        home-vlans;
+    };
+
+    recursion yes;       // recursion enabled, but delegated to forwarder, NOT disabled   
+    allow-recursion { 10.10.10.0/24; 10.0.0.0/24; home-vlans; tailscale;};
+    
+    forward only;           // Non-authoritative queries —> send it to the forwarder(s) (Adguard/Unbound or Quad9)
+    forwarders {            // recursion gets handled by forwarders (all external traffic)
+        10.10.10.10;        // Adguard/Unbound
+    };
+
+
+    // Enable DNSSEC validation if needed. Unbound can handle this
+    dnssec-validation auto;     // not used since we are forwarding to Adguard
+
+    listen-on { any; };          // Listen on all available interfaces (IPv4)
+    listen-on-v6 { any; };       // Listen on all available interfaces (IPv6)
+};

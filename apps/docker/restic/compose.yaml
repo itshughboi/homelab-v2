@@ -1,0 +1,58 @@
+---
+services:
+  backup:
+    container_name: restic
+    image: mazzolino/restic:1.8.2
+    hostname: dock-prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - PUID=3000
+      - PGID=3000
+      - RUN_ON_STARTUP=true
+      - BACKUP_CRON=0 */12 * * *
+      - RESTIC_REPOSITORY=/restic
+      - RESTIC_PASSWORD=${RESTIC_PASSWORD}
+      - RESTIC_BACKUP_SOURCES=/mnt/volumes
+      - RESTIC_COMPRESSION=auto
+      - RESTIC_BACKUP_ARGS=--tag restic-proxmox --verbose
+      - RESTIC_FORGET_ARGS=--keep-last 20 --keep-weekly 1 --keep-monthly 2
+      - TZ=${TZ}
+    volumes:
+      - /mnt/truenas/restic:/restic
+      - /mnt/truenas/restic/tmp-for-restore:/tmp-for-restore
+      - /home/hughboi:/mnt/volumes:ro
+
+  prune:
+    container_name: restic-prune
+    image: mazzolino/restic:1.8.2
+    hostname: dock-prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - RUN_ON_STARTUP=true
+      - PRUNE_CRON=0 0 4 * * *
+      - RESTIC_REPOSITORY=/restic
+      - RESTIC_PASSWORD=${RESTIC_PASSWORD}
+      - TZ=${TZ}
+    volumes:
+      - /mnt/truenas/restic:/restic
+
+  check:
+    container_name: restic-check
+    image: mazzolino/restic:1.8.2
+    hostname: dock-prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - RUN_ON_STARTUP=false
+      - CHECK_CRON=0 15 5 * * *
+      - RESTIC_CHECK_ARGS=--read-data-subset=10%
+      - RESTIC_REPOSITORY=/restic
+      - RESTIC_PASSWORD=${RESTIC_PASSWORD}
+      - TZ=${TZ}
+    volumes:
+      - /mnt/truenas/restic:/restic

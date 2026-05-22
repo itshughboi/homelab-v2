@@ -1,0 +1,24 @@
+exclude:
+  platforms: []
+  roms:
+    multi_file:
+      names: []
+      parts:
+        extensions: []
+        names: []
+    single_file:
+      extensions: []
+      names: []
+filesystem:
+  roms_folder: roms
+system:
+  platforms:
+    3ds: new-nintendo-3ds
+    gba: gba
+    gbc: gbc
+    nds: nds
+  versions:
+    3ds: new-nintendo-3ds
+    gba: gba
+    gbc: gbc
+    nds: nds

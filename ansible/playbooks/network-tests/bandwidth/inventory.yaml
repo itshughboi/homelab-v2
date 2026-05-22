@@ -1,0 +1,21 @@
+---
+# One host in iperf_server, all other hosts in iperf_clients.
+# The server host should NOT also be in iperf_clients.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    iperf_server:
+      hosts:
+        proxmox-01:
+          ansible_host: 10.10.10.10
+
+    iperf_clients:
+      hosts:
+        proxmox-02:
+          ansible_host: 10.10.10.11
+        proxmox-03:
+          ansible_host: 10.10.10.12

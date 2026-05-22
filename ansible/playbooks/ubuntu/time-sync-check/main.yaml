@@ -1,0 +1,188 @@
+---
+# NTP time synchronization check.
+# Verifies chrony or systemd-timesyncd is active, synchronized, and drift is within threshold.
+# Drift above ~0.5s starts causing issues; k3s nodes fail cluster operations above ~2s.
+# TLS certificate validation also cares about accurate time.
+#
+# Schedule this daily in Semaphore alongside the health checks.
+
+- name: Time sync check
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    drift_warn_ms: 500      # warn if drift exceeds this many milliseconds
+    drift_critical_ms: 2000 # critical if drift exceeds this
+    results_dir: "/tmp/time-sync"
+
+  tasks:
+    - name: Time sync check
+      block:
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Detect time sync daemon
+          ansible.builtin.shell:
+            cmd: |
+              if systemctl is-active --quiet chronyd 2>/dev/null; then
+                echo "chrony"
+              elif systemctl is-active --quiet chrony 2>/dev/null; then
+                echo "chrony"
+              elif systemctl is-active --quiet systemd-timesyncd 2>/dev/null; then
+                echo "timesyncd"
+              else
+                echo "none"
+              fi
+          register: sync_daemon
+          changed_when: false
+
+        - name: Get chrony tracking info
+          ansible.builtin.shell:
+            cmd: chronyc tracking 2>/dev/null
+          register: chrony_tracking
+          changed_when: false
+          when: sync_daemon.stdout == "chrony"
+          ignore_errors: true
+
+        - name: Get timesyncd status
+          ansible.builtin.shell:
+            cmd: timedatectl show-timesync --all 2>/dev/null || timedatectl status 2>/dev/null
+          register: timesyncd_status
+          changed_when: false
+          when: sync_daemon.stdout == "timesyncd"
+          ignore_errors: true
+
+        - name: Get timedatectl status (all modes)
+          ansible.builtin.shell:
+            cmd: timedatectl status
+          register: timedatectl_out
+          changed_when: false
+
+        - name: Check sync status and drift
+          ansible.builtin.shell:
+            cmd: |
+              python3 -c "
+              import subprocess, re, sys
+
+              daemon = '{{ sync_daemon.stdout }}'
+              warn_ms = {{ drift_warn_ms }}
+              crit_ms = {{ drift_critical_ms }}
+
+              issues = []
+              warnings = []
+              info = []
+
+              # Check synchronized flag
+              td = subprocess.run(['timedatectl', 'status'], capture_output=True, text=True)
+              synchronized = 'yes' in td.stdout.lower() and 'synchronized' in td.stdout.lower()
+
+              if daemon == 'none':
+                  issues.append('!! NO TIME SYNC DAEMON RUNNING (chrony or timesyncd)')
+              else:
+                  info.append(f'Sync daemon: {daemon}')
+
+              if not synchronized:
+                  issues.append('!! NOT SYNCHRONIZED with any NTP server')
+
+              # Extract drift from chrony
+              if daemon == 'chrony':
+                  result = subprocess.run(['chronyc', 'tracking'], capture_output=True, text=True)
+                  offset_match = re.search(r'System time\s*:\s*([\d.]+)\s+seconds?\s+(slow|fast)', result.stdout)
+                  if offset_match:
+                      offset_s = float(offset_match.group(1))
+                      offset_ms = offset_s * 1000
+                      direction = offset_match.group(2)
+                      info.append(f'Current drift: {offset_ms:.1f}ms {direction}')
+                      if offset_ms >= crit_ms:
+                          issues.append(f'!! CRITICAL drift: {offset_ms:.1f}ms (threshold: {crit_ms}ms)')
+                      elif offset_ms >= warn_ms:
+                          warnings.append(f'WARNING drift: {offset_ms:.1f}ms (threshold: {warn_ms}ms)')
+                  else:
+                      warnings.append('Could not parse drift from chronyc tracking')
+
+                  # Check reference server
+                  sources = subprocess.run(['chronyc', 'sources'], capture_output=True, text=True)
+                  if '^\*' not in sources.stdout and '** Not synchronised' not in sources.stdout:
+                      starred = [l for l in sources.stdout.split('\n') if l.startswith('^*') or l.startswith('=*')]
+                      if not starred:
+                          warnings.append('No NTP source marked as selected (*) in chronyc sources')
+
+              if issues:
+                  for i in issues:
+                      print(i)
+              if warnings:
+                  for w in warnings:
+                      print(w)
+              for i_line in info:
+                  print(f'   {i_line}')
+              if not issues and not warnings:
+                  print('OK: Time sync healthy')
+
+              sys.exit(1 if issues else 0)
+              "
+          register: sync_check
+          changed_when: false
+          failed_when: sync_check.rc > 1
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== Time Sync Check =====
+              Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+              Timestamp: {{ ansible_date_time.iso8601 }}
+              Daemon: {{ sync_daemon.stdout }}
+
+              ── Status ───────────────────────────────────
+              {{ sync_check.stdout }}
+
+              ── timedatectl ──────────────────────────────
+              {{ timedatectl_out.stdout }}
+
+              {% if sync_daemon.stdout == 'chrony' %}
+              ── chronyc tracking ─────────────────────────
+              {{ chrony_tracking.stdout | default('N/A') }}
+              {% endif %}
+            dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            dest: "/tmp/time-sync/{{ inventory_hostname }}.txt"
+            flat: true
+
+        - name: Alert on time sync issues
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Time Sync WARNING: {{ inventory_hostname }}"
+              Priority: high
+              Tags: clock1
+            body: |
+              Time sync issue on {{ inventory_hostname }}:
+              {{ sync_check.stdout }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: "'!!' in sync_check.stdout or 'WARNING' in sync_check.stdout"
+          ignore_errors: true
+
+      rescue:
+        - name: Alert on playbook failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Time sync check FAILED: {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: "Time sync check failed on {{ inventory_hostname }}: {{ ansible_failed_task.name }}"
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

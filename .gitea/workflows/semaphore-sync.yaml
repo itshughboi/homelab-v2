@@ -1,0 +1,26 @@
+name: Notify Semaphore
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ansible/**'
+
+# Trigger a Semaphore inventory/project refresh when Ansible playbooks are pushed to main.
+# Semaphore will pick up the new playbooks on its next scheduled run without manual intervention.
+
+jobs:
+  notify:
+    name: Ping Semaphore webhook
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Semaphore refresh
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.SEMAPHORE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.SEMAPHORE_URL }}/api/project/${{ secrets.SEMAPHORE_PROJECT_ID }}/repositories" \
+          | grep -qE '^2' && echo "Semaphore notified" || echo "Semaphore notify failed (non-fatal)"
+        continue-on-error: true

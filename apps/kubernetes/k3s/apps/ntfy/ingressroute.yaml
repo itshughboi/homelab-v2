@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ntfy
+  namespace: ntfy
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`ntfy.hughboi.vip`)
+      kind: Rule
+      services:
+        - name: ntfy
+          port: 80
+  tls:
+    secretName: hughboi-tls

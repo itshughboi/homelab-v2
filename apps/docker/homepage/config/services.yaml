@@ -1,0 +1,603 @@
+
+- Servers:
+
+    - pve-srv-1:
+        href: https://10.10.10.1:8006
+        description: 10.10.10.1:8006
+        siteMonitor: https://10.10.10.1:8006
+        icon: proxmox.png
+        widget: 
+            type: proxmox
+            url: https://10.10.10.1:8006
+            username: {{HOMEPAGE_VAR_PROXMOX_USERNAME}}
+            password: {{HOMEPAGE_VAR_PROXMOX_PASSWORD}}
+            node: pve-srv-1
+            fields: ["vms", "lxc", "resources.cpu", "resources.mem"]
+
+
+    - pve-srv-2:
+        href: https://10.10.10.2:8006
+        description: 10.10.10.2:8006
+        siteMonitor: https://10.10.10.2:8006
+        icon: proxmox.png
+        widget:
+            type: proxmox
+            url: https://10.10.10.2:8006
+            username: {{HOMEPAGE_VAR_PROXMOX_USERNAME}}
+            password: {{HOMEPAGE_VAR_PROXMOX_PASSWORD}}
+            node: pve-srv-2
+            fields: ["vms", "lxc", "resources.cpu", "resources.mem"]
+
+
+    - pve-srv-3:
+        href: https://10.10.10.3:8006
+        description: 10.10.10.3:8006
+        siteMonitor: https://10.10.10.3:8006
+        icon: proxmox.png
+        widget:
+            type: proxmox
+            url: https://10.10.10.3:8006
+            username: {{HOMEPAGE_VAR_PROXMOX_USERNAME}}
+            password: {{HOMEPAGE_VAR_PROXMOX_PASSWORD}}
+            node: pve-srv-3
+            fields: ["vms", "lxc", "resources.cpu", "resources.mem"]
+
+
+    - pve-srv-4:
+        href: https://10.10.10.4:8006
+        description: 10.10.10.4:8006
+        siteMonitor: https://10.10.10.4:8006
+        icon: proxmox.png
+        widget:
+            type: proxmox
+            url: https://10.10.10.4:8006
+            username: {{HOMEPAGE_VAR_PROXMOX_USERNAME}}
+            password: {{HOMEPAGE_VAR_PROXMOX_PASSWORD}}
+            node: pve-srv-4
+            fields: ["vms", "lxc", "resources.cpu", "resources.mem"]
+
+
+
+- Management:
+
+
+    - Adguard:
+        href: https://adguard.hughboi.cc
+        #description: DNS
+        siteMonitor: https://adguard.hughboi.cc
+        icon: adguard-home.png
+        widget:
+            type: adguard
+            url: https://adguard.hughboi.cc
+            username: ${HOMEPAGE_VAR_ADGUARD_USERNAME}
+            password: ${HOMEPAGE_VAR_ADGUARD_PASSWORD}
+
+
+
+    - Gitea:
+        href: https://gitea.hughboi.cc
+        # description: Git Repos
+        siteMonitor: https://gitea.hughboi.cc
+        icon: gitea.png
+        widget:
+            type: gitea
+            url: https://gitea.hughboi.cc
+            key: {{HOMEPAGE_VAR_GITEA_KEY}}
+
+
+
+    - Portainer:
+        href: https://portainer.hughboi.cc
+        #description: Docker Containers
+        siteMonitor: https://portainer.hughboi.cc
+        icon: portainer.png
+        widget:
+            type: portainer
+            url: https://portainer.hughboi.cc
+            env: 3
+            key: {{HOMEPAGE_VAR_PORTAINER_KEY}}
+
+
+
+
+
+
+    - Traefik:
+        href: https://traefik.hughboi.cc
+        #description: Reverse Proxy / Load Balancer
+        siteMonitor: https://traefik.hughboi.cc
+        icon: traefik.png
+        widget:
+            type: traefik
+            url: https://traefik.hughboi.cc
+            username: hughboi
+            password: {{HOMEPAGE_VAR_TRAEFIK_PASSWORD}}
+
+
+
+    - Unifi:
+        href: https://10.10.10.10:8443
+        #description: 10.10.10.10:8443
+        siteMonitor: https://10.10.10.10:8443
+        icon: unifi.png
+        widget:
+            type: unifi
+            url: https://10.10.10.10:8443
+            username: {{HOMEPAGE_VAR_UNIFI_USERNAME}}
+            password: {{HOMEPAGE_VAR_UNIFI_PASSWORD}}
+            fields: ["uptime", "wlan_users"]
+
+
+
+- Media:
+
+    - Immich: 
+        href: https://immich.hughboi.cc
+        # description: Photo Archive
+        siteMonitor: https://immich.hughboi.cc
+        icon: immich.png
+        # widget:
+        #     type: immich
+        #     url: https://immich.hughboi.cc
+        #     key: {{HOMEPAGE_VAR_IMMICH_KEY}}
+        #     version: 2
+
+
+    - Jellyfin:
+        href: https://jellyfin.hughboi.cc
+        icon: jellyfin.png
+        siteMonitor: https://jellyfin.hughboi.cc
+        
+
+
+    - FreshRSS:
+        href: https://freshrss.hughboi.cc
+        icon: freshrss.png
+        siteMonitor: https://freshrss.hughboi.cc
+
+
+
+    - Romm: 
+        href: https://romm.hughboi.cc
+        # description: ROM Manager
+        siteMonitor: https://romm.hughboi.cc
+        icon: romm.png
+        # widget:
+        #     type: romm
+        #     url: https://romm.hughboi.cc
+        #     username: hughboi # optional
+        #     password: "CHANGEME" # optional
+        #     fields: ["platforms", "totalRoms", "saves", "states"] # optional - default fields shown
+
+
+
+
+    - YT Archive:
+        href: https://yt.hughboi.cc
+        icon: youtube.png
+        siteMonitor: https://yt.hughboi.cc
+
+ 
+
+- Automation:
+
+
+
+    - Home Assistant:
+        href: https://home-assistant.hughboi.cc
+        # description: Home Automation
+        siteMonitor: https://home-assistant.hughboi.cc
+        icon: home-assistant.png
+
+    - n8n:
+        href: https://n8n.hughboi.cc
+        # description: Automation Workflow
+        siteMonitor: https://n8n.hughboi.cc
+        icon: n8n.png
+
+    - Semaphore:
+        href: https://semaphore.hughboi.cc
+        # description: Ansible Automations
+        siteMonitor: https://semaphore.hughboi.cc
+        icon: semaphore.png
+
+
+- Monitoring:
+
+    - Grafana:
+        href: https://grafana.hughboi.cc
+        #description: Data Visualizer
+        siteMonitor: https://grafana.hughboi.cc
+        icon: grafana.png
+        # widget:
+        #     type: grafana
+        #     url: https://grafana.hughboi.cc
+        #     username: {{HOMEPAGE_VAR_GRAFANA_USERNAME}}
+        #     password: {{HOMEPAGE_VAR_GRAFANA_PASSWORD}}
+
+
+    - InfluxDB:
+        href: https://influxdb.hughboi.cc
+        #description: Time Oriented DB
+        siteMonitor: https://influxdb.hughboi.cc
+        icon: influxdb.png
+
+   
+
+    - Ntfy:
+        href: https://ntfy.hughboi.cc
+        # description: Push Notifications
+        siteMonitor: https://ntfy.hughboi.cc
+        icon: ntfy.png
+
+
+
+    - Prometheus:
+        href: http://10.10.10.10:9070
+        #description: 10.10.10.10:9070
+        siteMonitor: http://10.10.10.10:9070
+        icon: prometheus
+        # widget:
+        #     type: prometheus
+        #     url: http://10.10.10.10:9070
+
+
+    - Uptime Kuma:
+        href: https://uptime.hughboi.cc
+        #description: ICMP Monitor
+        siteMonitor: https://uptime.hughboi.cc
+        icon: uptime-kuma.png
+        # widget:
+        #     type: uptimekuma
+        #     url: https://uptime.hughboi.cc
+        #     slug: statuspage
+        #     # fields: ["up", "down", "uptime", "incident"]
+
+
+# - Back-End:
+
+
+
+- Apps:
+
+    # - Bookstack:
+    #     href: https://bookstack.hughboi.cc
+    #     # description: Documentation
+    #     siteMonitor: https://bookstack.hughboi.cc
+    #     icon: bookstack.png
+
+
+    
+
+    - Fasten Health:
+        href: https://fastenhealth.hughboi.cc
+        # description: Medical Records
+        siteMonitor: https://fastenhealth.hughboi.cc
+        icon: fasten-health.svg
+
+
+
+
+
+    - Hoarder: 
+        href: https://hoarder.hughboi.cc
+        # description: Bookmarks
+        siteMonitor: https://hoarder.hughboi.cc
+        icon: hoarder.png
+        # widget:
+        #     type: karakeep
+        #     url: https://hoarder.hughboi.cc
+        #     key: {{HOMEPAGE_VAR_HOARDER_API}} # I had to manually set key here for it to work
+
+
+
+
+
+    - Mealie:
+        href: https://mealie.hughboi.cc
+        # description: Recipe Manager
+        siteMonitor: https://mealie.hughboi.cc
+        icon: mealie.png
+        # widget:
+        #     type: mealie
+        #     url: https://mealie.hughboi.cc
+        #     key: ""
+
+
+
+    - SearXNG:
+        href: https://search.hughboi.cc
+        #description: Private Search
+        siteMonitor: https://search.hughboi.cc
+        icon: searxng.png 
+
+
+    
+
+
+    - Vaultwarden:
+        href: https://vaultwarden.hughboi.cc
+        # description: Password Manager
+        siteMonitor: https://vaultwarden.hughboi.cc
+        icon: vaultwarden-light.png
+
+
+
+       
+
+    - Change Detection:
+         href: https://change.hughboi.cc
+        #  description: Merch Tracking
+         siteMonitor: https://change.hughboi.cc
+         icon: changedetection.png
+
+
+ 
+
+
+
+
+    - Rancher:
+        href: https://10.10.30.61:443
+       # description: 10.10.30.61:443
+        siteMonitor: https://10.10.30.61:443
+        icon: rancher.png
+
+
+    - Syncthing:
+        href: https://syncthing.hughboi.cc
+       # description: Cross-platform file sync
+        siteMonitor: https://syncthing.hughboi.cc
+        icon: syncthing.png
+
+
+
+
+    - Pocket ID:
+        href: https://pocket.hughboi.cc
+        #description: OIDC Authentication
+        siteMonitor: https://pocket.hughboi.cc
+        icon: pocket-id-light.png
+
+
+
+    - Wazuh:
+        href: https://wazuh.hughboi.cc
+        #description: SIEM
+        siteMonitor: https://wazuh.hughboi.cc
+        icon: wazuh.png
+
+
+   
+
+
+
+
+
+
+
+    # - Jellyfin:
+    #     href: https://jellyfin.hughboi.cc
+    #     icon: jellyfin.png
+    #     siteMonitor: https://jellyfin.hughboi.cc
+
+
+
+
+
+    # - Netbootxyz:
+    #     href: http://10.10.10.10:3123/
+    #     # description: PXE Boot
+    #     siteMonitor: http://10.10.10.10:3123/
+    #     icon: netboot.svg
+
+
+
+
+
+
+
+
+
+### - Security:
+    # - Authentik:
+    #     href: https://authentik.hughboi.cc
+    #     description: Identity Provider
+    #     siteMonitor: https://authentik.hughboi.cc
+    #     icon: authentik.png
+        # widget:
+        #     type: authentik
+        #     url: https://authentik.hughboi.cc
+        #     key: {{HOMEPAGE_VAR_AUTHENTIK_KEY}}
+
+
+    # - Crowdsec:
+    #     description: Threat Scanning
+    #     icon: crowdsec.png
+    #     widget:
+    #         type: crowdsec
+    #         url: http://10.10.10.10:6061
+    #         login: localhost # machine_id in crowdsec
+    #         password: ${HOMEPAGE_VAR_CROWDSEC_PASSWORD}
+
+
+
+
+    # - Authentik:
+    #     href: https://authentik.hughboi.cc
+    #     description: Identity Provider
+    #     siteMonitor: https://authentik.hughboi.cc
+    #     icon: authentik.png
+
+    # - Komodo:
+    #     href: https://komodo.hughboi.cc
+    #     description: CI/CD Docker
+    #     siteMonitor: https://komodo.hughboi.cc
+    #     icon: komodo.svg
+
+
+    # - Synapse:
+    #     href: https://app.element.io
+    #     description: Matrix Broker
+    #     siteMonitor: https://matrix.hughboi.cc
+    #     icon: element.png
+
+- Music:
+
+
+    - Lidarr:
+        href: https://lidarr.hughboi.cc
+        siteMonitor: https://lidarr.hughboi.cc
+        icon: lidarr.png
+
+
+    - Navidrome:
+        href: https://navidrome.hughboi.cc
+        siteMonitor: https://navidrome.hughboi.cc
+        icon: navidrome.png
+
+
+
+    - Soulseek:
+        href: https://soulseek.hughboi.cc
+        siteMonoitor: https://soulseek.hughboi.cc
+        icon: slskd.png
+
+    - Soularr:
+        href: https://soularr.hughboi.cc
+        siteMonitor: https://soularr.hughboi.cc
+        icon: soularr.png
+
+
+
+
+
+- Storage:
+
+    # - Longhorn:
+    #     href: https://10.10.30.61/k8s/clusters/local/api/v1/namespaces/longhorn-system/services/http:longhorn-frontend:80/proxy/
+    #     description: K3s Storage
+    #     siteMonitor: https://10.10.30.61/k8s/clusters/local/api/v1/namespaces/longhorn-system/services/http:longhorn-frontend:80/proxy/
+    #     icon: longhorn.svg
+
+    - Filebrowser:
+        href: https://file.hughboi.cc
+        description: Host file access
+        siteMonitor: https://file.hughboi.cc
+        icon: filebrowser.png
+
+
+    - Paperless-ngx:
+        href: https://paperless.hughboi.cc
+        # description: Document Organizer
+        siteMonitor: https://paperless.hughboi.cc
+        icon: paperless.png
+        # widget:
+        #     type: paperlessngx
+        #     url: https://paperless.hughboi.cc
+        #     key: 
+
+
+    - PBS:
+        href: https://10.10.10.6:8007
+        description: 10.10.10.6:8007
+        siteMonitor: https://10.10.10.6:8007
+        icon: proxmox.png
+        widget:
+            type: proxmoxbackupserver
+            url: https://10.10.10.6:8007
+            username: {{HOMEPAGE_VAR_PBS_USERNAME}}
+            password: {{HOMEPAGE_VAR_PBS_PASSWORD}}
+            fields: ["datastore_usage", "failed_tasks_24h", "cpu_usage", "memory_usage"]
+
+
+
+    - Synology:
+        href: http://10.10.10.15:5000
+        description: Remote Backup
+        siteMonitor: http://10.10.10.15:5000
+        icon: synology.png
+        widget:
+            type: diskstation
+            url: http://10.10.10.15:5000
+            username: remote_stats
+            password: CHANGEME
+
+
+    - TrueNAS:
+        href: https://10.10.10.5
+        description: Data Archive
+        siteMonitor: https://10.10.10.5
+        icon: truenas.png
+        widget:
+            type: truenas
+            url: https://10.10.10.5
+            key: {{HOMEPAGE_VAR_TRUENAS_KEY}}
+            enablePools: true
+
+
+- Glances:
+
+    - CPU:
+        href: http://10.10.10.10:61208
+        widget:
+            type: glances
+            url: http://10.10.10.10:61208
+            metric: cpu
+            version: 4
+            chart: true
+            
+    - Memory:
+        href: http://10.10.10.10:61208
+        widget:
+            type: glances
+            url: http://10.10.10.10:61208
+            metric: memory
+            version: 4
+            chart: true
+
+    - NVME:
+        href: http://10.10.10.10:61208
+        widget:
+            type: glances
+            url: http://10.10.10.10:61208
+            metric: disk:sda
+            version: 4
+            chart: true
+    
+    - Processes:
+        href: http://10.10.10.10:61208
+        widget:
+            type: glances
+            url: http://10.10.10.10:61208
+            metric: process
+            version: 4
+            chart: true
+
+
+
+- Calendar:
+
+
+   - Calendar:
+        widget:
+            type: calendar
+            firstDayInWeek: sunday # optional - defaults to monday
+            view: agenda # optional - possible values monthly, agenda
+            maxEvents: 6 # optional - defaults to 10
+            showTime: true # optional- show time for event happening today - defaults to false
+            timezone: America/Denver # optional and only when timezone is not detected properly (slightly slower performance) - force timezone for ical events (if it's the same - no change, if missing or different in ical - will be converted to this timezone)
+            integrations: # optional
+                - type: ical # Show calendar events from another service
+                  url: https://p140-caldav.icloud.com/published/2/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx #https://calendar.google.com/calendar/ical/shugzs19%40gmail.com/public/basic.ics # URL with calendar events
+                  name: iCloud # required - name for these calendar events
+                  color: zinc # optional - defaults to pre-defined color for the service (zinc for ical)
+                  params: # optional - additional params for the service
+                    showName: true # optional - show name before event title in event line - defaults to false
+
+                - type: ical # Show calendar events from another service
+                  url: https://calendar.google.com/calendar/ical/YOURFULLEMAILHERE/public/basic.ics # URL with calendar events
+                  name: Gmail # required - name for these calendar events
+                  color: zinc # optional - defaults to pre-defined color for the service (zinc for ical)
+                  params: # optional - additional params for the service
+                    showName: true # optional - show name before event title in event line - defaults to false

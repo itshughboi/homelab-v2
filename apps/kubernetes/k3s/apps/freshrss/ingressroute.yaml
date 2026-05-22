@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: freshrss
+  namespace: freshrss
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`freshrss.hughboi.vip`)
+      kind: Rule
+      services:
+        - name: freshrss
+          port: 80
+  tls:
+    secretName: hughboi-tls

@@ -1,0 +1,66 @@
+# Mongo 3.6 matches the Docker stack. Upgrade path: 3.6 → 4.0 → 4.4 → 5.0 (one major at a time).
+# Do NOT skip versions — UniFi will fail to start if the db schema is incompatible.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+  namespace: unifi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:3.6
+          ports:
+            - containerPort: 27017
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: db
+              mountPath: /data/db
+            - name: configdb
+              mountPath: /data/configdb
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: mongo-db
+        - name: configdb
+          persistentVolumeClaim:
+            claimName: mongo-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: unifi
+spec:
+  selector:
+    app: mongo
+  ports:
+    - port: 27017
+      targetPort: 27017

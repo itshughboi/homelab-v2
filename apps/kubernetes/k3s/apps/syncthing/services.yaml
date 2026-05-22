@@ -1,0 +1,38 @@
+# ClusterIP — web UI, consumed by the IngressRoute
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncthing-ui
+  namespace: syncthing
+spec:
+  selector:
+    app: syncthing
+  ports:
+    - port: 8384
+      targetPort: 8384
+---
+# LoadBalancer — sync ports that remote devices connect to directly.
+# MetalLB will assign an IP from your pool. Point external devices at this IP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncthing-sync
+  namespace: syncthing
+spec:
+  type: LoadBalancer
+  selector:
+    app: syncthing
+  ports:
+    - name: sync-tcp
+      port: 22000
+      targetPort: 22000
+      protocol: TCP
+    - name: sync-quic
+      port: 22000
+      targetPort: 22000
+      protocol: UDP
+    - name: discovery
+      port: 21027
+      targetPort: 21027
+      protocol: UDP

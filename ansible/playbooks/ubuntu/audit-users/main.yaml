@@ -1,0 +1,151 @@
+---
+# User and privilege audit across all hosts.
+# Reports: all sudo-capable users, accounts with no password,
+# accounts created or modified in the last 30 days, and SSH authorized_keys.
+# Read-only — makes no changes.
+#
+# Run monthly as a standing security check.
+
+- name: User and privilege audit
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/user-audit"
+    expected_sudo_users:
+      - hughboi
+      - root
+    recent_days: 30
+
+  tasks:
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Get all users with sudo access
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== /etc/sudoers direct entries ==="
+          grep -v '^#\|^$\|^Defaults\|^Cmnd\|^Host\|^User_Alias' /etc/sudoers 2>/dev/null || true
+          echo ""
+          echo "=== /etc/sudoers.d/ entries ==="
+          for f in /etc/sudoers.d/*; do
+            [ -f "$f" ] && echo "-- $f --" && cat "$f" && echo ""
+          done
+          echo ""
+          echo "=== Members of sudo/wheel/adm groups ==="
+          for grp in sudo wheel adm; do
+            members=$(getent group "$grp" 2>/dev/null | cut -d: -f4)
+            [ -n "$members" ] && echo "$grp: $members"
+          done
+      register: sudo_info
+      changed_when: false
+
+    - name: Check for accounts with empty passwords
+      ansible.builtin.shell:
+        cmd: |
+          awk -F: '($2 == "" || $2 == "!!" ) {print $1}' /etc/shadow 2>/dev/null || \
+            echo "Could not read /etc/shadow (need root)"
+      register: empty_passwords
+      changed_when: false
+
+    - name: Find recently modified user accounts
+      ansible.builtin.shell:
+        cmd: |
+          find /home /root /etc/passwd /etc/shadow \
+            -newer /tmp/.ansible-user-audit-baseline \
+            -maxdepth 2 2>/dev/null | head -20 || true
+          # Check passwd entries modified recently via lastmod in /etc/shadow
+          python3 -c "
+          import time, datetime
+          cutoff = int(time.time() / 86400) - {{ recent_days }}
+          try:
+              with open('/etc/shadow') as f:
+                  for line in f:
+                      parts = line.strip().split(':')
+                      if len(parts) < 3:
+                          continue
+                      user, _, lastchg = parts[0], parts[1], parts[2]
+                      if lastchg.isdigit() and int(lastchg) >= cutoff:
+                          date = datetime.date(1970,1,1) + datetime.timedelta(days=int(lastchg))
+                          print(f'{user}: password changed {date}')
+          except Exception as e:
+              print(f'Error: {e}')
+          "
+      register: recent_changes
+      changed_when: false
+
+    - name: Collect all authorized_keys files
+      ansible.builtin.shell:
+        cmd: |
+          find /home /root -name authorized_keys -maxdepth 4 2>/dev/null | while read f; do
+            echo "=== $f ==="
+            cat "$f" 2>/dev/null || echo "(unreadable)"
+          done
+      register: authorized_keys
+      changed_when: false
+
+    - name: List all human accounts (UID >= 1000)
+      ansible.builtin.shell:
+        cmd: |
+          awk -F: '$3 >= 1000 && $3 < 65534 {print $1, $3, $6, $7}' /etc/passwd
+      register: human_accounts
+      changed_when: false
+
+    - name: Check for unexpected sudo members
+      ansible.builtin.shell:
+        cmd: |
+          python3 -c "
+          import subprocess
+          expected = set({{ expected_sudo_users | to_json }})
+          result = subprocess.run(['getent', 'group', 'sudo'], capture_output=True, text=True)
+          members_str = result.stdout.strip().split(':')[-1] if result.stdout else ''
+          members = set(m for m in members_str.split(',') if m)
+          unexpected = members - expected
+          if unexpected:
+              print(f'!! UNEXPECTED SUDO MEMBERS: {unexpected}')
+          else:
+              print(f'OK: sudo group members as expected: {members}')
+          "
+      register: sudo_check
+      changed_when: false
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== User & Privilege Audit =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          ── sudo Group Check ─────────────────────────────
+          {{ sudo_check.stdout }}
+
+          ── Accounts with Empty/Locked Passwords ─────────
+          {{ empty_passwords.stdout | default('None') }}
+
+          ── Recently Changed Accounts (last {{ recent_days }} days) ──
+          {{ recent_changes.stdout | default('None') }}
+
+          ── All Human Accounts (UID >= 1000) ─────────────
+          {{ human_accounts.stdout }}
+
+          ── Authorized Keys ──────────────────────────────
+          {{ authorized_keys.stdout | default('None found') }}
+
+          ── Full sudo Configuration ──────────────────────
+          {{ sudo_info.stdout }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      ansible.builtin.fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/user-audit/{{ inventory_hostname }}.txt"
+        flat: true
+
+    - name: Print sudo check summary
+      ansible.builtin.debug:
+        msg: "{{ sudo_check.stdout_lines }}"

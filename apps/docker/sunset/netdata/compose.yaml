@@ -1,0 +1,56 @@
+services:
+  netdata:
+    container_name: netdata    
+    image: netdata/netdata:latest
+    restart: unless-stopped
+    security_opt:
+      - apparmor:unconfined    
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    pid: host
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    volumes:
+      - config/netdata:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.netdata.entrypoints=http"
+      - "traefik.http.routers.netdata.rule=Host(`netdata.hughboi.cc`)"
+      - "traefik.http.middlewares.netdata-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.netdata.middlewares=netdata-https-redirect"
+      - "traefik.http.routers.netdata-secure.entrypoints=https"
+      - "traefik.http.routers.netdata-secure.rule=Host(`netdata.hughboi.cc`)"
+      - "traefik.http.routers.netdata-secure.tls=true"      
+      - "traefik.http.services.netdata.loadbalancer.server.port=19999"
+      - "traefik.docker.network=proxy"
+
+      
+volumes:
+  netdatalib:
+  netdatacache:
+  config: 
+
+networks:
+  proxy:
+    external: true
+

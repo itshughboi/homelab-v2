@@ -1,0 +1,50 @@
+log:
+  level: info
+
+runner:
+  file: .runner
+  capacity: 1
+  envs: {}
+  env_file: .env
+  timeout: 3h
+  shutdown_timeout: 0s
+  insecure: false
+  fetch_timeout: 5s
+  fetch_interval: 2s
+  fetch_interval_max: 60s
+  log_report_interval: 5s
+  log_report_max_latency: 3s
+  log_report_batch_size: 100
+  state_report_interval: 5s
+  github_mirror: ''
+  labels:
+    - "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"
+    - "ubuntu-24.04:docker://docker.gitea.com/runner-images:ubuntu-24.04"
+    - "ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04"
+
+cache:
+  enabled: true
+  dir: ""
+  host: ""
+  port: 0
+  external_server: ""
+
+container:
+  network: "gitea"  # Job containers join the gitea network so they can reach Gitea
+  privileged: false
+  options:
+  workdir_parent:
+  valid_volumes: []
+  docker_host: ""
+  force_pull: false  # Use cached images for faster job startup
+  force_rebuild: false
+  require_docker: false
+  docker_timeout: 0s
+  bind_workdir: false
+
+host:
+  workdir_parent:
+
+metrics:
+  enabled: false
+  addr: "127.0.0.1:9101"

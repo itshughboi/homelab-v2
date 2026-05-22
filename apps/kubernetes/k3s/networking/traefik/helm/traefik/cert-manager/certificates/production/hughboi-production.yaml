@@ -1,0 +1,20 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hughboi
+  namespace: traefik
+spec:
+  secretName: hughboi-tls
+  secretTemplate:
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "monitoring,vaultwarden,tube-archivist,searxng,syncthing,unifi,mailrise,ntfy,fasten-health,freshrss,mealie,pocket-id,gatus,homepage,change-detection,n8n,netbootxyz,ezbookkeeping,file-browser,gitea,hoarder,home-assistant,jellyfin,romm,semaphore,paperless-ngx,argocd,authentik,renovate"
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  commonName: "*.hughboi.vip"
+  dnsNames:
+  - "*.hughboi.vip"
+  - hughboi.vip

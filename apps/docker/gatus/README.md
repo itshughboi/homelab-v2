@@ -1,0 +1,58 @@
+# Gatus
+
+**URL:** https://gatus.hughboi.cc
+**Docs:** https://gatus.io/
+
+Uptime and health monitoring dashboard. Pings services on a configured schedule, tracks response times and status codes, and shows history graphs. My status page for knowing if anything in the homelab is down.
+
+## Stack
+
+Single container. No built-in database dependency in this compose — persistence is handled either by SQLite (embedded) or by pointing to an external Postgres via the config file. The env vars `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` are passed in and referenced inside the Gatus config YAML.
+
+## Config
+
+Config lives at `/home/hughboi/code/gatus/config` (mounted `:ro`). This is where all endpoints, alert rules, and thresholds are defined. Changes to config require a container restart to take effect.
+
+DNS for the container is set to `10.10.10.9` and `10.10.10.10` (AdGuard) so that internal hostnames resolve correctly when checking internal services.
+
+## Volumes
+
+| Host Path | Container Path | Purpose |
+|---|---|---|
+| `/home/hughboi/code/gatus/config` | `/config:ro` | Endpoint definitions and thresholds |
+
+## First Run
+
+1. Edit the config at `/home/hughboi/code/gatus/config/config.yaml`
+2. Add endpoints to monitor — example:
+```yaml
+endpoints:
+  - name: Vaultwarden
+    url: https://vaultwarden.hughboi.cc
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 3000"
+    alerts:
+      - type: discord
+```
+3. `docker compose up -d`
+4. Navigate to https://gatus.hughboi.cc
+
+## Alerting
+
+Configure alert providers in the config YAML. Options: Discord, ntfy, PagerDuty, Slack, email. The Discord webhook and ntfy endpoint can be defined as env vars and referenced with `${VARIABLE}` in the config.
+
+## Upgrade Notes
+
+- Config is code (in the repo) so no data migration needed — just update the image tag and restart.
+- Review the [Gatus changelog](https://github.com/TwiN/gatus/releases) for any config schema changes before upgrading.
+
+## Troubleshooting
+
+**Service shows as down but is actually up:**
+- Check the DNS resolution from inside the container: `docker exec gatus nslookup service.hughboi.cc`
+- The container uses AdGuard as DNS (10.10.10.9/10.10.10.10). If AdGuard is down, all internal checks will fail.
+
+**Config changes not taking effect:**
+- Gatus reads config only at startup. Restart the container after any config file change: `docker restart gatus`

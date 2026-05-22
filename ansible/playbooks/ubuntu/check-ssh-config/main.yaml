@@ -1,0 +1,156 @@
+---
+# SSH configuration audit across all hosts.
+# Verifies hardening settings are in place: no password auth, no root login,
+# key algorithms, timeouts, and authorized_keys consistency.
+# Fails the play if any critical misconfigurations are found.
+
+- name: SSH configuration audit
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/ssh-audit"
+    # Expected authorized public keys (any key NOT in this list gets flagged)
+    # Add your keys here as a list of substrings to match (e.g., key comment or partial fingerprint)
+    expected_key_identifiers:
+      - "hughboi"
+      - "ansible"
+
+  tasks:
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Read sshd_config
+      ansible.builtin.shell:
+        cmd: sshd -T 2>/dev/null || cat /etc/ssh/sshd_config
+      register: sshd_config
+      changed_when: false
+
+    - name: Check critical SSH settings
+      ansible.builtin.shell:
+        cmd: |
+          python3 -c "
+          import subprocess
+          result = subprocess.run(['sshd', '-T'], capture_output=True, text=True)
+          config = {}
+          for line in result.stdout.lower().split('\n'):
+              parts = line.split()
+              if len(parts) >= 2:
+                  config[parts[0]] = parts[1]
+
+          checks = [
+              ('passwordauthentication', 'no', 'CRITICAL'),
+              ('permitrootlogin',        'no',  'CRITICAL'),
+              ('permitemptypasswords',   'no',  'CRITICAL'),
+              ('challengeresponseauthentication', 'no', 'HIGH'),
+              ('usepam',                'yes', 'INFO'),
+              ('x11forwarding',         'no',  'MEDIUM'),
+              ('permituserenvironment', 'no',  'MEDIUM'),
+              ('logingracetime',        '60',  'LOW'),
+              ('maxauthtries',          '3',   'LOW'),
+          ]
+
+          issues = []
+          ok = []
+          for key, expected, severity in checks:
+              actual = config.get(key, 'NOT SET')
+              if actual != expected:
+                  issues.append(f'[{severity}] {key}={actual} (expected {expected})')
+              else:
+                  ok.append(f'OK: {key}={actual}')
+
+          if issues:
+              print('!! SSH MISCONFIGURATIONS:')
+              for i in issues:
+                  print(f'   {i}')
+          print('')
+          print('Passing checks:')
+          for o in ok:
+              print(f'   {o}')
+          "
+      register: ssh_check
+      changed_when: false
+
+    - name: Check for unexpected authorized keys
+      ansible.builtin.shell:
+        cmd: |
+          find /home /root -name authorized_keys -maxdepth 4 2>/dev/null | while read f; do
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              [[ "$line" =~ ^# ]] && continue
+              matched=false
+              {% for identifier in expected_key_identifiers %}
+              echo "$line" | grep -q "{{ identifier }}" && matched=true
+              {% endfor %}
+              if [ "$matched" = "false" ]; then
+                echo "!! UNEXPECTED KEY in $f: ${line: -40}..."
+              fi
+            done < "$f"
+          done || echo "OK: No unexpected keys found"
+      register: key_check
+      changed_when: false
+
+    - name: Check SSH host key permissions
+      ansible.builtin.shell:
+        cmd: |
+          for f in /etc/ssh/ssh_host_*_key; do
+            perms=$(stat -c '%a' "$f" 2>/dev/null)
+            owner=$(stat -c '%U' "$f" 2>/dev/null)
+            if [ "$perms" != "600" ] || [ "$owner" != "root" ]; then
+              echo "!! BAD PERMISSIONS: $f perms=$perms owner=$owner (need 600/root)"
+            else
+              echo "OK: $f perms=$perms owner=$owner"
+            fi
+          done
+      register: key_permissions
+      changed_when: false
+
+    - name: Determine if any critical issues found
+      ansible.builtin.set_fact:
+        has_critical_issues: >-
+          {{
+            'CRITICAL' in ssh_check.stdout or
+            '!! UNEXPECTED KEY' in key_check.stdout or
+            '!! BAD PERMISSIONS' in key_permissions.stdout
+          }}
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== SSH Configuration Audit =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Critical Issues Found: {{ has_critical_issues }}
+
+          ── Setting Checks ───────────────────────────────
+          {{ ssh_check.stdout }}
+
+          ── Authorized Key Check ─────────────────────────
+          {{ key_check.stdout }}
+
+          ── Host Key Permissions ─────────────────────────
+          {{ key_permissions.stdout }}
+
+          ── Full sshd -T Output ──────────────────────────
+          {{ sshd_config.stdout }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      ansible.builtin.fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/ssh-audit/{{ inventory_hostname }}.txt"
+        flat: true
+
+    - name: Print summary
+      ansible.builtin.debug:
+        msg: "{{ ssh_check.stdout_lines + key_check.stdout_lines }}"
+
+    - name: Fail if critical misconfigurations found
+      ansible.builtin.fail:
+        msg: "Critical SSH misconfiguration on {{ inventory_hostname }} — check /tmp/ssh-audit/"
+      when: has_critical_issues

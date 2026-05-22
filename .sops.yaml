@@ -1,0 +1,13 @@
+# SOPS encryption configuration
+#
+# This file tells SOPS which files to encrypt and with which key.
+# The age PUBLIC key is safe to commit — only the private key is secret.
+#
+# To set up your age key and fill in the placeholder below:
+#   ./scripts/age-setup.sh
+#
+# Once the placeholder is replaced with your real public key, commit this file.
+
+creation_rules:
+  - path_regex: apps/docker/.*\.env\.sops$
+    age: AGE_PUBLIC_KEY_PLACEHOLDER

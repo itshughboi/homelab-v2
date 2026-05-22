@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: renovate
+  namespace: renovate
+spec:
+  # Run weekly on Sunday nights — adjust to taste
+  schedule: "0 22 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: renovate
+              image: renovate/renovate:38
+              env:
+                - name: RENOVATE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: renovate-env
+                      key: RENOVATE_TOKEN
+                - name: GITHUB_COM_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: renovate-env
+                      key: GITHUB_COM_TOKEN
+                      optional: true
+                - name: RENOVATE_CONFIG_FILE
+                  value: /config/config.json
+                - name: LOG_LEVEL
+                  value: info
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: renovate-config

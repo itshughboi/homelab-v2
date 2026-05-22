@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbootxyz
+  namespace: netbootxyz
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: netbootxyz
+  template:
+    metadata:
+      labels:
+        app: netbootxyz
+    spec:
+      containers:
+        - name: netbootxyz
+          image: lscr.io/linuxserver/netbootxyz:latest
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 69
+              protocol: UDP
+              name: tftp
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: America/Denver
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: assets
+              mountPath: /assets
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: netbootxyz-config
+        - name: assets
+          persistentVolumeClaim:
+            claimName: netbootxyz-assets

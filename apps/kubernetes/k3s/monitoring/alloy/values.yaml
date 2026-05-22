@@ -1,0 +1,23 @@
+# helm repo add grafana https://grafana.github.io/helm-charts
+# helm upgrade --install alloy grafana/alloy \
+#   -n monitoring --create-namespace \
+#   --set-file alloy.configMap.content=config.alloy \
+#   -f values.yaml
+
+alloy:
+  configMap:
+    create: true
+    content: ""  # injected via --set-file alloy.configMap.content=config.alloy
+
+controller:
+  type: deployment  # single instance — log collection via k8s API doesn't need per-node access
+  replicas: 1
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+
+clustering:
+  enabled: false

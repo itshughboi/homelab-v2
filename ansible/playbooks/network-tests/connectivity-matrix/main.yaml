@@ -1,0 +1,101 @@
+---
+# Full-mesh connectivity matrix.
+# Every host pings every other host and reports a pass/fail grid.
+# Useful for validating firewall rules, VLAN segmentation, and routing —
+# especially after any network change.
+#
+# Output: a text grid where OK = reachable, FAIL = unreachable/timeout.
+
+- name: Gather all host IPs
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Store IP for use in matrix
+      set_fact:
+        my_ip: "{{ ansible_default_ipv4.address }}"
+
+- name: Run connectivity matrix
+  hosts: all
+  become: true
+  vars:
+    ping_count: 5
+    ping_timeout: 2         # seconds per ping
+    results_dir: "/tmp/connectivity-matrix"
+
+  tasks:
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ping each other host
+      shell: >
+        ping -c {{ ping_count }} -W {{ ping_timeout }} -q
+        {{ hostvars[item]['ansible_default_ipv4']['address'] }} 2>&1
+      register: ping_matrix
+      loop: "{{ groups['all'] }}"
+      when: item != inventory_hostname
+      changed_when: false
+      ignore_errors: true
+
+    - name: Write per-host results
+      copy:
+        content: |
+          ===== Connectivity Matrix =====
+          Source: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          {% for result in ping_matrix.results %}
+          {% if result.item is defined and result.item != inventory_hostname %}
+          {% set target_ip = hostvars[result.item]['ansible_default_ipv4']['address'] | default('unknown') %}
+          {% if result.skipped is defined and result.skipped %}
+          [SKIP] {{ result.item }} ({{ target_ip }}) — skipped (self)
+          {% elif result.rc == 0 %}
+          [ OK ] {{ result.item }} ({{ target_ip }})
+          {% else %}
+          [FAIL] {{ result.item }} ({{ target_ip }}) — {{ result.stdout_lines[-1] | default('no output') }}
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/connectivity-matrix/{{ inventory_hostname }}.txt"
+        flat: true
+
+- name: Compile full matrix summary
+  hosts: localhost
+  gather_facts: false
+  vars:
+    results_dir: "/tmp/connectivity-matrix"
+  tasks:
+    - name: Print combined matrix
+      shell: |
+        echo "======================================"
+        echo "FULL CONNECTIVITY MATRIX SUMMARY"
+        echo "======================================"
+        for f in {{ results_dir }}/*.txt; do
+          echo ""
+          cat "$f"
+        done
+        echo ""
+        echo "======================================"
+        fail_count=$(grep -h "\[FAIL\]" {{ results_dir }}/*.txt | wc -l)
+        ok_count=$(grep -h "\[ OK \]" {{ results_dir }}/*.txt | wc -l)
+        echo "TOTAL: ${ok_count} OK, ${fail_count} FAIL"
+        echo "======================================"
+      register: matrix_summary
+      changed_when: false
+
+    - name: Show summary
+      debug:
+        msg: "{{ matrix_summary.stdout_lines }}"
+
+    - name: Fail if any connectivity issue found
+      fail:
+        msg: "Connectivity failures detected — check /tmp/connectivity-matrix/ for details"
+      when: matrix_summary.stdout is search('\[FAIL\]')

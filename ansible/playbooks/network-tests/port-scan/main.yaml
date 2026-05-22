@@ -1,0 +1,73 @@
+---
+# Port reachability scan using nmap.
+# Scans a list of targets for open/closed/filtered ports.
+# Useful for validating firewall rules, verifying services are listening, and auditing exposure.
+#
+# Runs from each host in the inventory — use different inventory files to test
+# from inside vs outside a VLAN.
+
+- name: Port reachability scan
+  hosts: all
+  become: true
+  vars:
+    # List of targets with port ranges to scan
+    scan_targets:
+      - name: gateway
+        host: 10.10.10.1
+        ports: "22,80,443,8080"
+      - name: proxmox_main
+        host: 10.10.10.10
+        ports: "22,8006"
+      - name: truenas
+        host: 10.10.10.5
+        ports: "22,80,443,445,2049"
+      - name: docker_host
+        host: 10.10.10.10
+        ports: "80,443,8025"
+    nmap_flags: "-sT -T4 --open"   # TCP connect scan, aggressive timing, show open ports only
+    results_dir: "/tmp/nmap-results"
+
+  tasks:
+    - name: Install nmap
+      apt:
+        name: nmap
+        state: present
+        update_cache: true
+
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Run nmap scan against each target
+      shell: >
+        nmap {{ nmap_flags }}
+        -p {{ item.ports }}
+        {{ item.host }} 2>&1
+      register: nmap_results
+      loop: "{{ scan_targets }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Write results file
+      copy:
+        content: |
+          ===== Port Scan Results =====
+          Scanner: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Flags: {{ nmap_flags }}
+
+          {% for i in range(scan_targets | length) %}
+          --- Target: {{ scan_targets[i].name }} ({{ scan_targets[i].host }}) | Ports: {{ scan_targets[i].ports }} ---
+          {{ nmap_results.results[i].stdout | default('Scan failed') }}
+
+          {% endfor %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/nmap-results/{{ inventory_hostname }}.txt"
+        flat: true

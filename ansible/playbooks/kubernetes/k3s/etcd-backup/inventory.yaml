@@ -1,0 +1,14 @@
+---
+# Run against one server node only — etcd snapshots and SQLite backups
+# are cluster-wide, not per-node. Pick your primary server.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    k3s_primary:
+      hosts:
+        k3s-master-1:
+          ansible_host: 10.10.30.1

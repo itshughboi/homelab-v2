@@ -1,0 +1,11 @@
+---
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    docker_hosts:
+      hosts:
+        docker:
+          ansible_host: 10.10.10.10

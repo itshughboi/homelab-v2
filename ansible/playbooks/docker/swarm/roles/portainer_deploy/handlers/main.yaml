@@ -1,0 +1,6 @@
+---
+- name: Start Portainer
+  community.docker.docker_compose_v2:
+    project_src: /home/hughboi/code/portainer
+    state: present
+    restarted: true

@@ -1,0 +1,60 @@
+---
+services:
+  alloy:
+    container_name: alloy
+    image: grafana/alloy:v1.10.1
+    hostname: your-server-name
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - /home/hughboi/code/promgraftail/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /:/rootfs:ro
+      - /run:/run:ro
+      - /var/log:/var/log:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker/:ro
+      - /run/udev/data:/run/udev/data:ro
+    ports:
+      - "127.0.0.1:12345:12345"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alloy.entrypoints=http"
+      - "traefik.http.routers.alloy.rule=Host(`alloy.hughboi.cc`)"
+      - "traefik.http.middlewares.alloy-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.alloy.middlewares=alloy-https-redirect"
+      - "traefik.http.routers.alloy-secure.entrypoints=https"
+      - "traefik.http.routers.alloy-secure.rule=Host(`alloy.hughboi.cc`)"
+      - "traefik.http.routers.alloy-secure.tls=true"
+      - "traefik.http.routers.alloy-secure.service=alloy"
+      - "traefik.http.services.alloy.loadbalancer.server.port=3100"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - promgraftail
+
+
+volumes:
+  alloy_data:
+    driver: local
+
+networks:
+  proxy:
+    external: true
+  promgraftail:
+    external: true

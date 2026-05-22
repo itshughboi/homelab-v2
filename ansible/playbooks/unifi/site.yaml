@@ -1,0 +1,14 @@
+- name: "Ensure UniFi Networks exist"
+  community.general.unifi_network:
+    name: "{{ item.key | capitalize }}"
+    vlan_id: "{{ item.value.vlan }}"
+    subnet: "{{ item.value.subnet }}"
+    gateway: "{{ item.value.gateway | default(omit) }}"
+    dhcp_enabled: "{{ item.value.dhcp_enabled | default(true) }}"
+    dhcp_start: "{{ item.value.dhcp_start | default(omit) }}"
+    dhcp_stop: "{{ item.value.dhcp_stop | default(omit) }}"
+    # PXE Boot Support
+    dhcp_tftp_server: "{{ item.value.pxe_server | default(omit) }}"
+    dhcp_bootfile: "{{ item.value.pxe_file | default(omit) }}"
+    state: present
+  loop: "{{ unifi_networks | dict2items }}"

@@ -1,0 +1,27 @@
+---
+- name: Install Fail2Ban
+  apt:
+    name: fail2ban
+    state: present
+
+- name: Create jail.local
+  copy:
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [DEFAULT]
+      bantime = {{ fail2ban_bantime }}
+      findtime = {{ fail2ban_findtime }}
+      maxretry = {{ fail2ban_maxretry }}
+
+      [sshd]
+      enabled = true
+  notify: Restart fail2ban
+
+- name: Enable and start Fail2Ban
+  systemd:
+    name: fail2ban
+    enabled: true
+    state: started

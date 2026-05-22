@@ -1,0 +1,36 @@
+global:
+  domain: argocd.hughboi.vip
+
+server:
+  ingress:
+    enabled: false  # Using Traefik IngressRoute instead
+
+  extraArgs:
+    - --insecure  # TLS is terminated at Traefik; ArgoCD serves plain HTTP internally
+
+configs:
+  params:
+    server.insecure: true  # Must match --insecure arg above
+
+  cm:
+    # Allow ArgoCD to sync non-standard resource types (Traefik CRDs etc)
+    resource.customizations: |
+      traefik.io/IngressRoute:
+        health.lua: |
+          hs = {}
+          hs.status = "Healthy"
+          return hs
+
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      g, admin, role:admin
+
+  # Ignore differences in common fields that ArgoCD can't control
+  resource.exclusions: |
+    - apiGroups:
+        - "*"
+      kinds:
+        - Event
+      clusters:
+        - "*"

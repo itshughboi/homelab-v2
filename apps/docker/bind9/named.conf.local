@@ -1,0 +1,28 @@
+zone "hughboi.cc" {
+    type master;
+    file "/etc/bind/zones/db.hughboi.cc"; // file name can really be whatever
+    update-policy { grant tsig-key zonesub any; }; // to allow automatic updates to it. Automation w/Terraform
+};
+
+zone "hughboi.vip" {
+    type master;
+    file "/etc/bind/zones/db.hughboi.vip";
+    update-policy { grant tsig-key zonesub any; };
+};
+
+                                                    ; PTR record file. Optional as with my setup the forward lookup resolves already
+
+zone "10.10.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.10.10.10";
+};
+
+zone "10.10.20.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.10.10.20";
+};
+
+zone "10.10.30.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.10.10.30";
+};

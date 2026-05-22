@@ -1,0 +1,9 @@
+- name: Ensure hughboi is in the sudo group
+  user:
+    name: hughboi
+    groups: sudo
+    append: yes   # Important! Keeps existing groups
+
+- name: Notify user to log out and back in
+  debug:
+    msg: "User 'hughboi' has been added to sudo. They may need to log out and log in for new sudo permissions to take effect."

@@ -1,0 +1,42 @@
+---
+services:
+  fasten-onprem:
+    container_name: fasten-health
+    image: ghcr.io/fastenhealth/fasten-onprem:v1.1.3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /home/hughboi/data/fasten-health/db:/opt/fasten/db
+      - /home/hughboi/fastenhealth/config.yaml:/opt/fasten/config/config.yaml:ro
+      - cache:/opt/fasten/cache
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastenhealth.entrypoints=http"
+      - "traefik.http.routers.fastenhealth.rule=Host(`fastenhealth.hughboi.cc`)"
+      - "traefik.http.middlewares.fastenhealth-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.fastenhealth.middlewares=fastenhealth-https-redirect"
+      - "traefik.http.routers.fastenhealth-secure.entrypoints=https"
+      - "traefik.http.routers.fastenhealth-secure.rule=Host(`fastenhealth.hughboi.cc`)"
+      - "traefik.http.routers.fastenhealth-secure.tls=true"
+      - "traefik.http.services.fastenhealth.loadbalancer.server.port=8080"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+volumes:
+  cache:
+
+networks:
+  proxy:
+    external: true

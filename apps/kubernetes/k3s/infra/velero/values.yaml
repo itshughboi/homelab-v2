@@ -1,0 +1,64 @@
+# Velero Helm values
+# Chart: vmware-tanzu/velero
+# Docs: https://github.com/vmware-tanzu/helm-charts/tree/main/charts/velero
+
+# Credentials are provided via the `credentials.secretContents.cloud` value at
+# install time (see install.yaml) — not stored here.
+
+# Storage backend: MinIO on TrueNAS (S3-compatible, on-prem)
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: homelab-velero
+      default: true
+      config:
+        region: us-east-1                 # required by AWS SDK, any value works for MinIO
+        s3Url: http://truenas.lan:9000    # replace with actual TrueNAS IP/hostname
+        s3ForcePathStyle: "true"
+        insecureSkipTLSVerify: "true"    # MinIO without TLS
+
+  volumeSnapshotLocation:
+    - name: default
+      provider: csi                       # Longhorn CSI snapshots
+
+  # Default backup TTL: 14 days
+  defaultBackupTTL: 336h
+
+  # Metrics for Prometheus
+  metricsEnabled: true
+
+# AWS + CSI plugins (required for MinIO S3 backend + Longhorn CSI snapshots)
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.10.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+  - name: velero-plugin-for-csi
+    image: velero/velero-plugin-for-csi:v0.7.1
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+# Feature flags: CSI snapshot support requires this
+features: EnableCSI
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Metrics ServiceMonitor for Prometheus scraping
+metrics:
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+
+# Schedule: nightly full backup at 2AM, keep 14 days
+# Created post-install via `velero schedule create` (see install.yaml)
+# schedules is informational only — Velero schedules are cluster resources, not Helm values

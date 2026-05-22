@@ -1,0 +1,41 @@
+---
+services:
+  apprise-api:
+    container_name: apprise-api
+    image: lscr.io/linuxserver/apprise-api:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /home/hughboi/code/apprise/config:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Denver
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.apprise.entrypoints=http"
+      - "traefik.http.routers.apprise.rule=Host(`apprise.hughboi.cc`)"
+      - "traefik.http.middlewares.apprise-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.apprise.middlewares=apprise-https-redirect"
+      - "traefik.http.routers.apprise-secure.entrypoints=https"
+      - "traefik.http.routers.apprise-secure.rule=Host(`apprise.hughboi.cc`)"
+      - "traefik.http.routers.apprise-secure.tls=true"
+      - "traefik.http.routers.apprise-secure.service=apprise"
+      - "traefik.http.services.apprise.loadbalancer.server.port=8000"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

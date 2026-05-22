@@ -1,0 +1,147 @@
+---
+# Vaultwarden Local Backup Playbook
+# Orchestrated via Semaphore.
+#
+# group_vars/vaultwarden_host.yml should define:
+#   ntfy_url
+#
+# Dependencies on target host:
+#   - sqlite3
+#   - age  (https://github.com/FiloSottile/age)
+#   - tar, gzip, sha256sum, find, du
+
+- name: Vaultwarden Local Backup
+  hosts: vaultwarden_host
+  gather_facts: true
+
+  vars:
+    container_name: vaultwarden
+    vaultwarden_data_dir: /home/hughboi/data/vaultwarden/data
+    vaultwarden_root_dir: /home/hughboi/data/vaultwarden
+    backup_dir: /home/hughboi/data/vaultwarden/backups
+    age_recipient: age15zjkhtmytnx5l6fhhpte6gg5ha9ede28tgwcd2ewxtwth9l5090sve0rv6
+    retention_days: 45
+
+  tasks:
+    - name: Vaultwarden backup
+      block:
+        - name: Ensure backup directory exists
+          ansible.builtin.file:
+            path: "{{ backup_dir }}"
+            state: directory
+            mode: "0700"
+
+        - name: Verify live database integrity before backup
+          ansible.builtin.shell:
+            cmd: docker exec {{ container_name }} sqlite3 /data/db.sqlite3 "PRAGMA integrity_check;" | grep -q "ok"
+
+        - name: Set backup file paths
+          ansible.builtin.set_fact:
+            tar_file: "{{ backup_dir }}/vaultwarden-{{ ansible_date_time.date }}.tar.gz"
+            enc_file: "{{ backup_dir }}/vaultwarden-{{ ansible_date_time.date }}.tar.gz.age"
+
+        - name: Create SQLite hot backup
+          ansible.builtin.command:
+            cmd: sqlite3 {{ vaultwarden_data_dir }}/db.sqlite3 ".backup {{ vaultwarden_data_dir }}/db-backup.sqlite3"
+
+        - name: Sync filesystem buffers
+          ansible.builtin.command:
+            cmd: sync
+
+        - name: Create tar archive of Vaultwarden data
+          ansible.builtin.command:
+            cmd: tar --warning=no-file-changed -czf {{ tar_file }} -C {{ vaultwarden_root_dir }} data
+
+        - name: Encrypt archive with age
+          ansible.builtin.command:
+            cmd: age -r {{ age_recipient }} -o {{ enc_file }} {{ tar_file }}
+
+        - name: Generate SHA256 checksum of encrypted archive
+          ansible.builtin.shell:
+            cmd: sha256sum "{{ enc_file }}" > "{{ enc_file }}.sha256"
+            chdir: "{{ backup_dir }}"
+
+        - name: Remove unencrypted tar archive
+          ansible.builtin.file:
+            path: "{{ tar_file }}"
+            state: absent
+
+        - name: Remove temporary SQLite backup
+          ansible.builtin.file:
+            path: "{{ vaultwarden_data_dir }}/db-backup.sqlite3"
+            state: absent
+
+        - name: Get size of latest encrypted backup
+          ansible.builtin.command:
+            cmd: du -h {{ enc_file }}
+          register: backup_size_raw
+          changed_when: false
+
+        - name: Find backups older than {{ retention_days }} days
+          ansible.builtin.find:
+            paths: "{{ backup_dir }}"
+            patterns:
+              - "*.tar.gz.age"
+              - "*.tar.gz.age.sha256"
+            age: "{{ retention_days }}d"
+            recurse: false
+          register: old_backups
+
+        - name: Delete old backup files
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ old_backups.files }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+
+        - name: Send success notification via ntfy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: Vaultwarden Backup
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              Backup completed
+              Size: {{ backup_size_raw.stdout.split()[0] }}
+              Purged: {{ old_backups.files | map(attribute='path') | map('basename') | join(', ') or 'None' }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Clean up temporary SQLite backup if present
+          ansible.builtin.file:
+            path: "{{ vaultwarden_data_dir }}/db-backup.sqlite3"
+            state: absent
+          ignore_errors: true
+
+        - name: Clean up unencrypted tar if present
+          ansible.builtin.file:
+            path: "{{ tar_file }}"
+            state: absent
+          when: tar_file is defined
+          ignore_errors: true
+
+        - name: Send failure notification via ntfy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: Vaultwarden Backup FAILED
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Backup FAILED
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise the failure
+          ansible.builtin.fail:
+            msg: "Vaultwarden backup failed at task: {{ ansible_failed_task.name }}"

@@ -1,0 +1,50 @@
+---
+services:
+  searxng:
+    container_name: searxng
+    image: searxng/searxng:2026.5.17-d7e8b7cd1
+    restart: unless-stopped
+    # searxng requires root + caps for first-run file ownership setup
+    user: root
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - FOWNER
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME}/
+      - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
+      - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
+    volumes:
+      - /home/hughboi/data/searxng:/etc/searxng:rw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.search.entrypoints=http"
+      - "traefik.http.routers.search.rule=Host(`search.hughboi.cc`)"
+      - "traefik.http.middlewares.search-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.search.middlewares=search-https-redirect"
+      - "traefik.http.routers.search-secure.entrypoints=https"
+      - "traefik.http.routers.search-secure.rule=Host(`search.hughboi.cc`)"
+      - "traefik.http.routers.search-secure.tls=true"
+      - "traefik.http.routers.search-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.search-secure.service=search"
+      - "traefik.http.services.search.loadbalancer.server.port=8080"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

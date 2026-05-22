@@ -1,0 +1,81 @@
+# Longhorn RecurringJobs — cluster-wide automated data protection
+#
+# Two tiers:
+#   1. Hourly snapshots (fast, local, no bandwidth cost) — 5 kept
+#   2. Daily backups to S3/NFS target (survives node loss) — 14 kept
+#
+# Apply:
+#   kubectl apply -f infra/longhorn/recurringjob.yaml
+#
+# Pre-requisite: configure a Longhorn backup target first.
+#   Longhorn UI → Settings → General → Backup Target
+#   e.g. s3://homelab-longhorn@us-east-1/  (MinIO on TrueNAS)
+#   or   nfs://truenas.lan:/mnt/pool/longhorn-backup
+#
+# After applying, label each volume to opt it into jobs:
+#   kubectl -n longhorn-system label volume/<pvc-name> \
+#     recurring-job-group.longhorn.io/snapshots=enabled
+#     recurring-job-group.longhorn.io/backups=enabled
+#
+# Or set volume labels in Longhorn UI: Volumes → <vol> → Edit → Recurring Jobs.
+#
+# To apply to ALL volumes by default, patch the StorageClass:
+#   kubectl annotate storageclass longhorn \
+#     storageclass.kubernetes.io/is-default-class=true
+#   (then set recurring job groups in StorageClass parameters below)
+
+---
+# Hourly snapshots — 5 retained
+# Low cost, fast recovery from accidental deletion within the day.
+# Snapshots are local to the volume — they don't survive node/disk failure on their own.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: hourly-snapshot
+  namespace: longhorn-system
+spec:
+  cron: "0 * * * *"       # every hour at :00
+  task: snapshot
+  groups:
+    - snapshots
+  retain: 5
+  concurrency: 2
+  labels:
+    managed-by: longhorn-recurringjob
+
+---
+# Daily backups to external target — 14 retained (2 weeks)
+# Backups are full copies sent to the Backup Target (S3 or NFS).
+# These survive complete node/cluster loss — this is your actual DR.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: daily-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 2 * * *"        # 2:00 AM daily — runs after most apps are idle
+  task: backup
+  groups:
+    - backups
+  retain: 14
+  concurrency: 1            # 1 at a time — backups are bandwidth-heavy
+  labels:
+    managed-by: longhorn-recurringjob
+
+---
+# Weekly full backup — 4 retained (1 month)
+# Belt-and-suspenders weekly checkpoint, useful if daily backups have silent corruption.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: weekly-backup
+  namespace: longhorn-system
+spec:
+  cron: "0 3 * * 0"        # Sunday 3:00 AM
+  task: backup
+  groups:
+    - backups
+  retain: 4
+  concurrency: 1
+  labels:
+    managed-by: longhorn-recurringjob

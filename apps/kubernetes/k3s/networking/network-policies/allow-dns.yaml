@@ -1,0 +1,25 @@
+# Allows all pods to reach kube-dns for DNS resolution.
+# Without this, default-deny will break DNS lookups.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Also allow all egress within the same namespace
+    - to:
+        - podSelector: {}

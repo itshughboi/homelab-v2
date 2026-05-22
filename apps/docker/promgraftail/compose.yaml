@@ -1,0 +1,241 @@
+---
+services:
+
+  # cAdvisor — Docker container metrics. Uncomment if you want per-container CPU/mem/net in Grafana.
+  # cadvisor:
+  #   container_name: cadvisor
+  #   image: gcr.io/cadvisor/cadvisor:v0.50.0
+  #   restart: unless-stopped
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   devices:
+  #     - /dev/kmsg
+  #   privileged: true
+  #   volumes:
+  #     - /:/rootfs:ro
+  #     - /var/run:/var/run:ro
+  #     - /sys:/sys:ro
+  #     - /var/lib/docker/:/var/lib/docker:ro
+  #     - /dev/disk/:/dev/disk:ro
+  #   networks:
+  #     - promgraftail
+  #     - proxy
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:13.0.1
+    restart: unless-stopped
+    # Grafana default UID is 472. Run once on host to fix ownership:
+    #   sudo chown -R 472:472 /home/hughboi/data/grafana
+    user: "472"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+    volumes:
+      - /home/hughboi/data/grafana:/var/lib/grafana
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.entrypoints=http"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.hughboi.cc`)"
+      - "traefik.http.middlewares.grafana-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.grafana.middlewares=grafana-https-redirect"
+      - "traefik.http.routers.grafana-secure.entrypoints=https"
+      - "traefik.http.routers.grafana-secure.rule=Host(`grafana.hughboi.cc`)"
+      - "traefik.http.routers.grafana-secure.tls=true"
+      - "traefik.http.routers.grafana-secure.service=grafana"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+    networks:
+      - promgraftail
+      - proxy
+
+  influxdb:
+    container_name: influxdb
+    image: influxdb:2.9.1
+    restart: unless-stopped
+    user: "1000"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /home/hughboi/data/influxdb:/var/lib/influxdb
+    ports:
+      - "127.0.0.1:8086:8086"
+      - "127.0.0.1:8089:8089/udp"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.influxdb.entrypoints=http"
+      - "traefik.http.routers.influxdb.rule=Host(`influxdb.hughboi.cc`)"
+      - "traefik.http.middlewares.influxdb-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.influxdb.middlewares=influxdb-https-redirect"
+      - "traefik.http.routers.influxdb-secure.entrypoints=https"
+      - "traefik.http.routers.influxdb-secure.rule=Host(`influxdb.hughboi.cc`)"
+      - "traefik.http.routers.influxdb-secure.tls=true"
+      - "traefik.http.routers.influxdb-secure.service=influxdb"
+      - "traefik.http.services.influxdb.loadbalancer.server.port=8086"
+      - "traefik.docker.network=proxy"
+    networks:
+      - promgraftail
+      - proxy
+
+  loki:
+    container_name: loki
+    image: grafana/loki:3.4.2
+    restart: unless-stopped
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    command: "-config.file=/etc/loki/config.yaml"
+    volumes:
+      - /home/hughboi/code/promgraftail/loki/config.yaml:/etc/loki/config.yaml:ro
+      - /home/hughboi/data/loki/data:/loki:rw
+    ports:
+      - "127.0.0.1:3100:3100"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loki.entrypoints=http"
+      - "traefik.http.routers.loki.rule=Host(`loki.hughboi.cc`)"
+      - "traefik.http.middlewares.loki-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.loki.middlewares=loki-https-redirect"
+      - "traefik.http.routers.loki-secure.entrypoints=https"
+      - "traefik.http.routers.loki-secure.rule=Host(`loki.hughboi.cc`)"
+      - "traefik.http.routers.loki-secure.tls=true"
+      - "traefik.http.routers.loki-secure.service=loki"
+      - "traefik.http.services.loki.loadbalancer.server.port=3100"
+      - "traefik.docker.network=proxy"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+    networks:
+      - promgraftail
+      - proxy
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v3.11.3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: "--config.file=/etc/prometheus/prometheus.yml --web.enable-remote-write-receiver"
+    volumes:
+      - /home/hughboi/code/promgraftail/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /home/hughboi/code/promgraftail/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    ports:
+      - "127.0.0.1:9070:9090"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+    networks:
+      - promgraftail
+      # - proxy   # Uncomment to expose prometheus via Traefik
+
+  alertmanager:
+    container_name: alertmanager
+    image: quay.io/prometheus/alertmanager:v0.32.1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /home/hughboi/code/promgraftail/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks:
+      - promgraftail
+      - proxy
+
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:3.4.2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/hughboi/promgraftail/promtail/config.yaml:/etc/promtail/promtail-config.yml:ro
+      # Unbound logs — alternatively set logfile to /dev/stdout in unbound.conf
+      - /home/hughboi/adguard/unbound/unbound.log:/etc/unbound/unbound.log
+    ports:
+      - "1514:1514"   # Syslog receiver — only needed if sending syslogs from other devices
+    networks:
+      - promgraftail
+
+  telegraf:
+    container_name: telegraf
+    image: telegraf:1.32.3
+    restart: unless-stopped
+    user: telegraf:988
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    volumes:
+      - /home/hughboi/code/promgraftail/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /:/hostfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/hughboi/data/promgraftail/mibs:/usr/share/snmp/mibs
+    environment:
+      - HOST_ETC=/hostfs/etc
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+      - HOST_VAR=/hostfs/var
+      - HOST_RUN=/hostfs/run
+      - HOST_MOUNT_PREFIX=/hostfs
+    networks:
+      - promgraftail
+
+
+networks:
+  promgraftail:
+  proxy:
+    external: true

@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fasten-health
+  namespace: fasten-health
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: fasten-health
+  template:
+    metadata:
+      labels:
+        app: fasten-health
+    spec:
+      containers:
+        - name: fasten-health
+          image: ghcr.io/fastenhealth/fasten-onprem:main
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: db
+              mountPath: /opt/fasten/db
+            - name: cache
+              mountPath: /opt/fasten/cache
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: fasten-health-db
+        - name: cache
+          persistentVolumeClaim:
+            claimName: fasten-health-cache

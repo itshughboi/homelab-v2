@@ -1,0 +1,181 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":prHourlyLimit2",
+    ":prConcurrentLimit10"
+  ],
+
+  "timezone": "America/Denver",
+  "automerge": false,
+  "rebaseWhen": "behind-base-branch",
+  "labels": ["renovate"],
+
+  "schedule": ["after 10pm on sunday"],
+
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2,
+
+  "enabledManagers": [
+    "kubernetes",
+    "docker-compose",
+    "terraform",
+    "terraform-version",
+    "ansible",
+    "ansible-galaxy",
+    "regex"
+  ],
+
+  "kubernetes": {
+    "fileMatch": [
+      "apps/kubernetes/k3s/apps/.*\\.yaml$",
+      "apps/kubernetes/k3s/infra/.*\\.yaml$",
+      "apps/kubernetes/k3s/networking/.*\\.yaml$",
+      "apps/kubernetes/k3s/monitoring/.*\\.yaml$"
+    ]
+  },
+
+  "docker-compose": {
+    "fileMatch": [
+      "apps/docker/.*/compose\\.ya?ml$",
+      "apps/docker/.*/docker-compose\\.ya?ml$",
+      "bootstrap/.*/compose\\.ya?ml$"
+    ]
+  },
+
+  "terraform": {
+    "fileMatch": [
+      "terraform/.*\\.tf$"
+    ]
+  },
+
+  "ansible": {
+    "fileMatch": [
+      "ansible/.*\\.ya?ml$"
+    ]
+  },
+
+  "ansible-galaxy": {
+    "fileMatch": [
+      "ansible/requirements\\.ya?ml$",
+      "ansible/.*/requirements\\.ya?ml$"
+    ]
+  },
+
+  "regex": {
+    "fileMatch": [
+      "apps/kubernetes/k3s/infra/system-upgrade-controller/.*\\.yaml$"
+    ]
+  },
+
+  "customManagers": [
+    {
+      "description": "Track k3s version in system-upgrade-controller Plans",
+      "customType": "regex",
+      "fileMatch": [
+        "apps/kubernetes/k3s/infra/system-upgrade-controller/.*\\.yaml$"
+      ],
+      "matchStrings": [
+        "version: (?<currentValue>[v\\d\\.]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "k3s-io/k3s",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "description": "Track bpg/proxmox Terraform provider version in providers.tf",
+      "customType": "regex",
+      "fileMatch": [
+        "terraform/proxmox/providers\\.tf$"
+      ],
+      "matchStrings": [
+        "version = \"(?<currentValue>[\\d\\.]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "bpg/terraform-provider-proxmox",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
+
+  "packageRules": [
+    {
+      "description": "Patch updates: automerge",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Immich pgvecto-rs must stay pinned — Immich requires a specific version",
+      "matchPackageNames": ["tensorchord/pgvecto-rs"],
+      "enabled": false
+    },
+    {
+      "description": "Authentik: review changelogs before any upgrade (breaking changes common)",
+      "matchPackageNames": [
+        "ghcr.io/goauthentik/server",
+        "ghcr.io/goauthentik/proxy"
+      ],
+      "automerge": false,
+      "schedule": ["at any time"]
+    },
+    {
+      "description": "Gitea: review before upgrading — it's the ArgoCD repo source, downtime affects GitOps sync",
+      "matchPackageNames": ["gitea/gitea"],
+      "automerge": false
+    },
+    {
+      "description": "Terraform providers: review before upgrading (potential state schema changes)",
+      "matchManagers": ["terraform"],
+      "automerge": false
+    },
+    {
+      "description": "k3s upgrades: never automerge — drain nodes + snapshot VMs first",
+      "matchPackageNames": ["k3s-io/k3s"],
+      "automerge": false,
+      "schedule": ["at any time"]
+    },
+    {
+      "description": "Renovate image itself: update freely",
+      "matchPackageNames": ["renovate/renovate"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Database images (postgres, mysql, redis): never automerge — risk of data migration required",
+      "matchPackageNames": [
+        "postgres",
+        "mysql",
+        "redis",
+        "docker.io/library/postgres",
+        "docker.io/library/mysql",
+        "docker.io/library/redis"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Group all monitoring stack updates (prometheus, grafana, loki, alloy) into one PR",
+      "matchPackageNames": [
+        "prom/prometheus",
+        "grafana/grafana",
+        "grafana/loki",
+        "grafana/alloy",
+        "quay.io/prometheus/alertmanager"
+      ],
+      "groupName": "monitoring-stack",
+      "automerge": false
+    },
+    {
+      "description": "Group all Traefik-adjacent updates",
+      "matchPackageNames": [
+        "traefik",
+        "traefik/traefik",
+        "docker.io/traefik"
+      ],
+      "groupName": "traefik",
+      "automerge": false
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+---
+services:
+  webserver:
+    container_name: paperless-webserver
+    image: ghcr.io/paperless-ngx/paperless-ngx:2.20.15
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      gotenberg:
+        condition: service_started
+      tika:
+        condition: service_started
+    environment:
+      - PAPERLESS_REDIS=redis://broker:6379
+      - PAPERLESS_DBHOST=db
+      - PAPERLESS_TIKA_ENABLED=1
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - PAPERLESS_URL=https://paperless.hughboi.cc
+      - PAPERLESS_ADMIN_USER=${PAPERLESS_ADMIN_USER}
+      - PAPERLESS_ADMIN_PASSWORD=${PAPERLESS_ADMIN_PASSWORD}
+    env_file: .env
+    volumes:
+      - data:/usr/src/paperless/data
+      - media:/usr/src/paperless/media
+      - export:/usr/src/paperless/export
+      - /mnt/truenas/paperless:/usr/src/paperless/consume   # NFS import directory
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperless.entrypoints=http"
+      - "traefik.http.routers.paperless.rule=Host(`paperless.hughboi.cc`)"
+      - "traefik.http.middlewares.paperless-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.paperless.middlewares=paperless-https-redirect"
+      - "traefik.http.routers.paperless-secure.entrypoints=https"
+      - "traefik.http.routers.paperless-secure.rule=Host(`paperless.hughboi.cc`)"
+      - "traefik.http.routers.paperless-secure.tls=true"
+      - "traefik.http.routers.paperless-secure.service=paperless"
+      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
+      - "traefik.docker.network=proxy"
+    pids_limit: 300
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 512m
+    networks:
+      - paperless
+      - proxy
+
+  db:
+    container_name: paperless-db
+    image: docker.io/library/postgres:15
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 300
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "paperless", "-d", "paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    environment:
+      - POSTGRES_DB=paperless
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DBPASS}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - paperless
+
+  gotenberg:
+    container_name: paperless-gotenberg
+    image: docker.io/gotenberg/gotenberg:8.32
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+    tmpfs:
+      - /tmp
+    networks:
+      - paperless
+
+  broker:
+    container_name: paperless-broker
+    image: docker.io/library/redis:7
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - redisdata:/data
+    networks:
+      - paperless
+
+  tika:
+    container_name: paperless-tika
+    image: ghcr.io/paperless-ngx/tika:2.20.15
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - paperless
+
+
+volumes:
+  data:
+  redisdata:
+  export:
+  media:
+  pgdata:
+
+networks:
+  paperless:
+    internal: true
+  proxy:
+    external: true

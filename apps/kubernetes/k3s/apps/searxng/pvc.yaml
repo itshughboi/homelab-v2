@@ -1,0 +1,14 @@
+# Config volume — copy your existing /home/hughboi/data/searxng contents here
+# after first apply via: kubectl cp searxng/. <pod>:/etc/searxng/
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: searxng-config
+  namespace: searxng
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi

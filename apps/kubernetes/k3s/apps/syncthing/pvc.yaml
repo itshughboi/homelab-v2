@@ -1,0 +1,14 @@
+# Covers Syncthing config + default sync folder (/var/syncthing).
+# If you sync folders outside /var/syncthing, add additional PVCs (NFS PVs for NAS paths).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: syncthing-data
+  namespace: syncthing
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 50Gi

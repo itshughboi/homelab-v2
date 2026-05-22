@@ -1,0 +1,129 @@
+---
+name: immich
+
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-v2.7.5}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: [ "start.sh", "immich" ]
+    extends:
+      file: hwaccel.transcoding.yml
+      service: vaapi
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      - redis
+      - database
+    volumes:
+      - /home/hughboi/data/immich/upload/:/usr/src/app/upload
+      - /mnt/truenas/immich:/external-media:ro
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    healthcheck:
+      disable: false
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.immich.entrypoints=http"
+      - "traefik.http.routers.immich.rule=Host(`immich.hughboi.cc`)"
+      - "traefik.http.middlewares.immich-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.immich.middlewares=immich-https-redirect"
+      - "traefik.http.routers.immich-secure.entrypoints=https"
+      - "traefik.http.routers.immich-secure.rule=Host(`immich.hughboi.cc`)"
+      - "traefik.http.routers.immich-secure.tls=true"
+      - "traefik.http.routers.immich-secure.service=immich"
+      - "traefik.http.services.immich.loadbalancer.server.port=2283"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - immich
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-v2.7.5}-openvino
+    restart: unless-stopped
+    # SYS_ADMIN and apparmor=unconfined required for OpenVINO GPU acceleration
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    extends:
+      file: hwaccel.ml.yml
+      service: hwaccel
+    volumes:
+      - immich-cache:/cache
+    env_file:
+      - .env
+    healthcheck:
+      disable: false
+    networks:
+      - immich
+
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8-bookworm
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: redis-cli ping || exit 1
+    networks:
+      - immich
+
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvector0.8.0-pgvectors0.3.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      DB_STORAGE_TYPE: ${DB_STORAGE_TYPE:-SSD}
+    env_file:
+      - .env
+    volumes:
+      - immich-postgres:/var/lib/postgresql/data
+    networks:
+      - immich
+
+
+volumes:
+  immich-cache:
+  immich-postgres:
+
+
+networks:
+  proxy:
+    external: true
+  immich:

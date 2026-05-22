@@ -1,0 +1,79 @@
+globalArguments:
+  - "--global.sendanonymoususage=false"
+  - "--global.checknewversion=false"
+
+additionalArguments:
+  - "--serversTransport.insecureSkipVerify=true"
+  - "--log.level=INFO"
+  - "--experimental.plugins.bouncer.moduleName=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin" 
+  - "--experimental.plugins.bouncer.version=v1.1.16" # << UPDATE THIS AS NEWER VERSIONS COME OUT
+  - "--entrypoints.web.http.middlewares=traefik-bouncer@kubernetescrd"
+  - "--entrypoints.websecure.http.middlewares=traefik-bouncer@kubernetescrd"
+  - "--providers.kubernetescrd"
+  
+deployment:
+  enabled: true
+  replicas: 3 # match with number of workers
+  annotations: {}
+  podAnnotations: {}
+  additionalContainers: []
+  initContainers: []
+
+nodeSelector: 
+  worker: "true" # add these labels to your worker nodes in Rancher if it didn't get applied already. This says only put Traefik on worker nodes
+
+ports:
+  web:
+    redirections:
+      entryPoint:
+        to: websecure
+        scheme: https
+        permanent: true
+  websecure:
+    tls:
+      enabled: true
+      
+ingressRoute:
+  dashboard:
+    enabled: false
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    ingressClass: traefik-external
+    allowExternalNameServices: true
+  kubernetesIngress:
+    enabled: true
+    allowExternalNameServices: true
+    publishedService:
+      enabled: false
+
+rbac:
+  enabled: true
+
+service:
+  enabled: true
+  type: LoadBalancer
+  annotations: {}
+  labels: {}
+  spec:
+    loadBalancerIP: 10.10.30.75 # this should be an IP in the Kube-VIP range e.g. 10.10.30-70-10.10.30.99
+    externalTrafficPolicy: Local # required to show the source IP- Cluster value will not show internal IP and crowdsec will not work. Kube-vip or metallb needs to be installed on each node hosting service
+  loadBalancerSourceRanges: []
+  externalIPs: []
+
+logs:
+  access:
+    enabled: true
+
+# experimental: # << might need to re-enable this, but I was not able to deploy Traefik with this as is. Gave me a config error
+#   plugins:
+#     enabled: true
+
+volumes:
+  - name: crowdsec-bouncer-tls
+    mountPath: /etc/traefik/crowdsec-certs/
+    type: secret # come from Cert Manager
+
+image:
+  pullPolicy: IfNotPresent

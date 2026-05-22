@@ -1,0 +1,128 @@
+---
+# Docker image audit — finds containers running on :latest, untagged, or very old images.
+# Useful for identifying drift from the pinned-tag discipline enforced in compose files,
+# or finding containers started manually outside of compose.
+# Does NOT make any changes — read-only report.
+
+- name: Docker image audit
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/image-audit"
+    # Images that are legitimately allowed to run on :latest
+    latest_allowlist: []
+
+  tasks:
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Get all running containers with image info
+      ansible.builtin.shell:
+        cmd: >
+          docker ps --format
+          '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.ID}}'
+      register: containers_raw
+      changed_when: false
+
+    - name: Get full image details (created date, digest)
+      ansible.builtin.shell:
+        cmd: |
+          docker ps -q | xargs -r docker inspect \
+            --format '{{.Name}} {{.Config.Image}} {{.Image}} {{.Created}}' \
+            2>/dev/null | sed 's|^/||'
+      register: image_details_raw
+      changed_when: false
+
+    - name: Check for :latest or untagged images
+      ansible.builtin.shell:
+        cmd: |
+          python3 -c "
+          import subprocess, json
+          result = subprocess.run(
+              ['docker', 'ps', '--format', '{{.Names}}\t{{.Image}}'],
+              capture_output=True, text=True
+          )
+          latest = []
+          untagged = []
+          for line in result.stdout.strip().split('\n'):
+              if not line:
+                  continue
+              parts = line.split('\t')
+              if len(parts) < 2:
+                  continue
+              name, image = parts[0], parts[1]
+              if ':' not in image or image.endswith(':latest'):
+                  latest.append(f'{name} -> {image}')
+              elif image.startswith('sha256:'):
+                  untagged.append(f'{name} -> {image[:20]}...')
+          if latest:
+              print('!! LATEST TAG (should be pinned):')
+              for l in latest:
+                  print(f'   {l}')
+          if untagged:
+              print('!! UNTAGGED (running on raw digest):')
+              for u in untagged:
+                  print(f'   {u}')
+          if not latest and not untagged:
+              print('OK: All containers are running pinned image tags')
+          "
+      register: tag_check
+      changed_when: false
+
+    - name: Find images older than 90 days
+      ansible.builtin.shell:
+        cmd: |
+          docker images --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}\t{{.Size}}' | \
+            grep -E 'months ago|years ago' || echo "OK: No images older than ~3 months"
+      register: old_images
+      changed_when: false
+
+    - name: Get unused images (dangling)
+      ansible.builtin.shell:
+        cmd: |
+          count=$(docker images -f dangling=true -q | wc -l)
+          size=$(docker images -f dangling=true --format '{{.Size}}' | \
+            awk '{sum+=$1} END{print sum " MB"}' 2>/dev/null || echo "?")
+          echo "$count dangling images ($size wasted)"
+      register: dangling_images
+      changed_when: false
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== Docker Image Audit =====
+          Host: {{ inventory_hostname }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          ── Tag Discipline Check ─────────────────────────
+          {{ tag_check.stdout }}
+
+          ── Old Images (>90 days) ────────────────────────
+          {{ old_images.stdout }}
+
+          ── Dangling Images ──────────────────────────────
+          {{ dangling_images.stdout }}
+          (Run: docker image prune to clean these up)
+
+          ── All Running Containers ───────────────────────
+          {{ containers_raw.stdout }}
+
+          ── Full Image Details ───────────────────────────
+          {{ image_details_raw.stdout }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      ansible.builtin.fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/image-audit/{{ inventory_hostname }}.txt"
+        flat: true
+
+    - name: Print tag discipline summary
+      ansible.builtin.debug:
+        msg: "{{ tag_check.stdout_lines }}"

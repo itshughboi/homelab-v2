@@ -1,0 +1,23 @@
+# Allows Traefik (in the traefik namespace) to reach pods in the target namespace.
+# Apply to every app namespace that has an IngressRoute.
+#
+# Requires the traefik namespace to have the label: kubernetes.io/metadata.name=traefik
+# (This label is set automatically by k8s 1.21+ on all namespaces)
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-ingress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+    - from:
+        # Also allow same-namespace traffic (intra-app communication)
+        - podSelector: {}

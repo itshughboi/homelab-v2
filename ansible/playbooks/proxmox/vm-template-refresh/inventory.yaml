@@ -1,0 +1,14 @@
+---
+# Run against one Proxmox node only — templates are per-node in Proxmox.
+# Clone to other nodes manually via the UI if needed, or run separately against each.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    proxmox_primary:
+      hosts:
+        pve-srv-1:
+          ansible_host: 10.10.10.1

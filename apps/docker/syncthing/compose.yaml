@@ -1,0 +1,45 @@
+---
+services:
+  syncthing:
+    container_name: syncthing
+    image: syncthing/syncthing:2.0.8
+    hostname: syncthing
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /home/hughboi/data/syncthing/:/var/syncthing
+    ports:
+      - "22000:22000/tcp"   # TCP file transfers — must be open to LAN
+      - "22000:22000/udp"   # QUIC file transfers — must be open to LAN
+      - "21027:21027/udp"   # Local discovery broadcasts
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.syncthing.entrypoints=http"
+      - "traefik.http.routers.syncthing.rule=Host(`syncthing.hughboi.cc`)"
+      - "traefik.http.routers.syncthing.middlewares=syncthing-https-redirect"
+      - "traefik.http.middlewares.syncthing-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.syncthing-secure.entrypoints=https"
+      - "traefik.http.routers.syncthing-secure.rule=Host(`syncthing.hughboi.cc`)"
+      - "traefik.http.routers.syncthing-secure.tls=true"
+      - "traefik.http.services.syncthing.loadbalancer.server.port=8384"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

@@ -1,0 +1,18 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: tubearchivist
+  namespace: tube-archivist
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`yt.hughboi.vip`)
+      kind: Rule
+      services:
+        - name: tubearchivist
+          port: 8000
+  tls:
+    secretName: hughboi-tls

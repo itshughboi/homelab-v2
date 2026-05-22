@@ -1,0 +1,113 @@
+---
+# iperf3 bandwidth test
+# Picks the first host in [iperf_server] as the server, runs clients against it from [iperf_clients].
+# Run: ansible-playbook main.yaml -i inventory.yaml
+#
+# Results saved to /tmp/iperf3-results/ on the controller node (fetched from each client).
+
+- name: Start iperf3 server
+  hosts: iperf_server
+  become: true
+  tasks:
+    - name: Install iperf3
+      apt:
+        name: iperf3
+        state: present
+        update_cache: true
+
+    - name: Kill any existing iperf3 server
+      shell: pkill -f "iperf3 -s" || true
+      changed_when: false
+
+    - name: Start iperf3 server in background
+      shell: nohup iperf3 -s -D
+      args:
+        creates: /tmp/iperf3.pid
+      changed_when: true
+
+    - name: Wait for server to be ready
+      wait_for:
+        port: 5201
+        timeout: 15
+
+- name: Run iperf3 clients
+  hosts: iperf_clients
+  become: true
+  vars:
+    server_ip: "{{ hostvars[groups['iperf_server'][0]]['ansible_default_ipv4']['address'] }}"
+    duration: 10        # seconds per test
+    parallel: 4         # parallel streams
+    results_dir: "/tmp/iperf3-results"
+  tasks:
+    - name: Install iperf3
+      apt:
+        name: iperf3
+        state: present
+        update_cache: true
+
+    - name: Create local results dir
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Run TCP throughput test
+      shell: >
+        iperf3 -c {{ server_ip }}
+        -t {{ duration }}
+        -P {{ parallel }}
+        --json
+      register: tcp_result
+      changed_when: false
+
+    - name: Run UDP throughput test (1 Gbps target)
+      shell: >
+        iperf3 -c {{ server_ip }}
+        -u -b 1G
+        -t {{ duration }}
+        --json
+      register: udp_result
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run reverse test (server → client)
+      shell: >
+        iperf3 -c {{ server_ip }}
+        -t {{ duration }}
+        -P {{ parallel }}
+        -R --json
+      register: reverse_result
+      changed_when: false
+
+    - name: Write results file
+      copy:
+        content: |
+          ===== iperf3 Results =====
+          Client: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Server: {{ server_ip }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          --- TCP ({{ parallel }} streams, {{ duration }}s) ---
+          {{ tcp_result.stdout }}
+
+          --- UDP (1 Gbps target, {{ duration }}s) ---
+          {{ udp_result.stdout | default('UDP test failed or not supported') }}
+
+          --- Reverse TCP (server→client) ---
+          {{ reverse_result.stdout }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/iperf3-results/{{ inventory_hostname }}.txt"
+        flat: true
+
+- name: Stop iperf3 server
+  hosts: iperf_server
+  become: true
+  tasks:
+    - name: Kill iperf3 server
+      shell: pkill -f "iperf3 -s" || true
+      changed_when: false

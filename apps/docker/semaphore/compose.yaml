@@ -1,0 +1,97 @@
+---
+services:
+  mysql:
+    container_name: semaphore-mysql
+    image: docker.io/library/mysql:8.4
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 300
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - semaphore-mysql:/var/lib/mysql
+    networks:
+      - semaphore
+
+  semaphore:
+    container_name: semaphore
+    image: docker.io/semaphoreui/semaphore:v2.18.4
+    restart: unless-stopped
+    user: "${UID}:${GID}"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - SEMAPHORE_DB_USER=${MYSQL_USER}
+      - SEMAPHORE_DB_PASS=${MYSQL_PASSWORD}
+      - SEMAPHORE_DB_HOST=mysql
+      - SEMAPHORE_DB_PORT=3306
+      - SEMAPHORE_DB_DIALECT=mysql
+      - SEMAPHORE_DB=${MYSQL_DATABASE}
+      - SEMAPHORE_PLAYBOOK_PATH=/tmp/semaphore/
+      - SEMAPHORE_ADMIN_PASSWORD=${SEMAPHORE_ADMIN_PASSWORD}
+      - SEMAPHORE_ADMIN_NAME=${SEMAPHORE_ADMIN_NAME}
+      - SEMAPHORE_ADMIN_EMAIL=${SEMAPHORE_ADMIN_EMAIL}
+      - SEMAPHORE_ADMIN=${SEMAPHORE_ADMIN_NAME}
+      - SEMAPHORE_ACCESS_KEY_ENCRYPTION=${SEMAPHORE_ACCESS_KEY_ENCRYPTION}
+      - ANSIBLE_HOST_KEY_CHECKING=false
+    volumes:
+      - /home/hughboi/data/semaphore/inventory/:/inventory:ro
+      - /home/hughboi/data/semaphore/authorized-keys/:/authorized-keys:ro
+      - /home/hughboi/data/semaphore/config/:/etc/semaphore:rw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.semaphore.entrypoints=http"
+      - "traefik.http.routers.semaphore.rule=Host(`semaphore.hughboi.cc`)"
+      - "traefik.http.middlewares.semaphore-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.semaphore.middlewares=semaphore-https-redirect"
+      - "traefik.http.routers.semaphore-secure.entrypoints=https"
+      - "traefik.http.routers.semaphore-secure.rule=Host(`semaphore.hughboi.cc`)"
+      - "traefik.http.routers.semaphore-secure.tls=true"
+      - "traefik.http.routers.semaphore-secure.service=semaphore"
+      - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - semaphore
+
+
+volumes:
+  semaphore-mysql:
+    driver: local
+
+networks:
+  proxy:
+    external: true
+  semaphore:
+    internal: true

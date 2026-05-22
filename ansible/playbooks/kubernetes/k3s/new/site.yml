@@ -1,0 +1,131 @@
+---
+# site.yml — Main k3s cluster bootstrap playbook.
+# Run preflight.yml first to validate readiness without making changes.
+#
+# Usage:
+#   # Full bootstrap (fresh cluster):
+#   ansible-playbook -i inventory.yaml site.yml --ask-vault-pass
+#
+#   # With vault password file:
+#   ansible-playbook -i inventory.yaml site.yml --vault-password-file ~/.vault_pass
+#
+#   # Only run specific stages (using tags):
+#   ansible-playbook -i inventory.yaml site.yml --tags prereqs --ask-vault-pass
+#   ansible-playbook -i inventory.yaml site.yml --tags longhorn --ask-vault-pass
+#   ansible-playbook -i inventory.yaml site.yml --tags k3s --ask-vault-pass
+#   ansible-playbook -i inventory.yaml site.yml --tags labels --ask-vault-pass
+#
+#   # Dry run (check mode — no changes made):
+#   ansible-playbook -i inventory.yaml site.yml --check --ask-vault-pass
+#
+# Bootstrap order:
+#   1. prereqs     — ALL nodes: packages, sysctl, swap, firewall
+#   2. longhorn    — Storage nodes only: disk format, iSCSI config
+#   3. init        — master-1 only: cluster-init, kube-vip, token generation
+#   4. servers     — master-2 and master-3: join via VIP
+#   5. agents      — workers + longhorn nodes: join as agents
+#   6. post        — node labels, taints, kubeconfig fetch, verify
+
+###############################################################################
+# STAGE 1: System prerequisites on all nodes
+###############################################################################
+- name: Stage 1 — System Prerequisites (all nodes)
+  hosts: k3s_all
+  gather_facts: true
+  become: true
+  tags:
+    - prereqs
+    - stage1
+  roles:
+    - prereqs
+
+###############################################################################
+# STAGE 2: Longhorn storage node preparation
+###############################################################################
+- name: Stage 2 — Longhorn Prerequisites (storage nodes only)
+  hosts: k3s_longhorn
+  gather_facts: true
+  become: true
+  tags:
+    - longhorn
+    - stage2
+  roles:
+    - longhorn-prereqs
+
+###############################################################################
+# STAGE 3: Bootstrap first master
+# kube-vip is placed in the auto-deploy manifests directory so it starts
+# with k3s and makes the VIP available before other nodes join.
+###############################################################################
+- name: Stage 3 — Bootstrap First Master ({{ groups['k3s_masters'][0] }})
+  hosts: k3s_masters[0]
+  gather_facts: true
+  become: true
+  tags:
+    - k3s
+    - init
+    - stage3
+  roles:
+    - k3s-server-init
+
+###############################################################################
+# STAGE 4: Join additional control-plane nodes
+# These join via the VIP established in Stage 3.
+# Run serially (one at a time) to prevent etcd split-brain during join.
+###############################################################################
+- name: Stage 4 — Join Additional Masters
+  hosts: k3s_masters[1:]   # master-2 and master-3
+  gather_facts: true
+  become: true
+  serial: 1                 # join one at a time — etcd is sensitive during join
+  tags:
+    - k3s
+    - servers
+    - stage4
+  roles:
+    - k3s-server-join
+
+###############################################################################
+# STAGE 5: Join worker and storage nodes as agents
+# Workers and Longhorn nodes join as agents (no etcd, no API server).
+# Can run in parallel since they don't affect etcd state.
+###############################################################################
+- name: Stage 5a — Join Worker Nodes as Agents
+  hosts: k3s_workers
+  gather_facts: true
+  become: true
+  tags:
+    - k3s
+    - agents
+    - stage5
+  roles:
+    - k3s-agent-join
+
+- name: Stage 5b — Join Longhorn Storage Nodes as Agents
+  hosts: k3s_longhorn
+  gather_facts: true
+  become: true
+  tags:
+    - k3s
+    - agents
+    - longhorn
+    - stage5
+  roles:
+    - k3s-agent-join
+
+###############################################################################
+# STAGE 6: Post-install — labels, taints, kubeconfig, verification
+# Runs on master-1 only since it has the kubeconfig.
+###############################################################################
+- name: Stage 6 — Post-Install Configuration
+  hosts: k3s_masters[0]
+  gather_facts: true
+  become: true
+  tags:
+    - post
+    - labels
+    - kubeconfig
+    - verify
+    - stage6
+  roles:
+    - post-install

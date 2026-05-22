@@ -1,0 +1,9 @@
+---
+# This playbook runs entirely from localhost — it probes endpoints over HTTPS
+# from the Ansible controller, so no remote hosts are needed.
+# The endpoint list is configured in main.yaml under the `endpoints` var.
+
+all:
+  hosts:
+    localhost:
+      ansible_connection: local

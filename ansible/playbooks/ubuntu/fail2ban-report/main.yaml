@@ -1,0 +1,141 @@
+---
+# fail2ban status report.
+# Shows which jails are active, current ban counts, top attacking IPs,
+# and recent ban activity per service.
+# Useful for weekly security situational awareness alongside Wazuh.
+# Read-only — makes no changes.
+
+- name: fail2ban report
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/fail2ban-report"
+    top_n_ips: 15       # show this many top attacking IPs
+
+  tasks:
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check if fail2ban is installed and running
+      ansible.builtin.shell:
+        cmd: systemctl is-active fail2ban 2>/dev/null || echo "inactive"
+      register: fail2ban_status
+      changed_when: false
+
+    - name: Get jail list
+      ansible.builtin.shell:
+        cmd: fail2ban-client status 2>/dev/null | grep 'Jail list' | cut -d: -f2 | tr ',' '\n' | tr -d ' \t' | grep -v '^$'
+      register: jail_list
+      changed_when: false
+      when: fail2ban_status.stdout == "active"
+
+    - name: Get status for each jail
+      ansible.builtin.shell:
+        cmd: |
+          jail="{{ item }}"
+          echo "=== Jail: $jail ==="
+          fail2ban-client status "$jail" 2>/dev/null
+          echo ""
+      loop: "{{ jail_list.stdout_lines | default([]) }}"
+      register: jail_statuses
+      changed_when: false
+      when: fail2ban_status.stdout == "active"
+
+    - name: Get top attacking IPs across all jails
+      ansible.builtin.shell:
+        cmd: |
+          python3 -c "
+          import subprocess, re
+          from collections import Counter
+
+          jails_result = subprocess.run(
+              ['fail2ban-client', 'status'],
+              capture_output=True, text=True
+          )
+          jails_line = [l for l in jails_result.stdout.split('\n') if 'Jail list' in l]
+          if not jails_line:
+              print('No jails found')
+              exit(0)
+
+          jails = [j.strip() for j in jails_line[0].split(':')[1].split(',') if j.strip()]
+          all_ips = Counter()
+          banned_by_jail = {}
+
+          for jail in jails:
+              result = subprocess.run(
+                  ['fail2ban-client', 'status', jail],
+                  capture_output=True, text=True
+              )
+              banned_line = [l for l in result.stdout.split('\n') if 'Banned IP list' in l]
+              if banned_line:
+                  ips = banned_line[0].split(':')[1].strip().split()
+                  banned_by_jail[jail] = ips
+                  for ip in ips:
+                      all_ips[ip] += 1
+
+          total_bans = sum(len(v) for v in banned_by_jail.values())
+          print(f'Total currently banned IPs: {total_bans}')
+          print(f'Unique IPs banned: {len(all_ips)}')
+          print('')
+
+          if all_ips:
+              print(f'Top {{ top_n_ips }} attacking IPs (banned in most jails):')
+              for ip, count in all_ips.most_common({{ top_n_ips }}):
+                  jails_list = [j for j, ips in banned_by_jail.items() if ip in ips]
+                  print(f'  {ip:20s}  banned in: {jails_list}')
+          "
+      register: top_ips
+      changed_when: false
+      when: fail2ban_status.stdout == "active"
+
+    - name: Get recent ban activity from log
+      ansible.builtin.shell:
+        cmd: |
+          grep -E 'Ban |Unban ' /var/log/fail2ban.log 2>/dev/null | \
+            tail -50 || \
+          journalctl -u fail2ban --no-pager -n 50 2>/dev/null | \
+            grep -E 'Ban |Unban ' | tail -50 || \
+          echo "No recent ban activity found"
+      register: recent_bans
+      changed_when: false
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== fail2ban Report =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          fail2ban status: {{ fail2ban_status.stdout }}
+
+          {% if fail2ban_status.stdout == 'active' %}
+          ── Top Attackers ────────────────────────────
+          {{ top_ips.stdout | default('No data') }}
+
+          ── Per-Jail Status ──────────────────────────
+          {% for result in jail_statuses.results | default([]) %}
+          {{ result.stdout | default('No output') }}
+          {% endfor %}
+
+          ── Recent Bans (last 50 events) ─────────────
+          {{ recent_bans.stdout | default('None') }}
+          {% else %}
+          fail2ban is not running on this host.
+          {% endif %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      ansible.builtin.fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/fail2ban-report/{{ inventory_hostname }}.txt"
+        flat: true
+
+    - name: Print top attackers summary
+      ansible.builtin.debug:
+        msg: "{{ top_ips.stdout_lines | default(['fail2ban not running']) }}"
+      when: fail2ban_status.stdout == "active"

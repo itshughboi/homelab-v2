@@ -1,0 +1,156 @@
+---
+# k3s cluster state backup.
+# Supports both k3s deployment modes:
+#   - Single server (SQLite): backs up /var/lib/rancher/k3s/server/db/state.db
+#   - HA with embedded etcd: uses `k3s etcd-snapshot save` built-in command
+#
+# Backup destination: TrueNAS NFS at /mnt/truenas/k3s-backups/
+# Retention: keeps last N snapshots, deletes older ones.
+# Sends ntfy notification on success/failure.
+#
+# Run daily. This is your entire cluster state — lose this and you re-provision from scratch.
+
+- name: k3s state backup
+  hosts: k3s_primary    # run on one server node only
+  gather_facts: true
+  become: true
+
+  vars:
+    backup_dest: "/mnt/truenas/k3s-backups"
+    retention_count: 14
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    k3s_db_dir: "/var/lib/rancher/k3s/server/db"
+    snapshot_name: "k3s-{{ ansible_date_time.date }}-{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}"
+
+  tasks:
+    - name: k3s backup
+      block:
+        - name: Ensure backup destination exists
+          ansible.builtin.file:
+            path: "{{ backup_dest }}"
+            state: directory
+            mode: "0700"
+
+        - name: Detect k3s deployment mode (SQLite vs embedded etcd)
+          ansible.builtin.stat:
+            path: "{{ k3s_db_dir }}/etcd"
+          register: etcd_dir
+
+        - name: Set deployment mode
+          ansible.builtin.set_fact:
+            k3s_mode: "{{ 'etcd' if etcd_dir.stat.exists else 'sqlite' }}"
+
+        - name: Print deployment mode
+          ansible.builtin.debug:
+            msg: "k3s mode: {{ k3s_mode }}"
+
+        # ── etcd mode ─────────────────────────────────────────────────────
+        - name: "[etcd] Create etcd snapshot"
+          ansible.builtin.shell:
+            cmd: k3s etcd-snapshot save --name {{ snapshot_name }}
+          when: k3s_mode == 'etcd'
+          register: etcd_snapshot_result
+
+        - name: "[etcd] Find snapshot file"
+          ansible.builtin.find:
+            paths: "{{ k3s_db_dir }}/snapshots"
+            patterns: "{{ snapshot_name }}*"
+          register: etcd_snapshot_files
+          when: k3s_mode == 'etcd'
+
+        - name: "[etcd] Copy snapshot to backup destination"
+          ansible.builtin.copy:
+            src: "{{ item.path }}"
+            dest: "{{ backup_dest }}/{{ item.path | basename }}"
+            remote_src: true
+            mode: "0600"
+          loop: "{{ etcd_snapshot_files.files | default([]) }}"
+          when: k3s_mode == 'etcd'
+
+        # ── SQLite mode ───────────────────────────────────────────────────
+        - name: "[sqlite] Create SQLite backup"
+          ansible.builtin.shell:
+            cmd: >
+              sqlite3 {{ k3s_db_dir }}/state.db
+              ".backup {{ backup_dest }}/{{ snapshot_name }}.db"
+          when: k3s_mode == 'sqlite'
+
+        - name: "[sqlite] Compress backup"
+          ansible.builtin.shell:
+            cmd: gzip -f "{{ backup_dest }}/{{ snapshot_name }}.db"
+          when: k3s_mode == 'sqlite'
+          register: sqlite_backup_file
+
+        # ── Common ────────────────────────────────────────────────────────
+        - name: Also backup k3s token (needed for node re-join)
+          ansible.builtin.copy:
+            src: /var/lib/rancher/k3s/server/token
+            dest: "{{ backup_dest }}/k3s-token-{{ ansible_date_time.date }}"
+            remote_src: true
+            mode: "0600"
+
+        - name: Also backup k3s server config
+          ansible.builtin.copy:
+            src: /etc/rancher/k3s/config.yaml
+            dest: "{{ backup_dest }}/k3s-config-{{ ansible_date_time.date }}.yaml"
+            remote_src: true
+            mode: "0600"
+          ignore_errors: true
+
+        - name: Prune old backups (keep last {{ retention_count }})
+          ansible.builtin.shell:
+            cmd: |
+              for pattern in "k3s-*.db.gz" "k3s-*.snap" "k3s-*-etcd-*"; do
+                ls -t {{ backup_dest }}/$pattern 2>/dev/null | \
+                  tail -n +{{ retention_count + 1 }} | xargs rm -f
+              done
+              # Keep only last N token and config files
+              ls -t {{ backup_dest }}/k3s-token-* 2>/dev/null | \
+                tail -n +{{ retention_count + 1 }} | xargs rm -f
+          changed_when: true
+
+        - name: Get backup size
+          ansible.builtin.shell:
+            cmd: du -sh "{{ backup_dest }}" | awk '{print $1}'
+          register: backup_size
+          changed_when: false
+
+        - name: Send success notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k3s Backup: {{ inventory_hostname }}"
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              k3s state backup complete
+              Mode: {{ k3s_mode }}
+              Snapshot: {{ snapshot_name }}
+              Total backup size: {{ backup_size.stdout }}
+              Retention: {{ retention_count }} snapshots
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Send failure notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k3s Backup FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              k3s backup FAILED on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise failure
+          ansible.builtin.fail:
+            msg: "k3s backup failed at task: {{ ansible_failed_task.name }}"

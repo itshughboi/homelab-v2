@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: renovate-config
+  namespace: renovate
+data:
+  config.json: |
+    {
+      "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+      "platform": "gitea",
+      "endpoint": "http://gitea.gitea.svc.cluster.local:3000",
+      "repositories": ["hughboi/homelab"],
+      "automerge": false,
+      "dependencyDashboard": true,
+      "labels": ["renovate"],
+      "prConcurrentLimit": 5,
+      "prHourlyLimit": 2,
+      "timezone": "America/New_York",
+      "schedule": ["after 10pm on sunday"],
+      "packageRules": [
+        {
+          "matchUpdateTypes": ["patch"],
+          "automerge": true,
+          "automergeType": "pr",
+          "platformAutomerge": true
+        },
+        {
+          "matchPackageNames": ["tensorchord/pgvecto-rs"],
+          "enabled": false,
+          "description": "Immich requires a specific pgvecto-rs version — do not auto-update"
+        },
+        {
+          "matchPackageNames": ["ghcr.io/goauthentik/server"],
+          "schedule": ["at any time"],
+          "automerge": false,
+          "description": "Authentik updates are deliberate — review changelogs before upgrading"
+        }
+      ]
+    }

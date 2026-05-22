@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard-pvc
+  namespace: adguard
+  labels:
+    app: adguard-home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Separate PVC for the conf directory so AdGuard can write its own config (query logs,
+# filter lists, settings saved via UI). The ConfigMap seeds the initial config via init container.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard-conf-pvc
+  namespace: adguard
+  labels:
+    app: adguard-home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,126 @@
+---
+# Audit all TCP/UDP ports listening on non-loopback interfaces across all hosts.
+# Flags anything listening on a public/LAN interface that isn't in the expected allowlist.
+# Read-only — makes no changes.
+#
+# Run monthly or after any infrastructure change to catch unexpected exposure.
+
+- name: Audit listening ports
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/port-audit"
+    # Ports expected to be publicly listening — anything not in this list gets flagged
+    # Adjust per your environment
+    expected_ports:
+      - "22"      # SSH
+      - "80"      # HTTP (Traefik)
+      - "443"     # HTTPS (Traefik)
+      - "8006"    # Proxmox web UI
+      - "5201"    # iperf3 (only if running)
+      - "8025"    # Mailrise SMTP
+      - "53"      # DNS (AdGuard/Bind9)
+      - "67"      # DHCP
+      - "68"      # DHCP
+      - "123"     # NTP
+      - "8080"    # cAdvisor (lo only, but may show up)
+
+  tasks:
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install ss (iproute2)
+      ansible.builtin.apt:
+        name: iproute2
+        state: present
+        update_cache: true
+
+    - name: Get all listening TCP ports (non-loopback)
+      ansible.builtin.shell:
+        cmd: >
+          ss -tlnp |
+          awk 'NR>1 && $4 !~ /^127\./ && $4 !~ /^\[::1\]/ {print $1, $4, $6}'
+      register: tcp_ports
+      changed_when: false
+
+    - name: Get all listening UDP ports (non-loopback)
+      ansible.builtin.shell:
+        cmd: >
+          ss -ulnp |
+          awk 'NR>1 && $4 !~ /^127\./ && $4 !~ /^\[::1\]/ {print $1, $4, $6}'
+      register: udp_ports
+      changed_when: false
+
+    - name: Check for unexpected listeners
+      ansible.builtin.shell:
+        cmd: |
+          python3 -c "
+          import subprocess, re
+
+          expected = set({{ expected_ports | to_json }})
+
+          result = subprocess.run(
+              ['ss', '-tlnpu'],
+              capture_output=True, text=True
+          )
+
+          unexpected = []
+          for line in result.stdout.strip().split('\n')[1:]:
+              parts = line.split()
+              if len(parts) < 4:
+                  continue
+              addr = parts[3]
+              # skip loopback
+              if addr.startswith('127.') or addr.startswith('[::1]'):
+                  continue
+              port_match = re.search(r':(\d+)$', addr)
+              if not port_match:
+                  continue
+              port = port_match.group(1)
+              proto = parts[0]
+              process = parts[-1] if len(parts) > 5 else 'unknown'
+              if port not in expected:
+                  unexpected.append(f'{proto} port {port} on {addr} ({process})')
+
+          if unexpected:
+              print('!! UNEXPECTED LISTENERS:')
+              for u in unexpected:
+                  print(f'   {u}')
+          else:
+              print('OK: All listeners are in the expected list')
+          "
+      register: unexpected_check
+      changed_when: false
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== Listening Port Audit =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          ── Unexpected Listeners ─────────────────────────
+          {{ unexpected_check.stdout }}
+
+          ── All TCP Listeners (non-loopback) ─────────────
+          {{ tcp_ports.stdout | default('None') }}
+
+          ── All UDP Listeners (non-loopback) ─────────────
+          {{ udp_ports.stdout | default('None') }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      ansible.builtin.fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/port-audit/{{ inventory_hostname }}.txt"
+        flat: true
+
+    - name: Print unexpected listeners (if any)
+      ansible.builtin.debug:
+        msg: "{{ unexpected_check.stdout_lines }}"

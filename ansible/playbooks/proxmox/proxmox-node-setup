@@ -1,0 +1,106 @@
+---
+- name: Configure and cluster Proxmox nodes
+  hosts: pve
+  gather_facts: yes
+  become: true
+  serial: 1   # one node at a time to avoid race conditions
+
+  vars:
+    cluster_master_ip: "{{ hostvars[groups['pve'][0]]['ansible_host'] }}"
+
+  tasks:
+
+    ########################
+    # System normalization #
+    ########################
+
+    - name: Set timezone
+      timezone:
+        name: "{{ timezone }}"
+
+    - name: Disable enterprise repo if not used
+      file:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        state: absent
+      when: not pve_enterprise_repo
+
+    - name: Add no-subscription repo if needed
+      copy:
+        dest: /etc/apt/sources.list.d/pve-no-subscription.list
+        content: |
+          deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+      when: pve_no_subscription_repo
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+
+    - name: Install common packages
+      apt:
+        name: "{{ common_packages }}"
+        state: present
+
+    ########################
+    # Cluster setup        #
+    ########################
+
+    - name: Check if node is already in a cluster
+      command: pvecm status
+      register: cluster_status
+      ignore_errors: true
+
+    - name: Create cluster on master node
+      command: pvecm create {{ pve_cluster_name }}
+      when:
+        - inventory_hostname == groups['pve'][0]
+        - cluster_status.failed
+
+    - name: Wait for cluster quorum on master node
+      command: pvecm status
+      register: quorum_check
+      retries: 5
+      delay: 10
+      until: "'Quorate' in quorum_check.stdout"
+      when: inventory_hostname == groups['pve'][0]
+
+    - name: Join node to cluster if not master
+      command: pvecm add {{ cluster_master_ip }} --use_ssh
+      when:
+        - inventory_hostname != groups['pve'][0]
+        - cluster_status.failed
+
+    - name: Verify node is now in cluster
+      command: pvecm status
+      register: post_join
+      failed_when: "'Quorate' not in post_join.stdout and inventory_hostname == groups['pve'][0]"
+
+
+
+ ########################
+    # Firewall setup       #
+    ########################
+
+    - name: Enable Proxmox firewall
+      command: pve-firewall enable
+      ignore_errors: yes
+
+    - name: Allow SSH in Proxmox firewall
+      command: pve-firewall localnet add --rule "in accept tcp dport 22"
+      ignore_errors: yes
+
+    - name: Allow Proxmox Web UI
+      command: pve-firewall localnet add --rule "in accept tcp dport 8006"
+      ignore_errors: yes
+
+    - name: Allow cluster communication (pvecm)
+      command: >
+        pve-firewall localnet add --rule "in accept udp dport 5404:5405"
+      ignore_errors: yes
+
+    - name: Reload Proxmox firewall
+      command: pve-firewall reload
+      ignore_errors: yes

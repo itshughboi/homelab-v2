@@ -1,0 +1,187 @@
+---
+# TLS certificate expiry check.
+# Probes each HTTPS endpoint with openssl, extracts expiry date,
+# and reports days remaining. Alerts via ntfy for certs expiring within the warning threshold.
+#
+# Catches Traefik/cert-manager renewal failures before users see browser warnings.
+# Safe to schedule daily — probes are read-only.
+
+- name: SSL certificate expiry check
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    warn_days: 30       # alert if cert expires within this many days
+    critical_days: 14   # critical alert if within this many days
+    results_dir: "/tmp/ssl-cert-check"
+
+    # All HTTPS endpoints to check
+    endpoints:
+      # Docker stack (*.hughboi.cc)
+      - romm.hughboi.cc
+      - yt.hughboi.cc
+      - semaphore.hughboi.cc
+      - ntfy.hughboi.cc
+      - n8n.hughboi.cc
+      - paperless.hughboi.cc
+      - immich.hughboi.cc
+      - jellyfin.hughboi.cc
+      - mealie.hughboi.cc
+      - freshrss.hughboi.cc
+      - hoarder.hughboi.cc
+      - searxng.hughboi.cc
+      - home.hughboi.cc
+      - gatus.hughboi.cc
+      - vaultwarden.hughboi.cc
+      - gitea.hughboi.cc
+      - portainer.hughboi.cc
+      - traefik.hughboi.cc
+      - wazuh.hughboi.cc
+      # k8s stack (*.hughboi.vip) — add as you migrate services
+      # - gitea.hughboi.vip
+      # - authentik.hughboi.vip
+
+  tasks:
+    - name: Install openssl
+      ansible.builtin.apt:
+        name: openssl
+        state: present
+      become: true
+      ignore_errors: true
+
+    - name: Create results directory
+      ansible.builtin.file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check certificate for each endpoint
+      ansible.builtin.shell:
+        cmd: |
+          host="{{ item }}"
+          expiry=$(echo | timeout 10 openssl s_client \
+            -servername "$host" \
+            -connect "${host}:443" 2>/dev/null | \
+            openssl x509 -noout -enddate 2>/dev/null | \
+            cut -d= -f2)
+
+          if [ -z "$expiry" ]; then
+            echo "ERROR: Could not retrieve cert for $host"
+            exit 1
+          fi
+
+          expiry_epoch=$(date -d "$expiry" +%s 2>/dev/null)
+          now_epoch=$(date +%s)
+          days_left=$(( (expiry_epoch - now_epoch) / 86400 ))
+
+          if [ "$days_left" -le {{ critical_days }} ]; then
+            echo "CRITICAL ${days_left}d: $host (expires $expiry)"
+          elif [ "$days_left" -le {{ warn_days }} ]; then
+            echo "WARNING ${days_left}d: $host (expires $expiry)"
+          else
+            echo "OK ${days_left}d: $host"
+          fi
+      loop: "{{ endpoints }}"
+      register: cert_results
+      changed_when: false
+      ignore_errors: true
+
+    - name: Compile results
+      ansible.builtin.set_fact:
+        all_results: "{{ cert_results.results | map(attribute='stdout') | list }}"
+        critical_certs: >-
+          {{
+            cert_results.results
+            | map(attribute='stdout')
+            | select('match', '^CRITICAL')
+            | list
+          }}
+        warning_certs: >-
+          {{
+            cert_results.results
+            | map(attribute='stdout')
+            | select('match', '^WARNING')
+            | list
+          }}
+        error_certs: >-
+          {{
+            cert_results.results
+            | map(attribute='stdout')
+            | select('match', '^ERROR')
+            | list
+          }}
+
+    - name: Write results file
+      ansible.builtin.copy:
+        content: |
+          ===== SSL Certificate Expiry Report =====
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          Warn threshold: {{ warn_days }} days
+          Critical threshold: {{ critical_days }} days
+
+          {% if critical_certs %}
+          !! CRITICAL (expiring within {{ critical_days }} days):
+          {% for c in critical_certs %}
+            {{ c }}
+          {% endfor %}
+          {% endif %}
+
+          {% if warning_certs %}
+          !! WARNING (expiring within {{ warn_days }} days):
+          {% for w in warning_certs %}
+            {{ w }}
+          {% endfor %}
+          {% endif %}
+
+          {% if error_certs %}
+          ERRORS (could not retrieve cert):
+          {% for e in error_certs %}
+            {{ e }}
+          {% endfor %}
+          {% endif %}
+
+          ── All Results ──────────────────────────────────
+          {% for result in all_results %}
+          {{ result }}
+          {% endfor %}
+        dest: "{{ results_dir }}/report.txt"
+        mode: "0644"
+
+    - name: Send critical alert
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "SSL CRITICAL: Certs expiring soon"
+          Priority: urgent
+          Tags: rotating_light
+        body: |
+          CRITICAL certs (< {{ critical_days }} days):
+          {{ critical_certs | join('\n') }}
+          Time: {{ ansible_date_time.iso8601 }}
+        body_format: raw
+        status_code: 200
+      when: critical_certs | length > 0
+      ignore_errors: true
+
+    - name: Send warning alert
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "SSL WARNING: Certs expiring within {{ warn_days }} days"
+          Priority: high
+          Tags: warning
+        body: |
+          Certs expiring within {{ warn_days }} days:
+          {{ warning_certs | join('\n') }}
+          Time: {{ ansible_date_time.iso8601 }}
+        body_format: raw
+        status_code: 200
+      when: warning_certs | length > 0 and critical_certs | length == 0
+      ignore_errors: true
+
+    - name: Print full results
+      ansible.builtin.debug:
+        msg: "{{ all_results }}"

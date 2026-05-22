@@ -1,0 +1,139 @@
+# helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+# helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#   -n monitoring --create-namespace \
+#   -f values.yaml \
+#   --set alertmanager.config.receivers[0].discord_configs[0].webhook_url=https://discord.com/api/webhooks/... \
+#   --set alertmanager.config.receivers[1].email_configs[0].to=you@example.com
+
+grafana:
+  enabled: true
+
+  persistence:
+    enabled: true
+    storageClassName: longhorn
+    size: 5Gi
+
+  ingress:
+    enabled: false  # using Traefik IngressRoute CRD - see grafana-ingressroute.yaml
+
+  grafana.ini:
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+    server:
+      domain: grafana.hughboi.vip
+      root_url: https://grafana.hughboi.vip
+
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      # "loki" matches the Helm release name used for the loki chart
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      access: proxy
+      isDefault: false
+      jsonData:
+        maxLines: 1000
+
+prometheus:
+  prometheusSpec:
+    retention: 30d
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+
+    additionalScrapeConfigs:
+      - job_name: crowdsec
+        static_configs:
+          # CrowdSec LAPI metrics — exposed by the crowdsec Helm chart on port 6060
+          - targets: ['crowdsec-service.crowdsec.svc.cluster.local:6060']
+      - job_name: unifipoller
+        scrape_interval: 30s
+        static_configs:
+          # unifi-poller metrics — exposed in the unifi namespace on port 9130
+          - targets: ['unifi-poller.unifi.svc.cluster.local:9130']
+      - job_name: bind9
+        static_configs:
+          # bind_exporter on Athena — deploy with ansible/playbooks/ubuntu/bind-exporter/
+          # Grafana dashboard: https://grafana.com/grafana/dashboards/1666
+          - targets: ['10.10.10.8:9119']
+
+alertmanager:
+  config:
+    global:
+      smtp_smarthost: "mailrise.mailrise.svc.cluster.local:8025"
+      smtp_from: "alertmanager@hughboi.vip"
+      smtp_require_tls: false
+      smtp_hello: "alertmanager"
+    route:
+      receiver: discord
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 30m
+      routes:
+        - receiver: smtp
+          matchers:
+            - severity =~ ".*"
+          continue: true
+    receivers:
+      - name: discord
+        discord_configs:
+          - webhook_url: ""  # pass via --set at deploy time
+            send_resolved: true
+            title: "{{ .CommonLabels.alertname }} - {{ .Status }}"
+            message: "{{ .CommonAnnotations.summary }}"
+            content: "{{ .CommonAnnotations.description }}"
+            username: "Prometheus"
+      - name: smtp
+        email_configs:
+          - to: ""  # pass via --set at deploy time
+            send_resolved: true
+            headers:
+              Subject: "[Prometheus Alert] {{ .CommonLabels.alertname }}"
+            html: |
+              <b>{{ .CommonLabels.alertname }}</b><br/>
+              Status: {{ .Status }}<br/>
+              Summary: {{ .CommonAnnotations.summary }}<br/>
+              Description: {{ .CommonAnnotations.description }}
+
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: longhorn
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# k3s runs control plane components in-process — these endpoints aren't exposed
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false

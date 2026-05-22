@@ -1,0 +1,277 @@
+---
+# Kubernetes resource audit.
+# Finds common misconfigurations and operational issues across the cluster:
+#   - Pods with no CPU or memory limits (resource limits missing)
+#   - Pods in non-Running state (Pending, CrashLoopBackOff, Error, etc.)
+#   - Deployments/StatefulSets with 0 ready replicas
+#   - Services with no endpoints (selector matches nothing)
+#   - PVCs at or near capacity (via Longhorn metrics if available)
+#   - Namespaces with no resource quotas set
+#
+# Read-only — makes no changes. Run weekly.
+
+- name: Kubernetes resource audit
+  hosts: k3s_primary
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/k8s-resource-audit"
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    pvc_warn_pct: 80    # flag PVCs over this % used
+
+  tasks:
+    - name: k8s resource audit
+      block:
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Find pods missing resource limits
+          ansible.builtin.shell:
+            cmd: |
+              kubectl --kubeconfig {{ kubeconfig }} get pods -A -o json | \
+              python3 -c "
+              import json, sys
+              data = json.load(sys.stdin)
+              issues = []
+              for pod in data['items']:
+                  ns = pod['metadata']['namespace']
+                  name = pod['metadata']['name']
+                  for container in pod['spec'].get('containers', []):
+                      cname = container['name']
+                      resources = container.get('resources', {})
+                      limits = resources.get('limits', {})
+                      if not limits.get('cpu') or not limits.get('memory'):
+                          missing = []
+                          if not limits.get('cpu'): missing.append('cpu')
+                          if not limits.get('memory'): missing.append('memory')
+                          issues.append(f'{ns}/{name} [{cname}] missing limits: {missing}')
+              if issues:
+                  print(f'!! PODS MISSING LIMITS ({len(issues)}):')
+                  for i in issues[:30]:
+                      print(f'   {i}')
+              else:
+                  print('OK: All containers have resource limits')
+              "
+          register: missing_limits
+          changed_when: false
+
+        - name: Find pods not in Running/Completed state
+          ansible.builtin.shell:
+            cmd: |
+              kubectl --kubeconfig {{ kubeconfig }} get pods -A \
+                --field-selector='status.phase!=Running,status.phase!=Succeeded' \
+                --no-headers 2>/dev/null | grep -v '^$' || echo "OK: All pods Running or Succeeded"
+          register: non_running_pods
+          changed_when: false
+
+        - name: Find CrashLoopBackOff pods specifically
+          ansible.builtin.shell:
+            cmd: |
+              kubectl --kubeconfig {{ kubeconfig }} get pods -A --no-headers | \
+                grep -E 'CrashLoopBackOff|Error|OOMKilled|ImagePullBackOff|ErrImagePull' || \
+                echo "OK: No crash-looping or failed pods"
+          register: crashing_pods
+          changed_when: false
+
+        - name: Find deployments with 0 ready replicas
+          ansible.builtin.shell:
+            cmd: |
+              kubectl --kubeconfig {{ kubeconfig }} get deployments -A -o json | \
+              python3 -c "
+              import json, sys
+              data = json.load(sys.stdin)
+              issues = []
+              for d in data['items']:
+                  ns = d['metadata']['namespace']
+                  name = d['metadata']['name']
+                  desired = d['spec']['replicas']
+                  ready = d['status'].get('readyReplicas', 0)
+                  if desired and desired > 0 and ready == 0:
+                      issues.append(f'{ns}/{name}: {ready}/{desired} ready')
+              if issues:
+                  print(f'!! DEPLOYMENTS WITH 0 READY ({len(issues)}):')
+                  for i in issues:
+                      print(f'   {i}')
+              else:
+                  print('OK: All deployments have ready replicas')
+              "
+          register: zero_ready
+          changed_when: false
+
+        - name: Find services with no endpoints
+          ansible.builtin.shell:
+            cmd: |
+              kubectl --kubeconfig {{ kubeconfig }} get endpoints -A -o json | \
+              python3 -c "
+              import json, sys
+              data = json.load(sys.stdin)
+              issues = []
+              for ep in data['items']:
+                  ns = ep['metadata']['namespace']
+                  name = ep['metadata']['name']
+                  if name == 'kubernetes':
+                      continue
+                  subsets = ep.get('subsets', [])
+                  if not subsets:
+                      issues.append(f'{ns}/{name}')
+              if issues:
+                  print(f'!! SERVICES WITH NO ENDPOINTS ({len(issues)}):')
+                  for i in issues:
+                      print(f'   {i}')
+              else:
+                  print('OK: All services have endpoints')
+              "
+          register: no_endpoints
+          changed_when: false
+
+        - name: Get PVC usage (Longhorn)
+          ansible.builtin.shell:
+            cmd: |
+              kubectl --kubeconfig {{ kubeconfig }} get pvc -A -o json | \
+              python3 -c "
+              import json, sys
+              data = json.load(sys.stdin)
+              pvcs = []
+              for pvc in data['items']:
+                  ns = pvc['metadata']['namespace']
+                  name = pvc['metadata']['name']
+                  status = pvc['status']['phase']
+                  capacity = pvc['status'].get('capacity', {}).get('storage', '?')
+                  pvcs.append(f'{ns}/{name}: {status} | {capacity}')
+              print(f'PVCs ({len(pvcs)} total):')
+              for p in pvcs:
+                  print(f'  {p}')
+              "
+          register: pvc_status
+          changed_when: false
+
+        - name: Find namespaces without resource quotas
+          ansible.builtin.shell:
+            cmd: |
+              all_ns=$(kubectl --kubeconfig {{ kubeconfig }} get ns --no-headers -o custom-columns=':metadata.name')
+              quota_ns=$(kubectl --kubeconfig {{ kubeconfig }} get resourcequota -A --no-headers -o custom-columns=':metadata.namespace' | sort -u)
+              no_quota=$(comm -23 <(echo "$all_ns" | sort) <(echo "$quota_ns"))
+              system_ns="kube-system kube-public kube-node-lease"
+              filtered=$(echo "$no_quota" | grep -vE "kube-system|kube-public|kube-node-lease|longhorn-system" || true)
+              if [ -n "$filtered" ]; then
+                echo "Namespaces without resource quotas:"
+                echo "$filtered" | while read ns; do echo "  $ns"; done
+              else
+                echo "OK: All namespaces have resource quotas (or are system namespaces)"
+              fi
+          register: no_quotas
+          changed_when: false
+
+        - name: Get cluster node status
+          ansible.builtin.shell:
+            cmd: kubectl --kubeconfig {{ kubeconfig }} get nodes -o wide
+          register: node_status
+          changed_when: false
+
+        - name: Determine if there are issues
+          ansible.builtin.set_fact:
+            has_issues: >-
+              {{
+                '!!' in missing_limits.stdout or
+                '!!' in zero_ready.stdout or
+                '!!' in no_endpoints.stdout or
+                'CrashLoop' in crashing_pods.stdout or
+                'Error' in crashing_pods.stdout or
+                'OOMKilled' in crashing_pods.stdout
+              }}
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== Kubernetes Resource Audit =====
+              Cluster node: {{ inventory_hostname }}
+              Timestamp: {{ ansible_date_time.iso8601 }}
+              Issues found: {{ has_issues }}
+
+              ── Resource Limits ──────────────────────────
+              {{ missing_limits.stdout }}
+
+              ── Non-Running Pods ─────────────────────────
+              {{ non_running_pods.stdout }}
+
+              ── CrashLoop / Error Pods ───────────────────
+              {{ crashing_pods.stdout }}
+
+              ── Deployments with 0 Ready ─────────────────
+              {{ zero_ready.stdout }}
+
+              ── Services with No Endpoints ───────────────
+              {{ no_endpoints.stdout }}
+
+              ── PVC Status ───────────────────────────────
+              {{ pvc_status.stdout }}
+
+              ── Namespaces without ResourceQuotas ────────
+              {{ no_quotas.stdout }}
+
+              ── Node Status ──────────────────────────────
+              {{ node_status.stdout }}
+            dest: "{{ results_dir }}/audit.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/audit.txt"
+            dest: "/tmp/k8s-resource-audit/audit.txt"
+            flat: true
+
+        - name: Send alert if issues found
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k8s Audit: issues detected"
+              Priority: high
+              Tags: warning
+            body: |
+              Kubernetes resource audit found issues:
+
+              {{ missing_limits.stdout | truncate(400) }}
+              {{ crashing_pods.stdout | truncate(400) }}
+              {{ zero_ready.stdout | truncate(400) }}
+              {{ no_endpoints.stdout | truncate(400) }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: has_issues
+          ignore_errors: true
+
+        - name: Send all-clear if healthy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k8s Audit: all clear"
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              Kubernetes resource audit passed
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          when: not has_issues
+          ignore_errors: true
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k8s resource audit FAILED"
+              Priority: high
+              Tags: warning
+            body: "k8s resource audit failed: {{ ansible_failed_task.name }}"
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

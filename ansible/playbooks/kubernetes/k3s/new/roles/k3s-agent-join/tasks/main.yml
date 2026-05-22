@@ -1,0 +1,69 @@
+---
+# k3s-agent-join/tasks/main.yml
+# Runs on k3s_workers AND k3s_longhorn nodes.
+# Joins them as agents (no etcd, no API server — pure workload nodes).
+# Idempotent — safe to re-run.
+
+# ── Preflight ─────────────────────────────────────────────────────────────────
+
+- name: Verify VIP is reachable
+  ansible.builtin.wait_for:
+    host: "{{ k3s_api_vip }}"
+    port: "{{ k3s_api_port }}"
+    timeout: 30
+    msg: >
+      VIP {{ k3s_api_vip }}:{{ k3s_api_port }} is not reachable.
+      Ensure all masters are initialized and kube-vip is running.
+
+# ── Retrieve node token ───────────────────────────────────────────────────────
+
+- name: Retrieve node token from init node's facts
+  ansible.builtin.set_fact:
+    k3s_node_token: "{{ hostvars[groups['k3s_masters'][0]]['k3s_node_token'] }}"
+
+- name: Verify node token was retrieved
+  ansible.builtin.assert:
+    that:
+      - k3s_node_token is defined
+      - k3s_node_token | length > 0
+    fail_msg: "Node token is empty. Did k3s-server-init complete on master-1?"
+
+# ── Install k3s as agent ──────────────────────────────────────────────────────
+
+- name: Install k3s as agent
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_VERSION="{{ k3s_version }}" \
+      K3S_TOKEN="{{ k3s_node_token }}" \
+      K3S_URL="https://{{ k3s_api_vip }}:{{ k3s_api_port }}" \
+      sh -s -
+  args:
+    creates: /usr/local/bin/k3s
+  register: k3s_agent_join
+  tags: install
+
+# ── Wait for agent to appear in cluster ──────────────────────────────────────
+# Agents don't have a local kubeconfig — we check from the init node via hostvars.
+# We wait for the kubelet to be running as a proxy for "node is up".
+
+- name: Wait for k3s agent service to be running
+  ansible.builtin.systemd:
+    name: k3s-agent
+    state: started
+    enabled: true
+  tags: wait
+
+- name: Wait for kubelet to be reachable on this node
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 10250
+    delay: 5
+    timeout: 120
+  tags: wait
+
+- name: Node joined as agent
+  ansible.builtin.debug:
+    msg: >
+      {{ inventory_hostname }} ({{ ansible_host }}) has joined as a k3s agent.
+      Node labels will be applied by the post-install role.
+  tags: verify

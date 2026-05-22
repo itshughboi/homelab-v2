@@ -1,0 +1,79 @@
+---
+services:
+  ezbookkeeping:
+    container_name: ezbookkeeping
+    image: mayswind/ezbookkeeping:1.5.0
+    hostname: ezbookkeeping
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - EBK_SERVER_DOMAIN=bookkeeping.hughboi.cc
+      - EBK_SERVER_ENABLE_GZIP=true
+      - EBK_DATABASE_TYPE=mysql
+      - EBK_DATABASE_HOST=mysql:3306
+      - EBK_DATABASE_NAME=ezbookkeeping
+      - EBK_DATABASE_USER=ezbookkeeping
+      - EBK_DATABASE_PASSWD=${EBK_DATABASE_PASSWD}
+      - EBK_LOG_MODE=file
+      - EBK_SECURITY_SECRET_KEY=${EBK_SECURITY_SECRET_KEY}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./storage:/ezbookkeeping/storage
+      - ./log/ezbookkeeping:/ezbookkeeping/log
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ezbookkeeping.entrypoints=http"
+      - "traefik.http.routers.ezbookkeeping.rule=Host(`bookkeeping.hughboi.cc`)"
+      - "traefik.http.middlewares.ezbookkeeping-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.ezbookkeeping.middlewares=ezbookkeeping-https-redirect"
+      - "traefik.http.routers.ezbookkeeping-secure.entrypoints=https"
+      - "traefik.http.routers.ezbookkeeping-secure.rule=Host(`bookkeeping.hughboi.cc`)"
+      - "traefik.http.routers.ezbookkeeping-secure.tls=true"
+      - "traefik.http.services.ezbookkeeping.loadbalancer.server.port=8080"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - bookkeep
+
+  mysql:
+    container_name: ezbookkeeping-mysql
+    image: mysql:8.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 300
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=ezbookkeeping
+      - MYSQL_USER=ezbookkeeping
+      - MYSQL_PASSWORD=${EBK_DATABASE_PASSWD}
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    networks:
+      - bookkeep
+
+
+networks:
+  proxy:
+    external: true
+  bookkeep:
+    internal: true

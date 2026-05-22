@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adguard-deployment
+  namespace: adguard
+  labels:
+    app: adguard-home
+    app.kubernetes.io/name: adguard
+    app.kubernetes.io/instance: adguard
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: adguard-home
+  template:
+    metadata:
+      labels:
+        app: adguard-home
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        # Seeds the initial AdGuardHome.yaml from the ConfigMap if the PVC is empty.
+        # Once AdGuard writes its own config, this is a no-op on subsequent restarts.
+        - name: seed-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              if [ ! -f /conf/AdGuardHome.yaml ]; then
+                echo "Seeding initial AdGuard config from ConfigMap..."
+                cp /seed/AdGuardHome.yaml /conf/AdGuardHome.yaml
+                echo "Done."
+              else
+                echo "Config already exists, skipping seed."
+              fi
+          volumeMounts:
+            - name: adguard-config-seed
+              mountPath: /seed
+              readOnly: true
+            - name: adguard-conf
+              mountPath: /conf
+      containers:
+        - name: adguard-home
+          image: adguard/adguardhome:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 53
+              name: dns-udp
+              protocol: UDP
+            - containerPort: 53
+              name: dns-tcp
+              protocol: TCP
+            - containerPort: 3000
+              name: http-initial
+              protocol: TCP
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          volumeMounts:
+            - name: adguard-work
+              mountPath: /opt/adguardhome/work
+            - name: adguard-conf
+              mountPath: /opt/adguardhome/conf
+      volumes:
+        - name: adguard-work
+          persistentVolumeClaim:
+            claimName: adguard-pvc
+        - name: adguard-conf
+          persistentVolumeClaim:
+            claimName: adguard-conf-pvc
+        - name: adguard-config-seed
+          configMap:
+            name: adguard-config

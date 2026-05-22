@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncthing
+  namespace: syncthing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: syncthing
+  strategy:
+    type: Recreate  # ReadWriteOnce PVC
+  template:
+    metadata:
+      labels:
+        app: syncthing
+    spec:
+      hostname: syncthing  # Syncthing uses hostname as the device name
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: syncthing
+          image: syncthing/syncthing:2.0.8
+          ports:
+            - containerPort: 8384   # web UI
+            - containerPort: 22000  # TCP file transfers
+            - containerPort: 21027
+              protocol: UDP         # local discovery
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+          livenessProbe:
+            httpGet:
+              path: /rest/noauth/health
+              port: 8384
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/syncthing
+          readinessProbe:
+            httpGet:
+              path: /rest/noauth/health
+              port: 8384
+            initialDelaySeconds: 10
+            periodSeconds: 15
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: syncthing-data

@@ -1,0 +1,72 @@
+
+
+- Bookmarks:
+
+    - Anonaddy:
+       - abbr:
+         href: https://app.addy.io/
+         description: Email Alias
+         icon: anonaddy.png
+
+
+    - Cloudflare:
+        - abbr:
+          icon: cloudflare.png
+          href: https://dash.cloudflare.com
+          description: Domains
+
+    
+    - Git:
+        - abbr:
+          icon: github-light.png
+          href: https://github.com
+          description: Public Git
+
+
+    - IT Tools:
+        - abbr:
+          icon: it-tools-light.png
+          href: https://it-tools.tech/encryption
+          description: Lots of tools
+
+
+    - Nugs:
+        - abbr:
+          icon: 
+          href: https://www.nugs.net/
+          description: Livestreams
+
+
+    - Jelly Fin:
+        - abbr:
+          icon: jellyfin.png
+          href: http://corntube.net:8096
+          description: Aaron Server
+          
+
+    - Paste Bin:
+        - abbr:
+          icon: pastebin.png
+          href: https://pastebin.com
+          description: Public File Share
+
+    - Relisten:
+        - abbr:
+          icon: gratefuldead.png
+          href: https://relisten.net/
+          description: Grateful Dead Live
+
+
+
+    - Tailscale:
+        - abbr:
+          icon: headscale.png
+          href: https://login.tailscale.com/admin/machines
+          description: Mesh VPN
+  
+
+    - Reddit:
+        - abbr:
+          icon: reddit.png
+          href: https://reddit.com
+          description: Feed

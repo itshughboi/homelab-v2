@@ -1,0 +1,40 @@
+# Tailscale Operator Helm values
+# Chart: tailscale/tailscale-operator
+# Docs: https://tailscale.com/kb/1236/kubernetes-operator
+
+# OAuth credentials are provided via an existing Secret (created imperatively before install).
+# See install.yaml for the kubectl command.
+#
+# The Secret must exist in the `tailscale` namespace before helm install:
+#   Name: operator-oauth
+#   Keys: client_id, client_secret
+
+oauth:
+  # References the Secret created imperatively — values not stored here
+  clientId: ""
+  clientSecret: ""
+
+operatorConfig:
+  # Hostname prefix for devices this operator registers in your Tailnet
+  hostname: homelab-k8s
+
+  # ACL tag applied to all devices created by this operator
+  # Create this tag in Tailscale Admin → Access Controls before installing
+  defaultTags:
+    - tag:k8s-operator
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# Proxy resources (each exposed Service gets a proxy Pod)
+proxyConfig:
+  defaultProxyClass: ""   # leave empty for default
+
+# Run the operator on control-plane nodes (avoids eviction during node pressure)
+nodeSelector: {}
+tolerations: []

@@ -1,0 +1,50 @@
+# Network policies for the authentik namespace.
+# Authentik is the SSO provider — needs to accept traffic from Traefik
+# AND from any namespace whose apps use Authentik forward auth.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: authentik
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# Allow Traefik to reach Authentik server (HTTP port 9000)
+# Traefik proxies auth requests here for forward-auth middleware
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-ingress
+  namespace: authentik
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+    - from:
+        # Intra-namespace (server ↔ worker ↔ postgres ↔ redis)
+        - podSelector: {}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-scrape
+  namespace: authentik
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring

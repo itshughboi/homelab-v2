@@ -1,0 +1,162 @@
+---
+# Lynis security hardening audit.
+# Runs a full CIS-style audit on each host and reports a hardening score (0-100)
+# with specific findings categorized by severity.
+# Much deeper than individual SSH/user/port checks — covers kernel hardening,
+# authentication, package management, file permissions, services, and more.
+#
+# Read-only — makes no changes.
+# Run quarterly or after major infrastructure changes.
+
+- name: Lynis security audit
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    results_dir: "/tmp/lynis-results"
+    score_warn: 65      # warn if hardening index below this
+    score_critical: 50  # critical if below this
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Lynis audit
+      block:
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Install lynis
+          ansible.builtin.apt:
+            name: lynis
+            state: present
+            update_cache: true
+
+        - name: Update lynis definitions
+          ansible.builtin.shell:
+            cmd: lynis update info 2>/dev/null || true
+          changed_when: false
+
+        - name: Run lynis audit (quiet, no colors)
+          ansible.builtin.shell:
+            cmd: >
+              lynis audit system
+              --quiet
+              --no-colors
+              --logfile /tmp/lynis.log
+              --report-file /tmp/lynis-report.dat
+              2>/dev/null
+          register: lynis_output
+          changed_when: false
+          # lynis exits non-zero if warnings found — that's expected
+          failed_when: lynis_output.rc > 1
+
+        - name: Extract hardening index score
+          ansible.builtin.shell:
+            cmd: |
+              grep 'hardening_index' /tmp/lynis-report.dat 2>/dev/null | \
+                cut -d= -f2 | tr -d '[]' || \
+              grep -oP 'Hardening index\s*:\s*\[\K\d+' /tmp/lynis.log 2>/dev/null || \
+              echo "0"
+          register: hardening_score
+          changed_when: false
+
+        - name: Extract warnings and suggestions counts
+          ansible.builtin.shell:
+            cmd: |
+              warnings=$(grep '^warning\[\]' /tmp/lynis-report.dat 2>/dev/null | wc -l)
+              suggestions=$(grep '^suggestion\[\]' /tmp/lynis-report.dat 2>/dev/null | wc -l)
+              echo "Warnings: $warnings | Suggestions: $suggestions"
+          register: finding_counts
+          changed_when: false
+
+        - name: Extract warnings list
+          ansible.builtin.shell:
+            cmd: |
+              grep '^warning\[\]' /tmp/lynis-report.dat 2>/dev/null | \
+                cut -d= -f2 | sort -u | head -30 || echo "None"
+          register: warnings_list
+          changed_when: false
+
+        - name: Extract top suggestions
+          ansible.builtin.shell:
+            cmd: |
+              grep '^suggestion\[\]' /tmp/lynis-report.dat 2>/dev/null | \
+                cut -d= -f2 | sort -u | head -20 || echo "None"
+          register: suggestions_list
+          changed_when: false
+
+        - name: Evaluate score
+          ansible.builtin.set_fact:
+            score: "{{ hardening_score.stdout | int }}"
+            score_status: >-
+              {{
+                'CRITICAL' if hardening_score.stdout | int < score_critical
+                else ('WARNING' if hardening_score.stdout | int < score_warn
+                else 'OK')
+              }}
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== Lynis Security Audit =====
+              Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+              Timestamp: {{ ansible_date_time.iso8601 }}
+
+              Hardening Index: {{ score }}/100 [{{ score_status }}]
+              {{ finding_counts.stdout }}
+
+              ── Warnings ─────────────────────────────────
+              {{ warnings_list.stdout }}
+
+              ── Top Suggestions ──────────────────────────
+              {{ suggestions_list.stdout }}
+
+              ── Full log: /tmp/lynis.log on {{ inventory_hostname }}
+            dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            dest: "/tmp/lynis-results/{{ inventory_hostname }}.txt"
+            flat: true
+
+        - name: Send alert if score is below threshold
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Lynis {{ score_status }}: {{ inventory_hostname }} scored {{ score }}/100"
+              Priority: "{{ 'urgent' if score_status == 'CRITICAL' else 'high' }}"
+              Tags: "{{ 'rotating_light' if score_status == 'CRITICAL' else 'warning' }}"
+            body: |
+              Lynis score {{ score }}/100 on {{ inventory_hostname }}
+              {{ finding_counts.stdout }}
+
+              Warnings:
+              {{ warnings_list.stdout | truncate(800) }}
+            body_format: raw
+            status_code: 200
+          when: score_status != 'OK'
+          ignore_errors: true
+
+        - name: Print score summary
+          ansible.builtin.debug:
+            msg: "{{ inventory_hostname }}: {{ score }}/100 [{{ score_status }}] | {{ finding_counts.stdout }}"
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Lynis scan FAILED: {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: "Lynis scan failed on {{ inventory_hostname }}: {{ ansible_failed_task.name }}"
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

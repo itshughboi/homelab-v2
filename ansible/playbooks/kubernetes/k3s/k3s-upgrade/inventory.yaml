@@ -1,0 +1,28 @@
+---
+# Workers are upgraded first (serial: 1), then servers.
+# List workers before servers in inventory order for clarity,
+# but the play targeting handles the sequencing.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  children:
+    k3s_workers:
+      hosts:
+        k3s-worker-1:
+          ansible_host: 10.10.30.11
+        k3s-worker-2:
+          ansible_host: 10.10.30.12
+        k3s-worker-3:
+          ansible_host: 10.10.30.13
+
+    k3s_servers:
+      hosts:
+        k3s-master-1:
+          ansible_host: 10.10.30.1
+        k3s-master-2:
+          ansible_host: 10.10.30.2
+        k3s-master-3:
+          ansible_host: 10.10.30.3

@@ -1,0 +1,6 @@
+# System Upgrade Controller — manages automated k3s node upgrades via Plans
+# Install from upstream:
+#   kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/latest/download/system-upgrade-controller.yaml
+#   kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/latest/download/crd.yaml
+#
+# Apply the Plans below after the controller is running.

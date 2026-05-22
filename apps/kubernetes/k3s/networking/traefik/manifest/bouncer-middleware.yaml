@@ -1,0 +1,21 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: bouncer
+  namespace: traefik
+spec:
+  plugin:
+    bouncer:
+      enabled: true
+      # stream: bouncer pulls decision list from LAPI at startup and receives push updates.
+      # More efficient than "live" (which checks LAPI per-request). Use "none" only for testing.
+      crowdsecMode: stream
+      crowdsecLapiScheme: https
+      crowdsecLapiHost: crowdsec-service.crowdsec:8080
+      crowdsecLapiTLSCertificateAuthorityFile: /etc/traefik/crowdsec-certs/ca.crt
+      crowdsecLapiTLSCertificateBouncerFile: /etc/traefik/crowdsec-certs/tls.crt
+      crowdsecLapiTLSCertificateBouncerKeyFile: /etc/traefik/crowdsec-certs/tls.key
+      # How often the bouncer polls LAPI for new decisions in stream mode
+      updateIntervalSeconds: 10
+      # Return 403 when IP is banned (default: true)
+      defaultDecisionSeconds: 14400

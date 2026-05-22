@@ -1,0 +1,136 @@
+---
+# NOTE: This file has a typo in the name ("vaccum"). Use db-vacuum.yml instead.
+# Kept here so any Semaphore jobs referencing the old name don't silently break.
+
+# Vaultwarden SQLite VACUUM Playbook
+# Orchestrated via Semaphore.
+#
+# group_vars/vaultwarden_host.yml should define:
+#   ntfy_url
+#   loki_url
+#   loki_host
+#   loki_job
+#
+# What this does:
+#   1. VACUUM the live DB into a temp file (non-destructive, live DB untouched)
+#   2. Integrity check the vacuumed copy — abort and delete temp if it fails
+#   3. Verify the live DB is still present before touching the container
+#   4. Stop Vaultwarden, back up live DB, swap in optimized DB, restart
+#   5. Notify ntfy and log failures to Loki
+
+- name: Vaultwarden SQLite VACUUM
+  hosts: vaultwarden_host
+  gather_facts: true
+
+  vars:
+    db_path: /home/hughboi/data/vaultwarden/data/db.sqlite3
+    db_temp: /home/hughboi/data/vaultwarden/data/db_optimized.sqlite3
+    container_name: vaultwarden
+
+  tasks:
+    - name: Vaultwarden VACUUM
+      block:
+        - name: VACUUM live database into temp file
+          ansible.builtin.command:
+            cmd: sqlite3 {{ db_path }} "VACUUM INTO '{{ db_temp }}';"
+
+        - name: Run integrity check on vacuumed database
+          ansible.builtin.shell:
+            cmd: sqlite3 "{{ db_temp }}" "PRAGMA integrity_check;" | grep -q "ok"
+
+        - name: Verify live database is still present before swap
+          ansible.builtin.stat:
+            path: "{{ db_path }}"
+          register: live_db_stat
+          failed_when: not live_db_stat.stat.exists
+
+        - name: Stop Vaultwarden container
+          ansible.builtin.command:
+            cmd: docker stop {{ container_name }}
+
+        - name: Back up current live database
+          ansible.builtin.command:
+            cmd: cp {{ db_path }} {{ db_path }}.bak_{{ ansible_date_time.date }}
+
+        - name: Swap optimized database into place
+          ansible.builtin.command:
+            cmd: mv {{ db_temp }} {{ db_path }}
+
+        - name: Start Vaultwarden container
+          ansible.builtin.command:
+            cmd: docker start {{ container_name }}
+
+        - name: Send success notification via ntfy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: Vaultwarden SQLite VACUUM
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              Vacuum completed
+              Result: Database vacuumed and swapped
+              Time: {{ ansible_date_time.iso8601 }}
+              Everything is optimized and verified :)
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Remove temp vacuumed database if present
+          ansible.builtin.file:
+            path: "{{ db_temp }}"
+            state: absent
+          ignore_errors: true
+
+        - name: Check whether live database is still present
+          ansible.builtin.stat:
+            path: "{{ db_path }}"
+          register: live_db_rescue_stat
+          ignore_errors: true
+
+        - name: Restart Vaultwarden container if live DB exists
+          ansible.builtin.command:
+            cmd: docker start {{ container_name }}
+          when: live_db_rescue_stat.stat is defined and live_db_rescue_stat.stat.exists
+          ignore_errors: true
+
+        - name: Send failure notification via ntfy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: Vaultwarden SQLite VACUUM FAILED
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              VACUUM FAILED
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+
+              Action Required: The database swap was aborted. Check whether Vaultwarden restarted cleanly.
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Log failure to Loki
+          ansible.builtin.uri:
+            url: "{{ loki_url }}"
+            method: POST
+            body_format: json
+            body:
+              streams:
+                - stream:
+                    job: "{{ loki_job }}"
+                    host: "{{ loki_host }}"
+                    level: error
+                  values:
+                    - - "{{ (ansible_date_time.epoch | int * 1000000000) | string }}"
+                      - "VACUUM FAILURE: {{ ansible_failed_task.name }} | DB: {{ db_path }}"
+            status_code: 204
+          ignore_errors: true
+
+        - name: Re-raise the failure
+          ansible.builtin.fail:
+            msg: "Vaultwarden VACUUM failed at task: {{ ansible_failed_task.name }}"

@@ -1,0 +1,64 @@
+# ntfy server config file
+#
+# Please refer to the documentation at https://ntfy.sh/docs/config/ for details.
+# All options also support underscores (_) instead of dashes (-) to comply with the YAML spec.
+
+#
+base-url: "https://ntfy.hughboi.cc"
+
+#
+# WARNING: If you are behind a proxy, you must set this, otherwise all visitors are rate limited
+#          as if they are one.
+#
+behind-proxy: true
+
+# If enabled, clients can attach files to notifications as attachments. Minimum settings to enable attachments
+# are "attachment-cache-dir" and "base-url".
+#
+# - attachment-cache-dir is the cache directory for attached files
+# - attachment-total-size-limit is the limit of the on-disk attachment cache directory (total size)
+# - attachment-file-size-limit is the per-file attachment size limit (e.g. 300k, 2M, 100M)
+# - attachment-expiry-duration is the duration after which uploaded attachments will be deleted (e.g. 3h, 20h)
+#
+# attachment-cache-dir:
+# attachment-total-size-limit: "5G"
+# attachment-file-size-limit: "15M"
+# attachment-expiry-duration: "3h"
+
+
+# Server URL of a Firebase/APNS-connected ntfy server (likely "https://ntfy.sh").
+#
+# iOS users:
+#   If you use the iOS ntfy app, you MUST configure this to receive timely notifications. You'll like want this:
+upstream-base-url: "https://ntfy.sh"
+#
+# If set, all incoming messages will publish a "poll_request" message to the configured upstream server, containing
+# the message ID of the original message, instructing the iOS app to poll this server for the actual message contents.
+# This is to prevent the upstream server and Firebase/APNS from being able to read the message.
+#
+# - upstream-base-url is the base URL of the upstream server. Should be "https://ntfy.sh".
+# - upstream-access-token is the token used to authenticate with the upstream server. This is only required
+#   if you exceed the upstream rate limits, or the uptream server requires authentication.
+#
+# upstream-base-url:
+# upstream-access-token:
+
+# Metrics
+#
+# ntfy can expose Prometheus-style metrics via a /metrics endpoint, or on a dedicated listen IP/port.
+# Metrics may be considered sensitive information, so before you enable them, be sure you know what you are
+# doing, and/or secure access to the endpoint in your reverse proxy.
+#
+# - enable-metrics enables the /metrics endpoint for the default ntfy server (i.e. HTTP, HTTPS and/or Unix socket)
+# - metrics-listen-http exposes the metrics endpoint via a dedicated [IP]:port. If set, this option implicitly
+#   enables metrics as well, e.g. "10.0.1.1:9090" or ":9090"
+#
+# enable-metrics: false
+# metrics-listen-http:
+
+#
+# Example (good for production):
+#   log-level: info
+#   log-format: json
+#   log-file: /var/log/ntfy.log
+

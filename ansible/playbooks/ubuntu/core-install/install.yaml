@@ -1,0 +1,28 @@
+---
+- name: Install core packages on Ubuntu servers
+  hosts: docker
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Update apt cache and install core packages
+      ansible.builtin.apt:
+        name:
+          - prometheus-node-exporter
+          - nfs-common
+          - qemu-guest-agent
+        state: present
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Enable and start Prometheus Node Exporter
+      ansible.builtin.service:
+        name: prometheus-node-exporter
+        state: started
+        enabled: true
+
+    - name: Enable and start QEMU guest agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true

@@ -1,0 +1,51 @@
+---
+# Upgrades server (master) nodes — one at a time, server-before-agents order
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: k3s-server
+  namespace: system-upgrade
+spec:
+  # Channel tracks the latest stable k3s release automatically
+  channel: https://update.k3s.io/v1-release/channels/stable
+  # Upgrade one server at a time
+  concurrency: 1
+  cordon: true
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: In
+        values:
+          - "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+  upgrade:
+    image: rancher/k3s-upgrade
+---
+# Upgrades agent (worker + longhorn) nodes — waits for server plan to complete first
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: k3s-agent
+  namespace: system-upgrade
+spec:
+  channel: https://update.k3s.io/v1-release/channels/stable
+  concurrency: 1
+  cordon: true
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: NotIn
+        values:
+          - "true"
+  prepare:
+    # Wait for the server plan to be applied to all server nodes first
+    args:
+      - prepare
+      - k3s-server
+    image: rancher/k3s-upgrade
+  upgrade:
+    image: rancher/k3s-upgrade

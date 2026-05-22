@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: file-browser
+  namespace: file-browser
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`files.hughboi.vip`)
+      kind: Rule
+      services:
+        - name: file-browser
+          port: 8080
+  tls:
+    secretName: hughboi-tls

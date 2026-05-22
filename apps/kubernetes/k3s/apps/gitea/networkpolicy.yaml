@@ -1,0 +1,73 @@
+# Network policies for the gitea namespace.
+# Three rules: deny all ingress by default, then allow Traefik + monitoring.
+# Managed by ArgoCD — no manual kubectl apply needed.
+---
+# Default deny — nothing enters this namespace unless explicitly allowed below
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: gitea
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# Allow Traefik to reach Gitea HTTP (port 3000) and SSH (port 22)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-ingress
+  namespace: gitea
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+    - from:
+        # Intra-namespace (Gitea → Postgres)
+        - podSelector: {}
+
+---
+# Allow Prometheus to scrape metrics
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-scrape
+  namespace: gitea
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+
+---
+# Allow ArgoCD to reach Gitea (it uses Gitea as repo source)
+# ArgoCD runs in the argocd namespace and must be able to clone over HTTP
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-argocd-repo-access
+  namespace: gitea
+spec:
+  podSelector:
+    matchLabels:
+      app: gitea
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argocd
+      ports:
+        - port: 3000

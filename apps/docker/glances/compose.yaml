@@ -1,0 +1,17 @@
+---
+services:
+  glances:
+    container_name: glances
+    image: nicolargo/glances:v4.5.4
+    restart: unless-stopped
+    # pid:host and privileged are required for full host metrics visibility
+    pid: "host"
+    privileged: true
+    environment:
+      - TZ=America/Denver
+      - GLANCES_OPT=-C /glances/conf/glances.conf -w
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./glances.conf:/glances/conf/glances.conf
+    ports:
+      - "127.0.0.1:61208:61208"

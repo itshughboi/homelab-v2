@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="2. Networking# UniFi-based VLAN architecture that physically separates management, cluster, storage, and workload traffic. Configure manually once — never manage with Terraform (state drift makes it unusable).
+VLAN Architecture# Name VLAN ID CIDR MTU Gateway Notes Management 10 10.10.10.0/24 1500 10.10.10.254 SSH, Web UIs, DNS Cluster 20 10.10.20.0/24 1500 none Corosync heartbeat only — no gateway, QoS DSCP 46 k3s 30 10.10.30.0/24 1500 10.10.30.254 Workloads, MetalLB, Longhorn Storage 40 10.10.40.0/24 9000 none TrueNAS, PBS, Longhorn — Jumbo Frames everywhere Torrent 49 172.16.20.0/24 1500 172.16.20.254 Airgapped from all RFC1918 VPN 80 10.10.80.0/24 1500 10.10.80.254 Tailscale subnet router Provisioning 99 10.10.99.0/24 1500 10.10.99.254 PXE boot only VLAN 20 = Cluster (Corosync) — no MTU change, no gateway. VLAN 40 = Storage — MTU 9000 mandatory, end-to-end, no exceptions. These two are the most commonly confused. Trust this table.
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2e3440">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/2-networking/">
+  <meta property="og:site_name" content="hughboi homelab">
+  <meta property="og:title" content="2. Networking">
+  <meta property="og:description" content="2. Networking# UniFi-based VLAN architecture that physically separates management, cluster, storage, and workload traffic. Configure manually once — never manage with Terraform (state drift makes it unusable).
+VLAN Architecture# Name VLAN ID CIDR MTU Gateway Notes Management 10 10.10.10.0/24 1500 10.10.10.254 SSH, Web UIs, DNS Cluster 20 10.10.20.0/24 1500 none Corosync heartbeat only — no gateway, QoS DSCP 46 k3s 30 10.10.30.0/24 1500 10.10.30.254 Workloads, MetalLB, Longhorn Storage 40 10.10.40.0/24 9000 none TrueNAS, PBS, Longhorn — Jumbo Frames everywhere Torrent 49 172.16.20.0/24 1500 172.16.20.254 Airgapped from all RFC1918 VPN 80 10.10.80.0/24 1500 10.10.80.254 Tailscale subnet router Provisioning 99 10.10.99.0/24 1500 10.10.99.254 PXE boot only VLAN 20 = Cluster (Corosync) — no MTU change, no gateway. VLAN 40 = Storage — MTU 9000 mandatory, end-to-end, no exceptions. These two are the most commonly confused. Trust this table.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="website">
+
+
+  <meta itemprop="name" content="2. Networking">
+  <meta itemprop="description" content="2. Networking# UniFi-based VLAN architecture that physically separates management, cluster, storage, and workload traffic. Configure manually once — never manage with Terraform (state drift makes it unusable).
+VLAN Architecture# Name VLAN ID CIDR MTU Gateway Notes Management 10 10.10.10.0/24 1500 10.10.10.254 SSH, Web UIs, DNS Cluster 20 10.10.20.0/24 1500 none Corosync heartbeat only — no gateway, QoS DSCP 46 k3s 30 10.10.30.0/24 1500 10.10.30.254 Workloads, MetalLB, Longhorn Storage 40 10.10.40.0/24 9000 none TrueNAS, PBS, Longhorn — Jumbo Frames everywhere Torrent 49 172.16.20.0/24 1500 172.16.20.254 Airgapped from all RFC1918 VPN 80 10.10.80.0/24 1500 10.10.80.254 Tailscale subnet router Provisioning 99 10.10.99.0/24 1500 10.10.99.254 PXE boot only VLAN 20 = Cluster (Corosync) — no MTU change, no gateway. VLAN 40 = Storage — MTU 9000 mandatory, end-to-end, no exceptions. These two are the most commonly confused. Trust this table.">
+  <meta itemprop="wordCount" content="1017">
+
+<title>2. Networking • hughboi homelab</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="http://localhost:1313/2-networking/">
+<link rel="stylesheet" href="/book.min.98c83e4c8e1c8661368bcb29bbaf4dcc9d31b8164f76aae322d82d86a9750c65.css" integrity="sha256-mMg&#43;TI4chmE2i8spu69NzJ0xuBZPdqrjItgthql1DGU=" crossorigin="anonymous">
+
+
+  <script defer type="module" src="/en.search.min.31642a45f54931c0ec0bfba9b5b049b7a03da1b319409196e09290d30f543550.js" integrity="sha256-MWQqRfVJMcDsC/uptbBJt6A9obMZQJGW4JKQ0w9UNVA=" crossorigin="anonymous"></script>
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/2-networking/index.xml" title="2. Networking" />
+
+  
+</head>
+<body dir="ltr" class="book-kind-section book-type-2-networking">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>hughboi homelab</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input id="book-search-input" type="text" 
+    placeholder="Search"
+    aria-label="Search"
+    maxlength="64" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+<ul><li><a href="https://gitea.hughboi.cc" target="_blank" rel="noopener">Gitea</a></li></ul>
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/master-guide/" class="">
+      Master Guide (Runbook)</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="toggle"  />
+    <label for="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="flex">
+      <a href="/1-prep/" class="">
+        1. Prep</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-152e4d5c4ff85a42f4295919ff302d58" class="toggle" checked />
+    <label for="section-152e4d5c4ff85a42f4295919ff302d58" class="flex">
+      <a href="/2-networking/" class="active">
+        2. Networking</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/2-networking/unifi/" class="">
+      UniFi Overview</a>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-204a92253d65d259c235eef1715b87c4" class="toggle"  />
+    <label for="section-204a92253d65d259c235eef1715b87c4" class="flex">
+      <a href="/3-proxmox/" class="">
+        3. Proxmox</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-fd5b4a9972f8f65b869d37981c88da70" class="toggle"  />
+    <label for="section-fd5b4a9972f8f65b869d37981c88da70" class="flex">
+      <a href="/4-athena/" class="">
+        4. Athena</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-daf9554492503effc450c68f16ace296" class="toggle"  />
+    <label for="section-daf9554492503effc450c68f16ace296" class="flex">
+      <a href="/5-storage/" class="">
+        5. Storage</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-24543dab52bbdfff1afa8b897ec0b1ff" class="toggle"  />
+    <label for="section-24543dab52bbdfff1afa8b897ec0b1ff" class="flex">
+      <a role="button" class="">
+        6. Security</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-d5ace2344a534070fa2af9171bbb0f7f" class="toggle"  />
+    <label for="section-d5ace2344a534070fa2af9171bbb0f7f" class="flex">
+      <a href="/7-docker/" class="">
+        7. Docker</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-5dcf160d160f6c4a4dca2ea878475af7" class="toggle"  />
+    <label for="section-5dcf160d160f6c4a4dca2ea878475af7" class="flex">
+      <a href="/8-k3s/" class="">
+        8. k3s</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="toggle"  />
+    <label for="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="flex">
+      <a href="/9-gitops/" class="">
+        9. GitOps</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+<ul><li><a href="https://10.10.10.1:8006" target="_blank" rel="noopener">Proxmox</a></li></ul>
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>2. Networking</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#vlan-architecture">VLAN Architecture</a>
+      <ul>
+        <li><a href="#why-these-separate-vlans">Why These Separate VLANs?</a></li>
+      </ul>
+    </li>
+    <li><a href="#switch-port-assignments">Switch Port Assignments</a></li>
+    <li><a href="#dhcp--dns-configuration">DHCP / DNS Configuration</a></li>
+    <li><a href="#firewall-rules">Firewall Rules</a>
+      <ul>
+        <li><a href="#mandatory-first-rules">Mandatory First Rules</a></li>
+        <li><a href="#service-groups-define-once-reference-in-rules">Service Groups (define once, reference in rules)</a></li>
+        <li><a href="#rules-by-vlan">Rules by VLAN</a></li>
+      </ul>
+    </li>
+    <li><a href="#mac-reservations--static-ips">MAC Reservations / Static IPs</a></li>
+    <li><a href="#tailscale-vpn--remote-access">Tailscale (VPN / Remote Access)</a></li>
+    <li><a href="#proxmox-virtual-interfaces">Proxmox Virtual Interfaces</a></li>
+    <li><a href="#lacp--bonding-future">LACP / Bonding (Future)</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="2-networking">2. Networking<a class="anchor" href="#2-networking">#</a></h1>
+<p>UniFi-based VLAN architecture that physically separates management, cluster, storage, and workload traffic. Configure manually once — never manage with Terraform (state drift makes it unusable).</p>
+<hr>
+<h2 id="vlan-architecture">VLAN Architecture<a class="anchor" href="#vlan-architecture">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Name</th>
+          <th>VLAN ID</th>
+          <th>CIDR</th>
+          <th>MTU</th>
+          <th>Gateway</th>
+          <th>Notes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Management</td>
+          <td>10</td>
+          <td>10.10.10.0/24</td>
+          <td>1500</td>
+          <td>10.10.10.254</td>
+          <td>SSH, Web UIs, DNS</td>
+      </tr>
+      <tr>
+          <td>Cluster</td>
+          <td>20</td>
+          <td>10.10.20.0/24</td>
+          <td>1500</td>
+          <td><strong>none</strong></td>
+          <td>Corosync heartbeat only — no gateway, QoS DSCP 46</td>
+      </tr>
+      <tr>
+          <td>k3s</td>
+          <td>30</td>
+          <td>10.10.30.0/24</td>
+          <td>1500</td>
+          <td>10.10.30.254</td>
+          <td>Workloads, MetalLB, Longhorn</td>
+      </tr>
+      <tr>
+          <td>Storage</td>
+          <td>40</td>
+          <td>10.10.40.0/24</td>
+          <td>9000</td>
+          <td><strong>none</strong></td>
+          <td>TrueNAS, PBS, Longhorn — Jumbo Frames everywhere</td>
+      </tr>
+      <tr>
+          <td>Torrent</td>
+          <td>49</td>
+          <td>172.16.20.0/24</td>
+          <td>1500</td>
+          <td>172.16.20.254</td>
+          <td>Airgapped from all RFC1918</td>
+      </tr>
+      <tr>
+          <td>VPN</td>
+          <td>80</td>
+          <td>10.10.80.0/24</td>
+          <td>1500</td>
+          <td>10.10.80.254</td>
+          <td>Tailscale subnet router</td>
+      </tr>
+      <tr>
+          <td>Provisioning</td>
+          <td>99</td>
+          <td>10.10.99.0/24</td>
+          <td>1500</td>
+          <td>10.10.99.254</td>
+          <td>PXE boot only</td>
+      </tr>
+  </tbody>
+</table>
+<blockquote class='book-hint important'>
+<p><strong>VLAN 20 = Cluster (Corosync) — no MTU change, no gateway.</strong>
+<strong>VLAN 40 = Storage — MTU 9000 mandatory, end-to-end, no exceptions.</strong>
+These two are the most commonly confused. Trust this table.</p></blockquote><h3 id="why-these-separate-vlans">Why These Separate VLANs?<a class="anchor" href="#why-these-separate-vlans">#</a></h3>
+<p><strong>VLAN 20 (Cluster, Corosync only):</strong> Corosync is extremely latency-sensitive. If you flood the management NIC with backup or storage traffic, it causes jitter that can trigger a fencing event — a hard reboot of VMs. VLAN 20 is completely isolated with QoS (DSCP 46) so Corosync heartbeat packets always get priority. It has no gateway because nothing should be routing through it; it&rsquo;s purely intra-node heartbeat.</p>
+<p><strong>VLAN 40 (Storage, Jumbo Frames):</strong> PBS and Longhorn can saturate a management NIC, which slows down SSH to Athena and web UIs. Separate VLAN isolates this. Jumbo Frames (MTU 9000) give 6× more data per packet, maximizing throughput for NFS/iSCSI while minimizing CPU overhead from packet processing. No gateway because storage traffic should never leave this VLAN.</p>
+<p><strong>VLAN 49 (Torrent, airgapped):</strong> Completely isolated from all RFC1918 space. Torrent traffic goes WAN only. The entire 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 range is blocked from Torrent → internal.</p>
+<hr>
+<h2 id="switch-port-assignments">Switch Port Assignments<a class="anchor" href="#switch-port-assignments">#</a></h2>
+<p><strong>UXG Max (5 ports):</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Port</th>
+          <th>Mode</th>
+          <th>VLAN</th>
+          <th>Role</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>WAN</td>
+          <td>—</td>
+          <td>—</td>
+          <td>ISP uplink</td>
+      </tr>
+      <tr>
+          <td>Port 2</td>
+          <td>Access</td>
+          <td>99 (untagged)</td>
+          <td>Libre Potato (permanent netboot)</td>
+      </tr>
+      <tr>
+          <td>Port 3</td>
+          <td>Access</td>
+          <td>99 (untagged)</td>
+          <td>Provisioning port — new nodes plug here during install</td>
+      </tr>
+      <tr>
+          <td>Port 4–5</td>
+          <td>Trunk</td>
+          <td>All</td>
+          <td>Uplink to USW Flex Mini</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>USW Flex Mini (5 ports):</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Port</th>
+          <th>Mode</th>
+          <th>VLAN</th>
+          <th>Role</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Port 1</td>
+          <td>Trunk</td>
+          <td>All</td>
+          <td>Uplink from UXG Max</td>
+      </tr>
+      <tr>
+          <td>Ports 2–5</td>
+          <td>Trunk</td>
+          <td>10, 20, 30, 40</td>
+          <td>Proxmox nodes</td>
+      </tr>
+  </tbody>
+</table>
+<p>Set MTU 9000 on switch ports carrying VLAN 40. All other VLANs use default MTU 1500.</p>
+<hr>
+<h2 id="dhcp--dns-configuration">DHCP / DNS Configuration<a class="anchor" href="#dhcp--dns-configuration">#</a></h2>
+<p><strong>VLAN 99 DHCP PXE options:</strong></p>
+<ul>
+<li>Option 66 (Boot Server): <code>10.10.99.99</code> (Libre Potato)</li>
+<li>Option 67 (Boot File): <code>ipxe.efi</code></li>
+</ul>
+<blockquote class='book-hint note'>
+<p>Newer UniFi firmware serves <code>ipxe.efi</code> via HTTP on port 8080, not TFTP.
+The netboot container must serve on port 8080. TFTP-only setups silently fail.</p></blockquote><p><strong>DNS — two-phase approach:</strong></p>
+<ol>
+<li><strong>Bootstrap:</strong> set DHCP DNS to <code>9.9.9.9</code> / <code>1.1.1.1</code> temporarily for all VLANs</li>
+<li><strong>Post-Bind9 cutover:</strong> change DHCP DNS servers to <code>10.10.10.8</code> (Athena/Bind9) for all VLANs, update firewall rules to restrict DNS to Athena</li>
+</ol>
+<hr>
+<h2 id="firewall-rules">Firewall Rules<a class="anchor" href="#firewall-rules">#</a></h2>
+<blockquote class='book-hint caution'>
+<p>Rule order is enforced top-down in UniFi. ALLOW rules must appear <strong>above</strong> DENY rules or they are never evaluated.</p></blockquote><h3 id="mandatory-first-rules">Mandatory First Rules<a class="anchor" href="#mandatory-first-rules">#</a></h3>
+<p>Before any per-VLAN rules:</p>
+<ol>
+<li>Enable <strong>Block inter-VLAN traffic</strong> in Network settings (your default-deny baseline)</li>
+<li>Add as the <strong>very first LAN IN rule</strong>: <code>ALLOW ALL → ALL</code> with state <code>established, related</code>
+— without this, all return traffic for any outbound connection is dropped</li>
+</ol>
+<h3 id="service-groups-define-once-reference-in-rules">Service Groups (define once, reference in rules)<a class="anchor" href="#service-groups-define-once-reference-in-rules">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>Group</th>
+          <th>Ports</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>SSH</td>
+          <td>22 TCP</td>
+      </tr>
+      <tr>
+          <td>CORE</td>
+          <td>DNS 53, DHCP 67/68, NTP 123</td>
+      </tr>
+      <tr>
+          <td>WEB</td>
+          <td>80, 443 TCP</td>
+      </tr>
+      <tr>
+          <td>BOOT</td>
+          <td>TFTP 69, HTTP 80, HTTPS 443</td>
+      </tr>
+      <tr>
+          <td>STORAGE</td>
+          <td>NFS 2049, rpcbind 111, SMB 445, iSCSI 3260</td>
+      </tr>
+      <tr>
+          <td>COROSYNC</td>
+          <td>5404–5405 UDP, 2224 TCP</td>
+      </tr>
+      <tr>
+          <td>K3S</td>
+          <td>6443 TCP, 8472 UDP</td>
+      </tr>
+      <tr>
+          <td>MONITOR</td>
+          <td>9100, 9090, 3000, 3100, 8086 TCP</td>
+      </tr>
+      <tr>
+          <td>VPN</td>
+          <td>41641 UDP (Tailscale)</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="rules-by-vlan">Rules by VLAN<a class="anchor" href="#rules-by-vlan">#</a></h3>
+<p><strong>Management (10):</strong></p>
+<ul>
+<li>MGMT → K3S: SSH, K3S</li>
+<li>MGMT → STORAGE: SSH, WEB, STORAGE, MONITOR</li>
+<li>MGMT → TORRENT: SSH</li>
+<li>MGMT → VPN: SSH</li>
+<li>MGMT → PROVISIONING: SSH, BOOT</li>
+<li>MGMT → WAN: CORE, WEB</li>
+<li>ANY → MGMT: <strong>DENY</strong></li>
+</ul>
+<p><strong>Cluster (20):</strong></p>
+<ul>
+<li>ANY → CLUSTER: <strong>DENY</strong> — Corosync is intra-VLAN only, nothing routes through here</li>
+</ul>
+<p><strong>k3s (30):</strong></p>
+<ul>
+<li>MGMT → K3S: SSH, K3S</li>
+<li>K3S → STORAGE: STORAGE</li>
+<li>K3S → WAN: CORE, WEB</li>
+<li>K3S → MGMT: <strong>DENY</strong> (k3s cannot reach back to management)</li>
+<li>ANY → K3S: <strong>DENY</strong></li>
+</ul>
+<p><strong>Storage (40):</strong></p>
+<ul>
+<li>MGMT → STORAGE: SSH, WEB, STORAGE, MONITOR</li>
+<li>K3S → STORAGE: STORAGE</li>
+<li>STORAGE → WAN: CORE, WEB (package updates only)</li>
+<li>ANY → STORAGE: <strong>DENY</strong></li>
+</ul>
+<p><strong>Torrent (49):</strong></p>
+<ul>
+<li>MGMT → TORRENT: SSH</li>
+<li>TORRENT → WAN: CORE, WEB (all ports for torrenting)</li>
+<li>TORRENT → RFC1918: <strong>DENY</strong> (IP group: 10/8, 172.16/12, 192.168/16)</li>
+<li>ANY → TORRENT: <strong>DENY</strong></li>
+</ul>
+<p><strong>VPN (80):</strong></p>
+<ul>
+<li>VPN → MGMT: SSH, WEB</li>
+<li>VPN → K3S: K3S</li>
+<li>VPN → STORAGE: SSH, WEB</li>
+<li>VPN → WAN: VPN</li>
+<li>ANY → VPN: <strong>DENY</strong></li>
+</ul>
+<p><strong>Provisioning (99):</strong></p>
+<ul>
+<li>MGMT → PROVISIONING: SSH</li>
+<li>PROVISIONING → WAN: CORE, WEB, BOOT</li>
+<li>PROVISIONING → INTERNAL: <strong>DENY</strong></li>
+<li>ANY → PROVISIONING: <strong>DENY</strong></li>
+</ul>
+<blockquote class='book-hint warning'>
+<p><strong>Docker bypasses iptables.</strong> Never use <code>--network=host</code> for services that should be firewalled.
+Traefik on dock-prod must bind explicitly to <code>10.10.10.10</code>, not <code>0.0.0.0</code>.
+Use the <code>DOCKER-USER</code> iptables chain for host-level restrictions.</p></blockquote><hr>
+<h2 id="mac-reservations--static-ips">MAC Reservations / Static IPs<a class="anchor" href="#mac-reservations--static-ips">#</a></h2>
+<p>See <a href="Unifi/MAC%20Reservations.md"><code>Unifi/MAC Reservations.md</code></a> for the full table.</p>
+<p>See <a href="Unifi/Static%20Clients.md"><code>Unifi/Static Clients.md</code></a> for the network assignment list.</p>
+<hr>
+<h2 id="tailscale-vpn--remote-access">Tailscale (VPN / Remote Access)<a class="anchor" href="#tailscale-vpn--remote-access">#</a></h2>
+<p>Mode: <strong>Subnet Router</strong> — not Exit Node. Only homelab traffic routes through the tunnel.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>tailscale up --advertise-routes<span style="color:#f92672">=</span>10.10.10.0/24,10.10.30.0/24 --accept-routes</span></span></code></pre></div><p>Required static route in UniFi after Tailscale VM is running:</p>
+<ul>
+<li>Settings → Routing → Create New Route</li>
+<li>Destination: <code>100.64.0.0/10</code> (Tailscale CGNAT range)</li>
+<li>Type: Next Hop</li>
+<li>Next Hop: Tailscale VM IP on VLAN 80</li>
+</ul>
+<blockquote class='book-hint tip'>
+<p>Running Tailscale in Subnet Router mode (not Exit Node) means only homelab-bound traffic routes through the tunnel. Your regular internet traffic still goes direct from your client, which is what you want.</p></blockquote><hr>
+<h2 id="proxmox-virtual-interfaces">Proxmox Virtual Interfaces<a class="anchor" href="#proxmox-virtual-interfaces">#</a></h2>
+<p>Each Proxmox node needs these virtual interfaces. Configure in Proxmox UI → System → Network, or via Ansible <code>proxmox/virtual-interfaces</code> playbook.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Interface</th>
+          <th>VLAN</th>
+          <th>MTU</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>vmbr0</td>
+          <td>—</td>
+          <td>1500</td>
+          <td>Physical uplink (must be VLAN-aware trunk)</td>
+      </tr>
+      <tr>
+          <td>vmbr0.10</td>
+          <td>10</td>
+          <td>1500</td>
+          <td>Management</td>
+      </tr>
+      <tr>
+          <td>vmbr0.20</td>
+          <td>20</td>
+          <td>1500</td>
+          <td>Cluster — apply QoS DSCP 46 to this interface</td>
+      </tr>
+      <tr>
+          <td>vmbr0.30</td>
+          <td>30</td>
+          <td>1500</td>
+          <td>k3s workloads</td>
+      </tr>
+      <tr>
+          <td>vmbr0.40</td>
+          <td>40</td>
+          <td>9000</td>
+          <td>Storage — Jumbo Frames</td>
+      </tr>
+  </tbody>
+</table>
+<p>pve-srv-1 needs 2+ physical NICs (one for management/workloads, one for dedicated storage if available).</p>
+<hr>
+<h2 id="lacp--bonding-future">LACP / Bonding (Future)<a class="anchor" href="#lacp--bonding-future">#</a></h2>
+<p>pve-srv-1 currently uses a single 2.5 GbE NIC. LACP bonding is documented for when an enterprise-tier UniFi switch is available (MLAG requires enterprise tier).</p>
+<p>See <a href="Unifi/LACP%20-%20MLAG.md"><code>Unifi/LACP - MLAG.md</code></a> for details.</p>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+<div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/1-prep/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Backward" />
+        <span>1. Prep</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/2-networking/unifi/" class="flex align-center">
+        <span>UniFi Overview</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Forward" />
+      </a>
+    
+    </span>
+  </div>
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+  
+ 
+        
+  
+    <script>(function(){document.querySelectorAll("pre:has(code)").forEach(e=>{e.addEventListener("click",e.focus),e.addEventListener("copy",function(t){if(t.preventDefault(),navigator.clipboard){const t=window.getSelection().toString()||e.textContent;navigator.clipboard.writeText(t)}})})})()</script>
+  
+
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+  
+  <aside class="book-toc">
+    <div class="book-toc-content">
+      
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#vlan-architecture">VLAN Architecture</a>
+      <ul>
+        <li><a href="#why-these-separate-vlans">Why These Separate VLANs?</a></li>
+      </ul>
+    </li>
+    <li><a href="#switch-port-assignments">Switch Port Assignments</a></li>
+    <li><a href="#dhcp--dns-configuration">DHCP / DNS Configuration</a></li>
+    <li><a href="#firewall-rules">Firewall Rules</a>
+      <ul>
+        <li><a href="#mandatory-first-rules">Mandatory First Rules</a></li>
+        <li><a href="#service-groups-define-once-reference-in-rules">Service Groups (define once, reference in rules)</a></li>
+        <li><a href="#rules-by-vlan">Rules by VLAN</a></li>
+      </ul>
+    </li>
+    <li><a href="#mac-reservations--static-ips">MAC Reservations / Static IPs</a></li>
+    <li><a href="#tailscale-vpn--remote-access">Tailscale (VPN / Remote Access)</a></li>
+    <li><a href="#proxmox-virtual-interfaces">Proxmox Virtual Interfaces</a></li>
+    <li><a href="#lacp--bonding-future">LACP / Bonding (Future)</a></li>
+  </ul>
+</nav>
+
+
+
+    </div>
+  </aside>
+  
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

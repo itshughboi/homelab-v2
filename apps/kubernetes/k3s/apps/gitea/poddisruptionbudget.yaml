@@ -1,0 +1,23 @@
+# PodDisruptionBudget for Gitea
+#
+# Gitea is the ArgoCD repo source — if it goes down during a node drain,
+# ArgoCD loses the ability to sync any app. This PDB prevents k8s from
+# evicting the pod during voluntary disruptions (node upgrades, drains).
+#
+# minAvailable: 1 means at least 1 Gitea pod must stay running.
+# Since we run replicas: 1 (Recreate strategy + RWO PVC), this PDB blocks
+# the drain until the pod is rescheduled on another node first.
+#
+# Note: Recreate + RWO means Gitea still has a brief outage during rescheduling —
+# the PDB just prevents the drain from proceeding until the node is ready.
+# If you upgrade to replicas: 2 + RWX PVC (NFS), you get true zero-downtime.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gitea

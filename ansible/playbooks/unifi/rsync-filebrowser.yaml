@@ -1,0 +1,53 @@
+# unifi-backup.yml
+---
+- name: Rsync Unifi backups to Filebrowser
+  hosts: docker_host
+  gather_facts: false
+
+  vars:
+    src: /home/hughboi/data/unifi/backup/
+    dest: /home/hughboi/data/filebrowser/unifi-backups/
+    filebrowser_dir: /home/hughboi/code/filebrowser
+    ntfy_url: https://ntfy.hughboi.cc/unifi
+
+  tasks:
+    - name: Rsync Unifi backups to Filebrowser directory
+      ansible.posix.synchronize:
+        src: "{{ src }}"
+        dest: "{{ dest }}"
+        mode: push
+        archive: true
+        checksum: true
+      register: rsync_result
+      ignore_errors: true
+
+    - name: Notify success
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        body: |
+          Unifi Backup moved to FileBrowser
+          Date/Time: {{ ansible_date_time.iso8601 }}
+          Content: {{ rsync_result.msg }}
+        headers:
+          Content-Type: text/plain
+        status_code: 200
+      when: rsync_result is succeeded
+
+    - name: Notify failure
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        body: |
+          Unifi Backup move to FileBrowser FAILURE - {{ ansible_date_time.iso8601 }}
+          Error: {{ rsync_result.msg }}
+        headers:
+          Content-Type: text/plain
+        status_code: 200
+      when: rsync_result is failed
+
+    - name: Bring Filebrowser back up
+      community.docker.docker_compose_v2:
+        project_src: "{{ filebrowser_dir }}"
+        state: present
+      when: rsync_result is succeeded

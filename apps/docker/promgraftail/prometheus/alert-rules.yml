@@ -1,0 +1,22 @@
+groups:
+  - name: example_alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} has been down for more than 5 minutes."
+
+
+    ### Testing Alerts - will get annoying real quick I promise you :) 
+      # - alert: AlwaysFiring
+      #   expr: vector(1)
+      #   for: 1m
+      #   labels:
+      #     severity: info
+      #   annotations:
+      #     summary: "This alert always fires after 1 minute"
+      #     description: "This alert is for testing purposes and always fires."

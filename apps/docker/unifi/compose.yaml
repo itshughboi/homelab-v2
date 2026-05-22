@@ -1,0 +1,153 @@
+---
+services:
+  controller:
+    container_name: unifi_controller
+    image: jacobalberty/unifi:${UNIFI_TAG}
+    restart: unless-stopped
+    user: unifi
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      mongo:
+        condition: service_started
+    environment:
+      - DB_URI=mongodb://mongo/unifi
+      - STATDB_URI=mongodb://mongo/unifi_stat
+      - DB_NAME=unifi
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    volumes:
+      - /home/hughboi/data/unifi/dir:/unifi
+      - /home/hughboi/data/unifi/data:/unifi/data
+      - /home/hughboi/data/unifi/log:/unifi/log
+      - /home/hughboi/data/unifi/cert:/unifi/cert
+      - /home/hughboi/data/unifi/init:/unifi/init.d
+      - /home/hughboi/data/unifi/run:/var/run/unifi
+      - /home/hughboi/data/unifi/backup:/unifi/data/backup   # n8n rsync target
+    ports:
+      - "3478:3478/udp"    # STUN
+      - "6789:6789/tcp"    # Speed test
+      - "8080:8080/tcp"    # Device/controller communication
+      - "8443:8443/tcp"    # Controller GUI/API
+      - "8880:8880/tcp"    # HTTP portal redirection
+      - "8843:8843/tcp"    # HTTPS portal redirection
+      - "10001:10001/udp"  # AP discovery
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.unifi-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.unifi-http.entrypoints=http"
+      - "traefik.http.routers.unifi-http.rule=Host(`unifi.hughboi.cc`)"
+      - "traefik.http.routers.unifi-http.middlewares=unifi-redirect"
+      - "traefik.http.routers.unifi.entrypoints=https"
+      - "traefik.http.routers.unifi.rule=Host(`unifi.hughboi.cc`)"
+      - "traefik.http.routers.unifi.tls=true"
+      - "traefik.http.routers.unifi.tls.certresolver=cloudflare"
+      - "traefik.http.services.unifi.loadbalancer.server.port=8443"
+      - "traefik.http.services.unifi.loadbalancer.server.scheme=https"
+      - "traefik.docker.network=proxy"
+      - "diun.enable=true"
+    networks:
+      - unifi
+      - proxy
+
+  mongo:
+    container_name: unifi_mongo
+    # NOTE: mongo:3.6 is EOL. Migration required before upgrading — see UniFi docs.
+    image: mongo:3.6
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 300
+    volumes:
+      - /home/hughboi/data/unifi/db:/data/db
+      - /home/hughboi/data/unifi/dbcfg:/data/configdb
+    labels:
+      - "diun.enable=true"
+    networks:
+      - unifi
+
+  logs:
+    container_name: unifi_logs
+    image: alpine:3.21
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      controller:
+        condition: service_started
+    command: tail -F /unifi/log/*.log
+    volumes:
+      - /home/hughboi/data/unifi/log:/unifi/log
+    labels:
+      - "diun.enable=true"
+
+  unifi-poller:
+    container_name: unifi-poller
+    image: ghcr.io/unpoller/unpoller:${POLLER_TAG}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      controller:
+        condition: service_started
+    environment:
+      - UP_INFLUXDB_DISABLE=true
+      - UP_POLLER_DEBUG=${UP_POLLER_DEBUG}
+      - UP_UNIFI_DYNAMIC=false
+      - UP_PROMETHEUS_HTTP_LISTEN=0.0.0.0:9130
+      - UP_PROMETHEUS_NAMESPACE=unpoller
+      - UP_UNIFI_CONTROLLER_0_URL=${UNIFI_URL}
+      - UP_UNIFI_CONTROLLER_0_INSECURE=${UP_UNIFI_CONTROLLER_0_INSECURE}
+      - UP_UNIFI_DEFAULT_USER=${UNIFI_USER}
+      - UP_UNIFI_DEFAULT_PASS=${UNIFI_PASS}
+      - UP_UNIFI_CONTROLLER_0_PASS=${UNIFI_PASS}
+      - UP_UNIFI_CONTROLLER_0_SAVE_ALARMS=true
+      - UP_UNIFI_CONTROLLER_0_SAVE_ANOMALIES=true
+      - UP_UNIFI_CONTROLLER_0_SAVE_DPI=true
+      - UP_UNIFI_CONTROLLER_0_SAVE_EVENTS=true
+      - UP_UNIFI_CONTROLLER_0_SAVE_IDS=true
+      - UP_UNIFI_CONTROLLER_0_SAVE_SITES=true
+      - UP_UNIFI_CONTROLLER_0_USER=unifi-poller
+    labels:
+      - "diun.enable=true"
+    # Port 9130 not needed — prometheus and unifi-poller share the promgraftail network
+    networks:
+      - promgraftail   # Prometheus scrapes unifi-poller on this shared network
+      - unifi
+
+
+networks:
+  unifi:
+    internal: true
+  promgraftail:
+    external: true
+  proxy:
+    external: true

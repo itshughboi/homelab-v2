@@ -1,0 +1,34 @@
+# PodDisruptionBudgets for Authentik
+#
+# Authentik is the SSO provider for all k8s services. If it goes down,
+# users lose access to everything behind Authentik forward auth (Grafana,
+# ArgoCD UI, Traefik dashboard, etc.).
+#
+# Two PDBs — one for the server (handles auth), one for the worker (handles flows/tasks).
+# minAvailable: 1 on each prevents both from being simultaneously evicted.
+#
+# If you scale to replicas: 2+ on either component, change minAvailable to match
+# (e.g., minAvailable: 1 still works fine for N=2 — allows rolling updates).
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: authentik-server
+  namespace: authentik
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: authentik-server
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: authentik-worker
+  namespace: authentik
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: authentik-worker

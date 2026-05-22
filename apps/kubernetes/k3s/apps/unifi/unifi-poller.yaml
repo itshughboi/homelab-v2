@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unifi-poller
+  namespace: unifi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unifi-poller
+  template:
+    metadata:
+      labels:
+        app: unifi-poller
+    spec:
+      containers:
+        - name: unifi-poller
+          image: ghcr.io/unpoller/unpoller:latest
+          ports:
+            - containerPort: 9130
+          env:
+            - name: UP_INFLUXDB_DISABLE
+              value: "true"
+            - name: UP_UNIFI_DYNAMIC
+              value: "false"
+            - name: UP_PROMETHEUS_HTTP_LISTEN
+              value: "0.0.0.0:9130"
+            - name: UP_PROMETHEUS_NAMESPACE
+              value: "unpoller"
+            - name: UP_UNIFI_CONTROLLER_0_SAVE_ALARMS
+              value: "true"
+            - name: UP_UNIFI_CONTROLLER_0_SAVE_ANOMALIES
+              value: "true"
+            - name: UP_UNIFI_CONTROLLER_0_SAVE_DPI
+              value: "true"
+            - name: UP_UNIFI_CONTROLLER_0_SAVE_EVENTS
+              value: "true"
+            - name: UP_UNIFI_CONTROLLER_0_SAVE_IDS
+              value: "true"
+            - name: UP_UNIFI_CONTROLLER_0_SAVE_SITES
+              value: "true"
+            - name: UP_UNIFI_CONTROLLER_0_USER
+              value: "unifi-poller"
+          envFrom:
+            - secretRef:
+                name: unifi-poller-env
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9130
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9130
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unifi-poller
+  namespace: unifi
+spec:
+  selector:
+    app: unifi-poller
+  ports:
+    - port: 9130
+      targetPort: 9130

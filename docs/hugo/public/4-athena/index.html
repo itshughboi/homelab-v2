@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="4. Athena# Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.
+What Runs Here# Service Purpose URL Docker Container runtime for all management services — Traefik Reverse proxy — bound to 10.10.10.8, handles *.hughboi.cc for mgmt https://traefik.hughboi.cc Gitea Self-hosted Git — source of truth for all IaC; GitHub is a push mirror https://gitea.hughboi.cc Semaphore Ansible Web UI &#43; scheduler — runs all playbooks from here https://semaphore.hughboi.cc Bind9 Authoritative LAN DNS — network_mode: host, resolves *.hughboi.cc internally 10.10.10.8:53 Bind9 runs with network_mode: host so it gets the stable host IP 10.10.10.8 directly. This is why it can’t run in k3s — pod IPs change. The host IP is what every VLAN points to as their DNS server.
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2e3440">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/4-athena/">
+  <meta property="og:site_name" content="hughboi homelab">
+  <meta property="og:title" content="4. Athena">
+  <meta property="og:description" content="4. Athena# Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.
+What Runs Here# Service Purpose URL Docker Container runtime for all management services — Traefik Reverse proxy — bound to 10.10.10.8, handles *.hughboi.cc for mgmt https://traefik.hughboi.cc Gitea Self-hosted Git — source of truth for all IaC; GitHub is a push mirror https://gitea.hughboi.cc Semaphore Ansible Web UI &#43; scheduler — runs all playbooks from here https://semaphore.hughboi.cc Bind9 Authoritative LAN DNS — network_mode: host, resolves *.hughboi.cc internally 10.10.10.8:53 Bind9 runs with network_mode: host so it gets the stable host IP 10.10.10.8 directly. This is why it can’t run in k3s — pod IPs change. The host IP is what every VLAN points to as their DNS server.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="website">
+
+
+  <meta itemprop="name" content="4. Athena">
+  <meta itemprop="description" content="4. Athena# Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.
+What Runs Here# Service Purpose URL Docker Container runtime for all management services — Traefik Reverse proxy — bound to 10.10.10.8, handles *.hughboi.cc for mgmt https://traefik.hughboi.cc Gitea Self-hosted Git — source of truth for all IaC; GitHub is a push mirror https://gitea.hughboi.cc Semaphore Ansible Web UI &#43; scheduler — runs all playbooks from here https://semaphore.hughboi.cc Bind9 Authoritative LAN DNS — network_mode: host, resolves *.hughboi.cc internally 10.10.10.8:53 Bind9 runs with network_mode: host so it gets the stable host IP 10.10.10.8 directly. This is why it can’t run in k3s — pod IPs change. The host IP is what every VLAN points to as their DNS server.">
+  <meta itemprop="wordCount" content="731">
+
+<title>4. Athena • hughboi homelab</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="http://localhost:1313/4-athena/">
+<link rel="stylesheet" href="/book.min.98c83e4c8e1c8661368bcb29bbaf4dcc9d31b8164f76aae322d82d86a9750c65.css" integrity="sha256-mMg&#43;TI4chmE2i8spu69NzJ0xuBZPdqrjItgthql1DGU=" crossorigin="anonymous">
+
+
+  <script defer type="module" src="/en.search.min.31642a45f54931c0ec0bfba9b5b049b7a03da1b319409196e09290d30f543550.js" integrity="sha256-MWQqRfVJMcDsC/uptbBJt6A9obMZQJGW4JKQ0w9UNVA=" crossorigin="anonymous"></script>
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/4-athena/index.xml" title="4. Athena" />
+
+  
+</head>
+<body dir="ltr" class="book-kind-section book-type-4-athena">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>hughboi homelab</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input id="book-search-input" type="text" 
+    placeholder="Search"
+    aria-label="Search"
+    maxlength="64" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+<ul><li><a href="https://gitea.hughboi.cc" target="_blank" rel="noopener">Gitea</a></li></ul>
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/master-guide/" class="">
+      Master Guide (Runbook)</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="toggle"  />
+    <label for="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="flex">
+      <a href="/1-prep/" class="">
+        1. Prep</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-152e4d5c4ff85a42f4295919ff302d58" class="toggle"  />
+    <label for="section-152e4d5c4ff85a42f4295919ff302d58" class="flex">
+      <a href="/2-networking/" class="">
+        2. Networking</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/2-networking/unifi/" class="">
+      UniFi Overview</a>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-204a92253d65d259c235eef1715b87c4" class="toggle"  />
+    <label for="section-204a92253d65d259c235eef1715b87c4" class="flex">
+      <a href="/3-proxmox/" class="">
+        3. Proxmox</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-fd5b4a9972f8f65b869d37981c88da70" class="toggle" checked />
+    <label for="section-fd5b4a9972f8f65b869d37981c88da70" class="flex">
+      <a href="/4-athena/" class="active">
+        4. Athena</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-daf9554492503effc450c68f16ace296" class="toggle"  />
+    <label for="section-daf9554492503effc450c68f16ace296" class="flex">
+      <a href="/5-storage/" class="">
+        5. Storage</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-24543dab52bbdfff1afa8b897ec0b1ff" class="toggle"  />
+    <label for="section-24543dab52bbdfff1afa8b897ec0b1ff" class="flex">
+      <a role="button" class="">
+        6. Security</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-d5ace2344a534070fa2af9171bbb0f7f" class="toggle"  />
+    <label for="section-d5ace2344a534070fa2af9171bbb0f7f" class="flex">
+      <a href="/7-docker/" class="">
+        7. Docker</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-5dcf160d160f6c4a4dca2ea878475af7" class="toggle"  />
+    <label for="section-5dcf160d160f6c4a4dca2ea878475af7" class="flex">
+      <a href="/8-k3s/" class="">
+        8. k3s</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="toggle"  />
+    <label for="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="flex">
+      <a href="/9-gitops/" class="">
+        9. GitOps</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+<ul><li><a href="https://10.10.10.1:8006" target="_blank" rel="noopener">Proxmox</a></li></ul>
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>4. Athena</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#what-runs-here">What Runs Here</a>
+      <ul>
+        <li><a href="#the-handoff-model">The Handoff Model</a></li>
+      </ul>
+    </li>
+    <li><a href="#bootstrap-athena">Bootstrap Athena</a></li>
+    <li><a href="#sops--age-secrets-before-anything-else">SOPS + Age (Secrets Before Anything Else)</a></li>
+    <li><a href="#bind9-dns--terraform-integration">Bind9 DNS — Terraform Integration</a></li>
+    <li><a href="#git-handoff-to-gitea">Git Handoff to Gitea</a></li>
+    <li><a href="#semaphore-setup">Semaphore Setup</a></li>
+    <li><a href="#ansible-playbook-reference">Ansible Playbook Reference</a></li>
+    <li><a href="#pocket-id-oidc--sso">Pocket ID (OIDC / SSO)</a></li>
+    <li><a href="#security-notes">Security Notes</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="4-athena">4. Athena<a class="anchor" href="#4-athena">#</a></h1>
+<p>Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.</p>
+<hr>
+<h2 id="what-runs-here">What Runs Here<a class="anchor" href="#what-runs-here">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Service</th>
+          <th>Purpose</th>
+          <th>URL</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Docker</td>
+          <td>Container runtime for all management services</td>
+          <td>—</td>
+      </tr>
+      <tr>
+          <td>Traefik</td>
+          <td>Reverse proxy — bound to <code>10.10.10.8</code>, handles <code>*.hughboi.cc</code> for mgmt</td>
+          <td><a href="https://traefik.hughboi.cc">https://traefik.hughboi.cc</a></td>
+      </tr>
+      <tr>
+          <td>Gitea</td>
+          <td>Self-hosted Git — source of truth for all IaC; GitHub is a push mirror</td>
+          <td><a href="https://gitea.hughboi.cc">https://gitea.hughboi.cc</a></td>
+      </tr>
+      <tr>
+          <td>Semaphore</td>
+          <td>Ansible Web UI + scheduler — runs all playbooks from here</td>
+          <td><a href="https://semaphore.hughboi.cc">https://semaphore.hughboi.cc</a></td>
+      </tr>
+      <tr>
+          <td>Bind9</td>
+          <td>Authoritative LAN DNS — <code>network_mode: host</code>, resolves <code>*.hughboi.cc</code> internally</td>
+          <td>10.10.10.8:53</td>
+      </tr>
+  </tbody>
+</table>
+<blockquote class='book-hint note'>
+<p>Bind9 runs with <code>network_mode: host</code> so it gets the stable host IP <code>10.10.10.8</code> directly.
+This is why it can&rsquo;t run in k3s — pod IPs change. The host IP is what every VLAN points to as their DNS server.</p></blockquote><h3 id="the-handoff-model">The Handoff Model<a class="anchor" href="#the-handoff-model">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>Day 0: Laptop runs Ansible against Athena
+</span></span><span style="display:flex;"><span>Day 1: Semaphore on Athena runs all future Ansible
+</span></span><span style="display:flex;"><span>       Laptop retired — never needed again
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Code changes → push to Gitea
+</span></span><span style="display:flex;"><span>Infrastructure changes → Semaphore triggers playbooks  
+</span></span><span style="display:flex;"><span>Secret changes → SOPS encrypted, pushed to Gitea</span></span></code></pre></div><hr>
+<h2 id="bootstrap-athena">Bootstrap Athena<a class="anchor" href="#bootstrap-athena">#</a></h2>
+<p>Run from your laptop (before Semaphore exists):</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>cd ansible/playbooks/ubuntu/
+</span></span><span style="display:flex;"><span>ansible-playbook bootstrap-athena.yml -i inventory.yaml</span></span></code></pre></div><p>This installs Docker and all management services on Athena. After it completes, Semaphore is the operator.</p>
+<hr>
+<h2 id="sops--age-secrets-before-anything-else">SOPS + Age (Secrets Before Anything Else)<a class="anchor" href="#sops--age-secrets-before-anything-else">#</a></h2>
+<p>Set this up before pushing any secrets to Git.</p>
+<p><strong>Why SOPS + Age instead of Vault:</strong> no additional service to maintain, Age is modern and simple, private key never leaves Athena. Vault is overkill for one operator.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#75715e"># On Athena</span>
+</span></span><span style="display:flex;"><span>apt install age sops
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate keypair — private key NEVER leaves Athena</span>
+</span></span><span style="display:flex;"><span>age-keygen -o ~/.config/sops/age/keys.txt
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Output includes: Public key: age1...</span></span></span></code></pre></div><p>Run the setup script (populates <code>.sops.yaml</code> in repo root):</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>./scripts/age-setup.sh</span></span></code></pre></div><p>Or manually update <code>.sops.yaml</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">creation_rules</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">path_regex</span>: <span style="color:#ae81ff">secrets\.yaml$</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">age</span>: <span style="color:#e6db74">&#34;&lt;your-age-public-key&gt;&#34;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">path_regex</span>: <span style="color:#ae81ff">terraform\.tfvars$</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">age</span>: <span style="color:#e6db74">&#34;&lt;your-age-public-key&gt;&#34;</span></span></span></code></pre></div><p><strong>Encrypt / decrypt:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>sops --encrypt --in-place secrets.yaml   <span style="color:#75715e"># encrypt file in place</span>
+</span></span><span style="display:flex;"><span>sops secrets.yaml                         <span style="color:#75715e"># open decrypted in $EDITOR</span></span></span></code></pre></div><blockquote class='book-hint danger'>
+<p>If a plaintext secret ever touches Git history, assume it is compromised.
+Rotation is required — even if you delete the file immediately.
+This applies to all secrets: API tokens, passwords, private keys.</p></blockquote><hr>
+<h2 id="bind9-dns--terraform-integration">Bind9 DNS — Terraform Integration<a class="anchor" href="#bind9-dns--terraform-integration">#</a></h2>
+<p>Terraform auto-creates DNS records for each provisioned VM via TSIG authentication. This means every VM gets a DNS record automatically when <code>terraform apply</code> runs.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span><span style="color:#75715e"># Inside Bind9 container — generate TSIG key</span>
+</span></span><span style="display:flex;"><span>docker exec -it bind9 tsig-keygen -a hmac-sha256</span></span></code></pre></div><p>Save output to <code>/etc/bind/named.conf.key</code>. Add <code>update-policy</code> to zone:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bind" data-lang="bind"><span style="display:flex;"><span><span style="color:#a6e22e">zone</span> <span style="color:#960050;background-color:#1e0010">&#34;</span><span style="color:#a6e22e">hughboi.cc</span><span style="color:#960050;background-color:#1e0010">&#34;</span> <span style="color:#960050;background-color:#1e0010">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">type</span> <span style="color:#960050;background-color:#1e0010">master</span><span style="color:#75715e">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">file</span> <span style="color:#960050;background-color:#1e0010">&#34;/etc/bind/zones/</span><span style="color:#a6e22e">db.hughboi.cc</span><span style="color:#960050;background-color:#1e0010">&#34;</span><span style="color:#75715e">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">update-policy</span> <span style="color:#960050;background-color:#1e0010">{</span> <span style="color:#960050;background-color:#1e0010">grant</span> <span style="color:#960050;background-color:#1e0010">tsig-key</span> <span style="color:#960050;background-color:#1e0010">zonesub</span> <span style="color:#960050;background-color:#1e0010">any</span><span style="color:#75715e">; };</span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">}</span><span style="color:#75715e">;</span></span></span></code></pre></div><p>Apply DNS records via Terraform:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>cd terraform/bind9
+</span></span><span style="display:flex;"><span>terraform init <span style="color:#f92672">&amp;&amp;</span> terraform apply
+</span></span><span style="display:flex;"><span>dig proxmox.hughboi.cc @10.10.10.8   <span style="color:#75715e"># should resolve to 10.10.10.1</span></span></span></code></pre></div><p>Sync Bind9 journal to zone file (run after Terraform updates):</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>docker exec -it bind9 rndc sync</span></span></code></pre></div><blockquote class='book-hint danger'>
+<p>The TSIG key allows DNS record updates to your zone. Encrypt with SOPS before committing anywhere near Git.</p></blockquote><hr>
+<h2 id="git-handoff-to-gitea">Git Handoff to Gitea<a class="anchor" href="#git-handoff-to-gitea">#</a></h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>git remote add gitea https://gitea.hughboi.cc/hughboi/homelab.git
+</span></span><span style="display:flex;"><span>git push gitea main</span></span></code></pre></div><p>GitHub is a push mirror (auto-synced from Gitea). GitHub links in docs are valid and intentional — Gitea is primary.</p>
+<hr>
+<h2 id="semaphore-setup">Semaphore Setup<a class="anchor" href="#semaphore-setup">#</a></h2>
+<p>Access at <code>https://semaphore.hughboi.cc</code>. After first login:</p>
+<ol>
+<li><strong>Key Store</strong> → Add SSH key (<code>~/.ssh/id_ed25519</code> private key)</li>
+<li><strong>Repositories</strong> → Add repository → point to Gitea repo URL</li>
+<li><strong>Inventory</strong> → Add inventory → path: <code>ansible/inventories/</code></li>
+<li><strong>Environment</strong> → Add environment → <code>{}</code></li>
+<li><strong>Task Templates</strong> → create templates for each playbook</li>
+</ol>
+<p>From here, all Ansible runs through Semaphore. The laptop never needs to SSH anywhere again.</p>
+<hr>
+<h2 id="ansible-playbook-reference">Ansible Playbook Reference<a class="anchor" href="#ansible-playbook-reference">#</a></h2>
+<p>See <a href="Ansible.md"><code>Ansible.md</code></a> for full playbook documentation. Key playbooks:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Playbook</th>
+          <th>Path</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>bootstrap-athena</td>
+          <td><code>ubuntu/bootstrap-athena</code></td>
+          <td>Initial Athena setup</td>
+      </tr>
+      <tr>
+          <td>new-host-bootstrap</td>
+          <td><code>ubuntu/new-host-bootstrap</code></td>
+          <td>Harden and configure any new VM</td>
+      </tr>
+      <tr>
+          <td>cluster-update</td>
+          <td><code>proxmox/cluster-update</code></td>
+          <td>Update Proxmox cluster config</td>
+      </tr>
+      <tr>
+          <td>vm-template-refresh</td>
+          <td><code>proxmox/vm-template-refresh</code></td>
+          <td>Rebuild Template 9999</td>
+      </tr>
+      <tr>
+          <td>k3s-install</td>
+          <td><code>kubernetes/k3s/new</code></td>
+          <td>Install/reinstall k3s cluster</td>
+      </tr>
+      <tr>
+          <td>join-cluster</td>
+          <td><code>proxmox/join-cluster</code></td>
+          <td>Add node to Proxmox cluster</td>
+      </tr>
+      <tr>
+          <td>virtual-interfaces</td>
+          <td><code>proxmox/virtual-interfaces</code></td>
+          <td>Configure VLAN bridge interfaces</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="pocket-id-oidc--sso">Pocket ID (OIDC / SSO)<a class="anchor" href="#pocket-id-oidc--sso">#</a></h2>
+<p>Pocket ID is a lightweight OIDC provider that enables SSO across Proxmox, Gitea, Semaphore, and other services — one login for everything.</p>
+<p>Set up after Athena is running. See <a href="Terraform%20Bind9.md"><code>Terraform Bind9.md</code></a> and <a href="../7-docker/Pocket%20ID%20-%20Proxmox.md"><code>../7-docker/Pocket ID - Proxmox.md</code></a> for configuration.</p>
+<hr>
+<h2 id="security-notes">Security Notes<a class="anchor" href="#security-notes">#</a></h2>
+<ul>
+<li>Traefik is explicitly bound to <code>10.10.10.8</code> — not <code>0.0.0.0</code>. This prevents Docker from publishing ports to the wrong interface.</li>
+<li><code>DOCKER-USER</code> iptables chain is used for host-level firewall rules that Docker can&rsquo;t bypass.</li>
+<li>Never run Docker services with <code>--network=host</code> unless strictly necessary (Bind9 is the deliberate exception).</li>
+<li>Web UIs are only reachable from VLAN 10 (Management) — never exposed to WAN.</li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+<div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/3-proxmox/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Backward" />
+        <span>3. Proxmox</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/5-storage/" class="flex align-center">
+        <span>5. Storage</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Forward" />
+      </a>
+    
+    </span>
+  </div>
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+  
+ 
+        
+  
+    <script>(function(){document.querySelectorAll("pre:has(code)").forEach(e=>{e.addEventListener("click",e.focus),e.addEventListener("copy",function(t){if(t.preventDefault(),navigator.clipboard){const t=window.getSelection().toString()||e.textContent;navigator.clipboard.writeText(t)}})})})()</script>
+  
+
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+  
+  <aside class="book-toc">
+    <div class="book-toc-content">
+      
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#what-runs-here">What Runs Here</a>
+      <ul>
+        <li><a href="#the-handoff-model">The Handoff Model</a></li>
+      </ul>
+    </li>
+    <li><a href="#bootstrap-athena">Bootstrap Athena</a></li>
+    <li><a href="#sops--age-secrets-before-anything-else">SOPS + Age (Secrets Before Anything Else)</a></li>
+    <li><a href="#bind9-dns--terraform-integration">Bind9 DNS — Terraform Integration</a></li>
+    <li><a href="#git-handoff-to-gitea">Git Handoff to Gitea</a></li>
+    <li><a href="#semaphore-setup">Semaphore Setup</a></li>
+    <li><a href="#ansible-playbook-reference">Ansible Playbook Reference</a></li>
+    <li><a href="#pocket-id-oidc--sso">Pocket ID (OIDC / SSO)</a></li>
+    <li><a href="#security-notes">Security Notes</a></li>
+  </ul>
+</nav>
+
+
+
+    </div>
+  </aside>
+  
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

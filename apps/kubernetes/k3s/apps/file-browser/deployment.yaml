@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-browser
+  namespace: file-browser
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: file-browser
+  template:
+    metadata:
+      labels:
+        app: file-browser
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: file-browser
+          image: hurlenko/filebrowser:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: FB_BASEURL
+              value: /
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: db
+              mountPath: /config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: file-browser-truenas
+        - name: db
+          persistentVolumeClaim:
+            claimName: file-browser-db

@@ -1,0 +1,7 @@
+api_url = "https://10.10.10.1:443/"   # UniFi Network Application URL
+api_key = ""
+unifi_username = ""
+unifi_password = ""
+allow_insecure = true
+unifi_site = "default"
+

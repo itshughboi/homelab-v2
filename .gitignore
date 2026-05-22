@@ -1,0 +1,60 @@
+# ── Secrets — never commit ─────────────────────────────────────────────────────
+*.env
+.env
+vault_pass.txt
+*.key
+*.pem
+*.cry
+
+# Terraform variable files (contain API tokens, passwords)
+terraform.tfvars
+*.tfvars
+!*.tfvars.example
+
+# Terraform state — local state is safe locally but must never be committed
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Packer — rendered HCL (generated from .j2) and variable files
+packer/proxmox-iso-ubuntu/proxmox-iso-ubuntu.pkr.hcl
+packer/proxmox-iso-ubuntu/proxmox.pkrvars.sh
+
+# SOPS-encrypted secrets ARE safe to commit — un-ignore them.
+# .env.sops files have age/AES256-GCM-encrypted values.
+# See scripts/README.md for the full SOPS workflow.
+!*.env.sops
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── App runtime data (Docker volume mounts, never committed) ───────────────────
+**/volumes/
+**/data/
+**/db/
+**/run/
+**/log/
+**/logs/
+**/ssh/
+**/diagnostic.data/
+**/journal/
+data/
+volumes/
+secrets/
+
+# ── App-specific ───────────────────────────────────────────────────────────────
+adguard/**/conf/*.yaml
+crowdsec/config/hub/
+promgraftail/grafana/
+wazuh/wazuh_integrations
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
+*.log
+*.pid
+*.sqlite
+*.sock
+.git
+*.claude
+.obsidian

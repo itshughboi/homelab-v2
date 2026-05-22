@@ -1,0 +1,172 @@
+storage:
+  type: postgres
+  path: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_ENDPOING}/${POSTGRES_DB}?sslmode=require"
+
+
+alerting:
+  discord:
+    webhook-url: "${DISCORD_WEBHOOK}"
+    default-alert:
+      description: "Health Check Failed"
+      send-on-resolved: true
+      failure-threshold: 2
+      success-threshold: 1
+      
+  ntfy:
+    topic: gatus
+    url: https://ntfy.hughboi.cc/gatus
+    priority: 3
+
+endpoint-applications: &applications
+  group: Applications
+  interval: 30s
+  client:
+    timeout: 10s
+  conditions:
+    - "[STATUS] == 200"
+    - "[CERTIFICATE_EXPIRATION] > 48h" # Will fail if certificate is expiring soon
+  alerts:
+    - type: discord
+    - type: ntfy
+
+
+endpoint-server: &server
+  group: Servers
+  interval: 30s
+  conditions:
+    - "[CONNECTED] == true"
+  alerts:
+    - type: discord
+    - type: ntfy
+
+
+endpoint-security: &security
+  group: Security
+  interval: 30s
+  conditions:
+    - "[CONNECTED] == true"
+  alerts:
+    - type: discord
+    - type: ntfy
+
+
+
+
+endpoints:
+
+### Servers
+  - name: Hades - tcp
+    <<: *server
+    url: "tcp://10.10.10.1:8006"
+  
+  - name: pve-srv-2 - tcp
+    <<: *server
+    url: "tcp://10.10.10.2:8006"
+
+  - name: pve-srv-3 - tcp
+    <<: *server
+    url: "tcp://10.10.10.3:8006"
+
+  - name: pve-srv-4 - tcp
+    <<: *server
+    url: "tcp://10.10.10.4:8006"
+
+  - name: PBS - tcp
+    <<: *server
+    url: "tcp://10.10.10.6:8007"
+
+  - name: dock-prod - icmp
+    <<: *server
+    url: "icmp://10.10.10.10"
+
+  - name: bind9 - tcp
+    <<: *server
+    url: "tcp://10.10.10.9:53"  
+
+  - name: HAPostgres VIP - icmp
+    <<: *server
+    url: "icmp://10.10.10.7"
+
+  - name: automation Athena
+    <<: *server
+    url: "icmp://10.10.10.8"
+    
+  - name: TrueNAS - icmp
+    group: Servers
+    url: "icmp://10.10.10.5"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+
+### Applications
+  - name: Adguard - https
+    <<: *applications
+    url: "https://adguard.hughboi.cc"
+
+  - name: Authentik - https
+    <<: *applications
+    url: "https://authentik.hughboi.cc"
+  
+  - name: Grafana - https
+    <<: *applications
+    url: "https://grafana.hughboi.cc"
+
+  - name: Homepage - https
+    <<: *applications
+    url: "https://home.hughboi.cc"
+
+  - name: Immich - https
+    <<: *applications
+    url: "https://immich.hughboi.cc"
+
+  - name: InfluxDB - https
+    <<: *applications
+    url: "https://influx.hughboi.cc"
+
+  # - name: Loki - tcp
+  #   <<: *applications
+  #   url: "tcp://loki:3100/loki/api/v1/push" # :9096
+
+
+  - name: Ntfy - https
+    <<: *applications
+    url: "https://ntfy.hughboi.cc"
+
+  - name: Prometheus - https
+    <<: *applications
+    url: "https://prometheus.hughboi.cc"
+
+  # - name: Promtail - tcp
+  #   <<: *applications
+  #   url: "tcp://10.10.10.10:9080"
+
+  - name: Speedtest - https
+    <<: *applications
+    url: "https://speed.hughboi.cc"
+  
+  - name: Syncthing - https
+    <<: *applications
+    url: "https://syncthing.hughboi.cc"
+
+  - name: Traefik - https
+    <<: *applications
+    url: "https://traefik.hughboi.cc"
+
+  - name: Vaultwarden - https
+    <<: *applications
+    url: "https://vaultwarden.hughboi.cc"
+
+  - name: Searxng - https
+    <<: *applications
+    url: "https://search.hughboi.cc"
+
+
+
+## Security
+  - name: Crowdsec - tcp
+    <<: *security
+    url: "tcp://10.10.10.20:6060"
+  
+  - name: Wazuh - https
+    <<: *security
+    url: "https://wazuh.hughboi.cc"

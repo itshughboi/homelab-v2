@@ -1,0 +1,6 @@
+---
+- name: Ubuntu hardening baseline
+  hosts: ubuntu
+  become: true
+  roles:
+    - hardening

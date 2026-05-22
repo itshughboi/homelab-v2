@@ -1,0 +1,178 @@
+---
+# k3s-server-init/tasks/main.yml
+# Runs ONLY on the first master node (groups['k3s_masters'][0]).
+# Bootstraps the etcd cluster and places kube-vip so the VIP is available
+# before master-2 and master-3 join.
+#
+# After this role completes:
+#   - k3s API server is running on master-1
+#   - kube-vip VIP (10.10.30.30) is reachable on port 6443
+#   - Node token is available for other nodes to join
+
+# ── Guard: only run on the init node ─────────────────────────────────────────
+
+- name: Verify this is the designated init node
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == groups['k3s_masters'][0]
+    fail_msg: >
+      k3s-server-init must only run on {{ groups['k3s_masters'][0] }},
+      not {{ inventory_hostname }}. Check your playbook targeting.
+
+# ── Check if k3s is already initialized ──────────────────────────────────────
+
+- name: Check if k3s is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Check if cluster is already initialized
+  ansible.builtin.stat:
+    path: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token_file
+
+- name: Set fact — whether this is a first-time install
+  ansible.builtin.set_fact:
+    k3s_needs_init: "{{ not k3s_token_file.stat.exists }}"
+
+# ── Place kube-vip manifest BEFORE k3s starts ─────────────────────────────────
+# k3s auto-applies everything in /var/lib/rancher/k3s/server/manifests/ on startup.
+# By placing kube-vip here before starting k3s, it starts with k3s and the VIP
+# is available almost immediately for master-2 and master-3 to join.
+
+- name: Create k3s auto-deploy manifests directory
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+- name: Deploy kube-vip manifest to auto-deploy directory
+  ansible.builtin.template:
+    src: kube-vip.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  # Always re-template so version updates are applied
+  notify: restart k3s
+
+# ── Install k3s (first master — cluster-init) ─────────────────────────────────
+
+- name: Download and install k3s (first master)
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_VERSION="{{ k3s_version }}" \
+      K3S_TOKEN="{{ vault_k3s_cluster_secret }}" \
+      sh -s - server \
+        --cluster-init \
+        --tls-san="{{ k3s_api_vip }}" \
+        --tls-san="{{ ansible_host }}" \
+        {{ k3s_server_extra_args }}
+  args:
+    creates: /usr/local/bin/k3s   # skip if already installed (idempotent)
+  register: k3s_install
+  tags: install
+
+# ── Wait for API server ───────────────────────────────────────────────────────
+
+- name: Wait for k3s API server to be ready on master-1
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ k3s_api_port }}"
+    delay: 5
+    timeout: 120
+  tags: wait
+
+- name: Wait for node-token file to exist
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    timeout: 60
+  tags: wait
+
+- name: Wait for kubectl to be available
+  ansible.builtin.wait_for:
+    path: /usr/local/bin/kubectl
+    timeout: 30
+  tags: wait
+
+- name: Wait for master-1 to be Ready
+  ansible.builtin.command:
+    cmd: kubectl get node {{ inventory_hostname }} -o jsonpath='{.status.conditions[-1].type}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: node_ready
+  until: node_ready.stdout == "Ready"
+  retries: 30
+  delay: 10
+  changed_when: false
+  tags: wait
+
+# ── Wait for kube-vip VIP ─────────────────────────────────────────────────────
+# kube-vip is deployed via the manifests directory.
+# Give it time to start and claim the VIP before other masters try to join.
+
+- name: Wait for kube-vip VIP to be reachable
+  ansible.builtin.wait_for:
+    host: "{{ k3s_api_vip }}"
+    port: "{{ k3s_api_port }}"
+    delay: 10
+    timeout: 120
+    msg: "kube-vip VIP ({{ k3s_api_vip }}:{{ k3s_api_port }}) is not reachable — check kube-vip pod logs"
+  tags: wait
+
+# ── Fetch node token for other nodes ─────────────────────────────────────────
+
+- name: Read node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token_raw
+  tags: token
+
+- name: Set node token as a fact (shared across play via hostvars)
+  ansible.builtin.set_fact:
+    k3s_node_token: "{{ node_token_raw.content | b64decode | trim }}"
+  tags: token
+
+# ── Configure kubectl for the ansible user ────────────────────────────────────
+
+- name: Create .kube directory for ansible user
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    mode: "0700"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: kubeconfig
+
+- name: Copy kubeconfig to ansible user's home
+  ansible.builtin.copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    mode: "0600"
+  tags: kubeconfig
+
+- name: Update kubeconfig server address to use VIP
+  ansible.builtin.replace:
+    path: "/home/{{ ansible_user }}/.kube/config"
+    regexp: 'https://127\.0\.0\.1:{{ k3s_api_port }}'
+    replace: "https://{{ k3s_api_vip }}:{{ k3s_api_port }}"
+  tags: kubeconfig
+
+# ── Verify cluster is healthy ─────────────────────────────────────────────────
+
+- name: Verify cluster is healthy (get nodes)
+  ansible.builtin.command: kubectl get nodes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: nodes_output
+  changed_when: false
+  tags: verify
+
+- name: Print node list
+  ansible.builtin.debug:
+    var: nodes_output.stdout_lines
+  tags: verify

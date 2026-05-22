@@ -1,0 +1,127 @@
+---
+name: immich-eros
+
+services:
+  immich-server:
+    container_name: immich_server-eros
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-v2.7.5}
+    restart: unless-stopped
+    # GPU transcoding: apparmor=unconfined + group_add render required for /dev/dri access
+    devices:
+      - /dev/dri:/dev/dri
+    security_opt:
+      - apparmor=unconfined
+    group_add:
+      - "993"   # render/video group on host: stat -c "%g" /dev/dri/renderD128
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      - redis
+      - database
+    volumes:
+      - ${UPLOAD_LOCATION}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+      - /mnt/truenas/eros:/mnt/media/eros:ro
+    env_file:
+      - .env
+    healthcheck:
+      disable: false
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.eros.entrypoints=http"
+      - "traefik.http.routers.eros.rule=Host(`eros.hughboi.cc`)"
+      - "traefik.http.middlewares.eros-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.eros.middlewares=eros-https-redirect"
+      - "traefik.http.routers.eros-secure.entrypoints=https"
+      - "traefik.http.routers.eros-secure.rule=Host(`eros.hughboi.cc`)"
+      - "traefik.http.routers.eros-secure.tls=true"
+      - "traefik.http.routers.eros-secure.service=eros"
+      - "traefik.http.services.eros.loadbalancer.server.port=2283"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - eros
+
+  immich-machine-learning:
+    container_name: immich_machine_learning-eros
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-v2.7.5}-openvino
+    restart: unless-stopped
+    # SYS_ADMIN and apparmor=unconfined required for OpenVINO GPU acceleration
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    extends:
+      file: hwaccel.ml.yml
+      service: openvino
+    volumes:
+      - /mnt/truenas/eros/cache:/cache
+    env_file:
+      - .env
+    healthcheck:
+      disable: false
+    networks:
+      - eros
+
+  redis:
+    container_name: immich_redis-eros
+    image: docker.io/valkey/valkey:8-bookworm
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: redis-cli ping || exit 1
+    networks:
+      - eros
+
+  database:
+    container_name: immich_postgres-eros
+    image: ghcr.io/immich-app/postgres:16-vectorchord0.5.3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    env_file:
+      - .env
+    volumes:
+      - immich-postgres-eros:/var/lib/postgresql/data
+    networks:
+      - eros
+
+
+volumes:
+  immich-postgres-eros:
+
+networks:
+  proxy:
+    external: true
+  eros:

@@ -1,0 +1,93 @@
+---
+# Generate a full VM/CT inventory report across all Proxmox nodes.
+# Reports: node, vmid, name, status, CPU cores, RAM (MB), disk (GB), OS type, uptime.
+# Output saved as a markdown table to /tmp/vm-inventory.md on the controller.
+
+- name: Collect VM and CT data from all nodes
+  hosts: proxmox
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Get VMs from this node (JSON)
+      ansible.builtin.shell:
+        cmd: pvesh get /nodes/{{ inventory_hostname }}/qemu --output-format json 2>/dev/null
+      register: vm_data_raw
+      changed_when: false
+
+    - name: Get containers from this node (JSON)
+      ansible.builtin.shell:
+        cmd: pvesh get /nodes/{{ inventory_hostname }}/lxc --output-format json 2>/dev/null
+      register: ct_data_raw
+      changed_when: false
+
+    - name: Get node summary (CPU/RAM usage)
+      ansible.builtin.shell:
+        cmd: pvesh get /nodes/{{ inventory_hostname }}/status --output-format json 2>/dev/null
+      register: node_status_raw
+      changed_when: false
+
+    - name: Store data as facts for controller play
+      ansible.builtin.set_fact:
+        node_vms: "{{ vm_data_raw.stdout | from_json }}"
+        node_cts: "{{ ct_data_raw.stdout | from_json }}"
+        node_status: "{{ node_status_raw.stdout | from_json }}"
+
+- name: Compile and write inventory report
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    report_path: "/tmp/pve-vm-inventory-{{ ansible_date_time.date }}.md"
+
+  tasks:
+    - name: Build markdown report
+      ansible.builtin.copy:
+        content: |
+          # Proxmox VM Inventory
+          Generated: {{ ansible_date_time.iso8601 }}
+
+          ---
+
+          {% for host in groups['proxmox'] %}
+          {% set hvars = hostvars[host] %}
+          ## Node: {{ host }}
+
+          **Status:** {{ hvars.node_status.status | default('unknown') }}
+          **CPU:** {{ hvars.node_status.cpuinfo.cpus | default('?') }} cores
+          **RAM:** {{ ((hvars.node_status.memory.total | default(0)) / 1073741824) | round(1) }} GB total,
+          {{ ((hvars.node_status.memory.used | default(0)) / 1073741824) | round(1) }} GB used
+
+          ### Virtual Machines
+
+          | VMID | Name | Status | CPU | RAM (MB) | Disk (GB) | Uptime |
+          |------|------|--------|-----|----------|-----------|--------|
+          {% for vm in hvars.node_vms | default([]) | sort(attribute='vmid') %}
+          | {{ vm.vmid }} | {{ vm.name | default('?') }} | {{ vm.status }} | {{ vm.cpus | default('?') }} | {{ vm.maxmem | default(0) // 1048576 }} | {{ (vm.maxdisk | default(0) / 1073741824) | round(1) }} | {{ vm.uptime | default(0) | int // 3600 }}h |
+          {% endfor %}
+
+          ### Containers (LXC)
+
+          | CTID | Name | Status | CPU | RAM (MB) | Disk (GB) | Uptime |
+          |------|------|--------|-----|----------|-----------|--------|
+          {% for ct in hvars.node_cts | default([]) | sort(attribute='vmid') %}
+          | {{ ct.vmid }} | {{ ct.name | default('?') }} | {{ ct.status }} | {{ ct.cpus | default('?') }} | {{ ct.maxmem | default(0) // 1048576 }} | {{ (ct.maxdisk | default(0) / 1073741824) | round(1) }} | {{ ct.uptime | default(0) | int // 3600 }}h |
+          {% endfor %}
+
+          ---
+
+          {% endfor %}
+        dest: "{{ report_path }}"
+        mode: "0644"
+
+    - name: Print report path
+      ansible.builtin.debug:
+        msg: "VM inventory written to {{ report_path }}"
+
+    - name: Print summary counts
+      ansible.builtin.debug:
+        msg: >-
+          {% for host in groups['proxmox'] %}
+          {{ host }}: {{ hostvars[host].node_vms | default([]) | length }} VMs,
+          {{ hostvars[host].node_cts | default([]) | length }} CTs
+          {% endfor %}

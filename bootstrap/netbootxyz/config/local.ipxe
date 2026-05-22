@@ -1,0 +1,16 @@
+#!ipxe
+
+# Next-Server pulls the DHCP option 66 so I only need to change it in Unifi
+set live_endpoint http://${next-server}:8080/proxmox
+
+# Logic to map MAC address to hostname
+iseq ${net0/mac} 04:7c:16:87:65:66 && set hostname pve-srv-1 ||
+iseq ${net0/mac} c8:ff:bf:00:80:7d && set hostname pve-srv-2 ||
+iseq ${net0/mac} 1c:83:41:40:ff:0c && set hostname pve-srv-3 ||
+iseq ${net0/mac} c8:ff:bf:03:f3:50 && set hostname pve-srv-4 ||
+
+:proxmox_install
+imgfree
+kernel ${live_endpoint}/vmlinuz vga=791 proxmox-autoinstall-mode=http proxmox-autoinstall-url=${live_endpoint}/${hostname}.toml initrd=initrd.img
+initrd ${live_endpoint}/initrd.img
+boot

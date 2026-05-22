@@ -1,0 +1,55 @@
+---
+- name: DNS Latency / Performance Test
+  hosts: all
+  become: true
+  vars:
+    dns_server: "10.10.10.10"         # Replace with your DNS server IP
+    test_duration: 30                 # seconds
+    qps: 1                            # queries per second
+    test_files:
+      - internal.txt
+      - external.txt
+    results_dir: "/tmp/dnsperf-results"
+
+  tasks:
+
+    - name: Ensure dnsperf is installed
+      apt:
+        name: dnsperf
+        state: present
+        update_cache: yes
+
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy DNS test files
+      copy:
+        src: "files/{{ item }}"
+        dest: "/tmp/{{ item }}"
+      loop: "{{ test_files }}"
+
+    - name: Run dnsperf tests
+      shell: >
+        dnsperf
+        -s {{ dns_server }}
+        -d /tmp/{{ item }}
+        -l {{ test_duration }}
+        -Q {{ qps }}
+      loop: "{{ test_files }}"
+      register: dnsperf_output
+      changed_when: false
+
+    - name: Save results
+      copy:
+        content: |
+          Host: {{ inventory_hostname }}
+          DNS Server: {{ dns_server }}
+          Test File: {{ item.item }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          {{ item.stdout }}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}-{{ item.item }}.txt"
+      loop: "{{ dnsperf_output.results }}"

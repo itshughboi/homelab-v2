@@ -1,0 +1,15 @@
+# Configurations for hardware-accelerated machine learning
+# See https://immich.app/docs/features/ml-hardware-acceleration for info on usage.
+
+services:
+  openvino:
+    device_cgroup_rules:
+      - 'c 189:* rmw'
+      - 'c 226:* rmw' # Direct Rendering Infrastructure (DRI)
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+    group_add:
+      - "993"
+

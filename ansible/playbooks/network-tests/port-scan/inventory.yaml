@@ -1,0 +1,13 @@
+---
+# Run from hosts in different VLANs to validate firewall rules from multiple vantage points.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+  hosts:
+    proxmox-01:
+      ansible_host: 10.10.10.10
+    proxmox-02:
+      ansible_host: 10.10.10.11

@@ -1,0 +1,99 @@
+# Velero — Helm install reference
+#
+# Velero backs up both Kubernetes resources AND PVC data (via CSI snapshots of Longhorn volumes).
+# Use it for full cluster DR: if the cluster is rebuilt from scratch, restore from a Velero backup
+# to recover all apps and their data in one shot.
+#
+# ── Prerequisites ──────────────────────────────────────────────────────────────
+#
+# 1. MinIO bucket on TrueNAS:
+#    - TrueNAS → Apps → MinIO, or run MinIO as a jail/VM
+#    - Create bucket: homelab-velero
+#    - Create access key with read/write on that bucket
+#    - Note the access key ID and secret
+#
+# 2. Longhorn CSI snapshot support:
+#    - Install snapshot CRDs and controller (Longhorn may include these already)
+#    kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v7.0.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+#    kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v7.0.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+#    kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v7.0.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+#
+#    - Create the Longhorn VolumeSnapshotClass (Velero uses this label to find it):
+#    kubectl apply -f - <<EOF
+#    apiVersion: snapshot.storage.k8s.io/v1
+#    kind: VolumeSnapshotClass
+#    metadata:
+#      name: longhorn-snapshot
+#      labels:
+#        velero.io/csi-volumesnapshot-class: "true"
+#    driver: driver.longhorn.io
+#    deletionPolicy: Delete
+#    EOF
+#
+# ── Install ────────────────────────────────────────────────────────────────────
+#
+# helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts
+# helm repo update
+#
+# # Create S3 credentials file (never commit this file)
+# cat > /tmp/velero-credentials <<EOF
+# [default]
+# aws_access_key_id=<minio-access-key-id>
+# aws_secret_access_key=<minio-secret-access-key>
+# EOF
+#
+# helm install velero vmware-tanzu/velero \
+#   --namespace velero \
+#   --create-namespace \
+#   --version 7.0.0 \
+#   --set-file credentials.secretContents.cloud=/tmp/velero-credentials \
+#   -f apps/kubernetes/k3s/infra/velero/values.yaml
+#
+# rm /tmp/velero-credentials
+#
+# ── Verify ─────────────────────────────────────────────────────────────────────
+#
+# kubectl get pods -n velero
+# velero backup-location get            # should show phase=Available
+# velero version
+#
+# ── Create Schedules ───────────────────────────────────────────────────────────
+#
+# # Nightly full backup at 2AM, keep 14 days
+# velero schedule create daily-full \
+#   --schedule="0 2 * * *" \
+#   --ttl 336h
+#
+# # Weekly backup of critical namespaces at 3AM Sunday, keep 30 days
+# velero schedule create weekly-critical \
+#   --schedule="0 3 * * 0" \
+#   --include-namespaces vaultwarden,authentik,gitea,immich,home-assistant \
+#   --ttl 720h
+#
+# ── Restore ────────────────────────────────────────────────────────────────────
+#
+# velero backup get                                          # list backups
+# velero backup describe daily-full-<timestamp> --details   # inspect a backup
+# velero restore create --from-backup daily-full-<timestamp>  # full restore
+# velero restore create \                                    # single namespace
+#   --from-backup daily-full-<timestamp> \
+#   --include-namespaces immich
+#
+# ── Upgrading ──────────────────────────────────────────────────────────────────
+#
+# helm upgrade velero vmware-tanzu/velero \
+#   --namespace velero \
+#   --set-file credentials.secretContents.cloud=/tmp/velero-credentials \
+#   -f apps/kubernetes/k3s/infra/velero/values.yaml
+#
+# ── Notes ──────────────────────────────────────────────────────────────────────
+#
+# - Velero does NOT replace Longhorn backups — they complement each other.
+#   Longhorn: fast per-volume data restore on the same cluster
+#   Velero: full cluster reconstruction from scratch (including k8s resources)
+#
+# - If the MinIO endpoint changes, update values.yaml and `helm upgrade`.
+#
+# - Velero's S3 credentials live in a Secret named `velero` in the `velero` namespace.
+#   Created by the --set-file flag above. To rotate credentials:
+#   kubectl edit secret velero -n velero

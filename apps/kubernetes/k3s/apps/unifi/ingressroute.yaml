@@ -1,0 +1,21 @@
+# Traefik proxies to the controller's HTTPS backend.
+# insecureSkipVerify=true is already set in your Traefik values — no extra config needed.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: unifi
+  namespace: unifi
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`unifi.hughboi.vip`)
+      kind: Rule
+      services:
+        - name: unifi-controller
+          port: 8443
+          scheme: https  # controller serves HTTPS natively
+  tls:
+    secretName: hughboi-tls

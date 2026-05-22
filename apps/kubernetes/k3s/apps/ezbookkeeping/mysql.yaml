@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ezbookkeeping-mysql
+  namespace: ezbookkeeping
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ezbookkeeping-mysql
+  template:
+    metadata:
+      labels:
+        app: ezbookkeeping-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: ezbookkeeping
+            - name: MYSQL_USER
+              value: ezbookkeeping
+          envFrom:
+            - secretRef:
+                name: ezbookkeeping-env
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ezbookkeeping-mysql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ezbookkeeping-mysql
+  namespace: ezbookkeeping
+spec:
+  selector:
+    app: ezbookkeeping-mysql
+  ports:
+    - port: 3306
+      targetPort: 3306

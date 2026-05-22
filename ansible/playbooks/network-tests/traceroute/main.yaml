@@ -1,0 +1,84 @@
+---
+# Traceroute path analysis — maps the path to each target with per-hop RTT.
+# Uses mtr for richer output (combines traceroute + ping, shows loss per hop).
+# Useful for diagnosing routing asymmetry, identifying where latency is introduced,
+# and verifying traffic takes the expected path through your network.
+
+- name: Traceroute / path analysis
+  hosts: all
+  become: true
+  vars:
+    trace_targets:
+      - name: gateway
+        host: 10.10.10.1
+      - name: truenas
+        host: 10.10.10.5
+      - name: cloudflare
+        host: 1.1.1.1
+      - name: google
+        host: 8.8.8.8
+    mtr_cycles: 20          # number of pings per hop
+    mtr_interval: "0.5"     # seconds between packets
+    results_dir: "/tmp/traceroute-results"
+
+  tasks:
+    - name: Install mtr and traceroute
+      apt:
+        name:
+          - mtr-tiny
+          - traceroute
+        state: present
+        update_cache: true
+
+    - name: Create results directory
+      file:
+        path: "{{ results_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Run mtr to each target
+      shell: >
+        mtr --report --report-cycles {{ mtr_cycles }}
+        --interval {{ mtr_interval }}
+        --no-dns
+        {{ item.host }} 2>&1
+      register: mtr_results
+      loop: "{{ trace_targets }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run traceroute to each target (for comparison)
+      shell: >
+        traceroute -n -w 2 {{ item.host }} 2>&1
+      register: traceroute_results
+      loop: "{{ trace_targets }}"
+      changed_when: false
+      ignore_errors: true
+
+    - name: Write results file
+      copy:
+        content: |
+          ===== Path Analysis (Traceroute / MTR) =====
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          {% for i in range(trace_targets | length) %}
+          ══════════════════════════════════════════
+          Target: {{ trace_targets[i].name }} ({{ trace_targets[i].host }})
+          ══════════════════════════════════════════
+
+          MTR ({{ mtr_cycles }} cycles, interval {{ mtr_interval }}s):
+          {{ mtr_results.results[i].stdout | default('MTR failed') }}
+
+          TRACEROUTE:
+          {{ traceroute_results.results[i].stdout | default('Traceroute failed') }}
+
+          {% endfor %}
+        dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        mode: "0644"
+
+    - name: Fetch results to controller
+      fetch:
+        src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+        dest: "/tmp/traceroute-results/{{ inventory_hostname }}.txt"
+        flat: true

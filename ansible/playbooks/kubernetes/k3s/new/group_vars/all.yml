@@ -1,0 +1,91 @@
+---
+# ── k3s version ───────────────────────────────────────────────────────────────
+# Pin to a specific version. Renovate will open PRs when a new version is released.
+# Check available versions: https://github.com/k3s-io/k3s/releases
+# Format: vMAJOR.MINOR.PATCH+k3sSUBPATCH
+k3s_version: "v1.31.4+k3s1"
+
+# ── Cluster networking ────────────────────────────────────────────────────────
+# kube-vip VIP — control-plane API endpoint for HA
+# Must match infra/kube-vip/daemonset.yaml and the TLS SANs
+k3s_api_vip: "10.10.30.30"
+k3s_api_port: 6443
+
+# Pod and service CIDRs — do not overlap with your physical network
+k3s_cluster_cidr: "10.42.0.0/16"
+k3s_service_cidr: "10.43.0.0/16"
+
+# DNS service IP (must be within service_cidr)
+k3s_cluster_dns: "10.43.0.10"
+
+# ── kube-vip ─────────────────────────────────────────────────────────────────
+# Must match the version in infra/kube-vip/daemonset.yaml
+kube_vip_version: "v0.8.2"
+
+# Network interface that holds the VIP — run `ip link` on a master to confirm
+# Common values: eth0, ens3, ens18, enp6s18
+vip_interface: "eth0"
+
+# ── k3s server flags (applied to all masters) ─────────────────────────────────
+# disable traefik: we deploy our own Traefik via Helm (networking/traefik/)
+# disable servicelb: we use MetalLB (infra/metallb/)
+k3s_server_extra_args: >-
+  --disable=traefik
+  --disable=servicelb
+  --flannel-backend=vxlan
+  --etcd-expose-metrics=true
+  --kube-controller-manager-arg=bind-address=0.0.0.0
+  --kube-scheduler-arg=bind-address=0.0.0.0
+  --kube-proxy-arg=metrics-bind-address=0.0.0.0
+
+# ── System settings ───────────────────────────────────────────────────────────
+# Packages installed on every k3s node
+prereq_packages:
+  - curl
+  - git
+  - jq
+  - open-iscsi       # required by Longhorn
+  - nfs-common       # required by Longhorn + NFS PVs
+  - nfs-kernel-server
+  - multipath-tools  # required by Longhorn (must blacklist k3s volumes)
+  - lsscsi
+  - sg3-utils
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+
+# Kernel modules to load at boot
+kernel_modules:
+  - br_netfilter
+  - overlay
+  - iscsi_tcp
+
+# sysctl params required by Kubernetes networking
+sysctl_params:
+  net.ipv4.ip_forward: 1
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  vm.nr_hugepages: 1024           # improves performance for etcd and Longhorn
+
+# ── Longhorn storage node settings ───────────────────────────────────────────
+# Node label applied to Longhorn storage nodes so Longhorn only schedules there
+longhorn_node_label_key: "node.longhorn.io/create-default-disk"
+longhorn_node_label_value: "config"
+
+# ── Local paths ───────────────────────────────────────────────────────────────
+# Where kubeconfig is saved on the Ansible controller (your local machine)
+local_kubeconfig_path: "~/.kube/homelab-k3s.yaml"
+
+# ── Vault-encrypted secrets ───────────────────────────────────────────────────
+# These live in group_vars/vault.yml encrypted with ansible-vault.
+# Reference with: {{ vault_k3s_cluster_secret }}
+#
+# To create: ansible-vault create group_vars/vault.yml
+# To edit:   ansible-vault edit group_vars/vault.yml
+#
+# Required keys in vault.yml:
+#   vault_k3s_cluster_secret: "a-long-random-string"
+#       This is the shared secret used by all nodes to authenticate to the cluster.
+#       Generate with: openssl rand -hex 32
+#       If not set, k3s generates one — but you'd need to retrieve it after init
+#       to use it in subsequent playbook runs. Setting it explicitly is safer.

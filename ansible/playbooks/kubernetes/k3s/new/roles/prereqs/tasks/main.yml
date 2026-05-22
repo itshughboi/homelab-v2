@@ -1,0 +1,194 @@
+---
+# prereqs/tasks/main.yml
+# Runs on ALL k3s nodes (masters, workers, longhorn storage nodes).
+# Idempotent — safe to re-run.
+
+# ── Package management ────────────────────────────────────────────────────────
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600   # don't re-fetch if cache is under 1 hour old
+  tags: packages
+
+- name: Upgrade all packages to latest
+  ansible.builtin.apt:
+    upgrade: safe
+  tags: packages
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name: "{{ prereq_packages }}"
+    state: present
+  tags: packages
+
+# ── Swap ──────────────────────────────────────────────────────────────────────
+# Kubernetes requires swap to be disabled — kubelet will refuse to start if swap
+# is enabled. Disable it now and remove it from fstab to survive reboots.
+
+- name: Disable swap immediately
+  ansible.builtin.command: swapoff -a
+  changed_when: false   # swapoff is idempotent but doesn't report changes
+  tags: swap
+
+- name: Remove swap entries from /etc/fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\s+swap\s+.*)$'
+    replace: '# \1  # Disabled by Ansible (k3s requires no swap)'
+  tags: swap
+
+# ── Kernel modules ────────────────────────────────────────────────────────────
+# br_netfilter: required for iptables to see bridged traffic (CNI networking)
+# overlay:      required for container overlay filesystems
+# iscsi_tcp:    required by Longhorn for block storage
+
+- name: Load kernel modules immediately
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kernel_modules }}"
+  tags: kernel
+
+- name: Persist kernel modules across reboots
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: |
+      # Loaded by Ansible for k3s + Longhorn
+      {% for mod in kernel_modules %}
+      {{ mod }}
+      {% endfor %}
+    mode: "0644"
+  tags: kernel
+
+# ── sysctl / networking ───────────────────────────────────────────────────────
+# These are required for Kubernetes networking to function correctly.
+# bridge-nf-call-iptables: allows iptables to see bridged container traffic
+# ip_forward: allows the node to forward packets between pods and the outside world
+
+- name: Apply sysctl parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/k3s.conf
+  loop: "{{ sysctl_params | dict2items }}"
+  tags: sysctl
+
+# ── iSCSI daemon ─────────────────────────────────────────────────────────────
+# Longhorn uses iSCSI to attach volumes to nodes.
+# open-iscsi must be running before Longhorn CSI driver starts.
+
+- name: Enable and start iscsid
+  ansible.builtin.systemd:
+    name: iscsid
+    enabled: true
+    state: started
+  tags: iscsi
+
+# ── Multipath (Longhorn requirement) ─────────────────────────────────────────
+# Multipath must be configured to ignore Longhorn volumes.
+# Without this, multipath may grab Longhorn block devices and cause I/O errors.
+# See: https://longhorn.io/docs/latest/advanced-resources/os-distro-specific/csi-on-k3s/
+
+- name: Configure multipath to blacklist Longhorn volumes
+  ansible.builtin.copy:
+    dest: /etc/multipath.conf
+    content: |
+      defaults {
+          user_friendly_names yes
+          find_multipaths no
+      }
+      blacklist {
+          devnode "^sd[a-z0-9]+"
+      }
+    mode: "0644"
+  notify: restart multipathd
+  tags: multipath
+
+- name: Enable multipathd service
+  ansible.builtin.systemd:
+    name: multipathd
+    enabled: true
+    state: started
+  tags: multipath
+
+# ── Firewall (UFW) ────────────────────────────────────────────────────────────
+# Open ports required by k3s. Add --force to avoid interactive prompts.
+# Note: if UFW is not installed or disabled, these tasks are safely skipped.
+
+- name: Check if UFW is installed
+  ansible.builtin.command: which ufw
+  register: ufw_check
+  changed_when: false
+  failed_when: false
+  tags: firewall
+
+- name: Allow k3s API server port (masters only)
+  community.general.ufw:
+    rule: allow
+    port: "6443"
+    proto: tcp
+    comment: "k3s API server"
+  when:
+    - ufw_check.rc == 0
+    - inventory_hostname in groups['k3s_masters']
+  tags: firewall
+
+- name: Allow etcd ports (masters only)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    comment: "k3s etcd"
+  loop:
+    - "2379"   # etcd client
+    - "2380"   # etcd peer
+  when:
+    - ufw_check.rc == 0
+    - inventory_hostname in groups['k3s_masters']
+  tags: firewall
+
+- name: Allow k3s required ports (all nodes)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { port: "10250", proto: "tcp", comment: "kubelet metrics" }
+    - { port: "10255", proto: "tcp", comment: "kubelet read-only" }
+    - { port: "8472",  proto: "udp", comment: "flannel VXLAN" }
+    - { port: "51820", proto: "udp", comment: "flannel WireGuard (if used)" }
+    - { port: "4240",  proto: "tcp", comment: "Cilium health (if used)" }
+  when: ufw_check.rc == 0
+  tags: firewall
+
+- name: Allow Longhorn ports (all nodes)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { port: "9500",  proto: "tcp", comment: "Longhorn manager" }
+    - { port: "9501",  proto: "tcp", comment: "Longhorn instance manager" }
+    - { port: "9502",  proto: "tcp", comment: "Longhorn engine" }
+  when: ufw_check.rc == 0
+  tags: firewall
+
+# ── hostname ──────────────────────────────────────────────────────────────────
+# Ensure hostname matches the inventory name — k3s uses the hostname as the node name.
+
+- name: Set hostname to match inventory name
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  tags: hostname
+
+- name: Ensure /etc/hosts has correct hostname entry
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1'
+    line: "127.0.1.1  {{ inventory_hostname }}"
+  tags: hostname

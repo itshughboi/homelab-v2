@@ -1,0 +1,151 @@
+---
+# PostgreSQL maintenance sweep across all Postgres containers.
+# Runs VACUUM ANALYZE on every database in every running Postgres container.
+# Also reports database sizes and checks for bloated tables.
+#
+# Without periodic vacuuming, dead tuple accumulation causes query slowdowns
+# over months. Affects: n8n, gitea, paperless-ngx, immich (both),
+# home-assistant, mealie, and any other Postgres-backed service.
+#
+# Safe to run while containers are live — VACUUM does not lock tables.
+# Schedule monthly in Semaphore.
+
+- name: PostgreSQL maintenance sweep
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    results_dir: "/tmp/postgres-maintenance"
+    # Containers to skip (non-Postgres containers that show up in image search)
+    skip_containers: []
+
+  tasks:
+    - name: PostgreSQL maintenance
+      block:
+        - name: Create results directory
+          ansible.builtin.file:
+            path: "{{ results_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Find all running Postgres containers
+          ansible.builtin.shell:
+            cmd: |
+              docker ps --format '{{.Names}}\t{{.Image}}' | \
+                grep -i 'postgres\|postgresql' | awk '{print $1}'
+          register: postgres_containers
+          changed_when: false
+
+        - name: Run maintenance on each Postgres container
+          ansible.builtin.shell:
+            cmd: |
+              container="{{ item }}"
+              echo "=== Container: $container ==="
+
+              # Get list of databases (exclude system DBs)
+              dbs=$(docker exec "$container" psql -U postgres -t -c \
+                "SELECT datname FROM pg_database WHERE datistemplate = false AND datname != 'postgres';" \
+                2>/dev/null | tr -d ' ' | grep -v '^$')
+
+              if [ -z "$dbs" ]; then
+                # Try to get the primary DB user/name from env
+                pg_user=$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' | \
+                  grep -E 'POSTGRES_USER=' | cut -d= -f2 | head -1)
+                pg_user="${pg_user:-postgres}"
+                dbs=$(docker exec "$container" psql -U "$pg_user" -t -c \
+                  "SELECT datname FROM pg_database WHERE datistemplate = false;" \
+                  2>/dev/null | tr -d ' ' | grep -v '^$')
+              fi
+
+              echo "Databases: $dbs"
+
+              for db in $dbs; do
+                pg_user=$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' | \
+                  grep -E 'POSTGRES_USER=' | cut -d= -f2 | head -1)
+                pg_user="${pg_user:-postgres}"
+
+                echo "-- VACUUM ANALYZE: $db --"
+                docker exec "$container" psql -U "$pg_user" -d "$db" -c \
+                  "VACUUM ANALYZE;" 2>&1
+
+                echo "-- Database size: $db --"
+                docker exec "$container" psql -U "$pg_user" -d "$db" -c \
+                  "SELECT pg_size_pretty(pg_database_size(current_database())) AS db_size;" \
+                  2>&1
+
+                echo "-- Top 5 tables by size: $db --"
+                docker exec "$container" psql -U "$pg_user" -d "$db" -c \
+                  "SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) AS size
+                   FROM pg_catalog.pg_statio_user_tables
+                   ORDER BY pg_total_relation_size(relid) DESC LIMIT 5;" \
+                  2>&1
+
+                echo "-- Dead tuple count (bloat check): $db --"
+                docker exec "$container" psql -U "$pg_user" -d "$db" -c \
+                  "SELECT schemaname, relname, n_dead_tup, n_live_tup,
+                          ROUND(n_dead_tup::numeric / NULLIF(n_live_tup + n_dead_tup, 0) * 100, 1) AS dead_pct
+                   FROM pg_stat_user_tables
+                   WHERE n_dead_tup > 1000
+                   ORDER BY n_dead_tup DESC LIMIT 10;" \
+                  2>&1
+                echo ""
+              done
+          loop: "{{ postgres_containers.stdout_lines | difference(skip_containers) }}"
+          register: maintenance_results
+          changed_when: true    # VACUUM ANALYZE is always a change
+          ignore_errors: true
+
+        - name: Write results file
+          ansible.builtin.copy:
+            content: |
+              ===== PostgreSQL Maintenance =====
+              Host: {{ inventory_hostname }}
+              Timestamp: {{ ansible_date_time.iso8601 }}
+              Containers found: {{ postgres_containers.stdout_lines | join(', ') | default('none') }}
+
+              {% for result in maintenance_results.results %}
+              {{ result.stdout | default('No output') }}
+
+              {% endfor %}
+            dest: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            mode: "0644"
+
+        - name: Fetch results to controller
+          ansible.builtin.fetch:
+            src: "{{ results_dir }}/{{ inventory_hostname }}.txt"
+            dest: "/tmp/postgres-maintenance/{{ inventory_hostname }}.txt"
+            flat: true
+
+        - name: Send completion notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Postgres Maintenance: {{ inventory_hostname }}"
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              VACUUM ANALYZE complete on {{ inventory_hostname }}
+              Containers: {{ postgres_containers.stdout_lines | join(', ') | default('none') }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Postgres maintenance FAILED: {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: |
+              Postgres maintenance failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

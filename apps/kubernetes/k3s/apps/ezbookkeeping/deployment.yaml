@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ezbookkeeping
+  namespace: ezbookkeeping
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ezbookkeeping
+  template:
+    metadata:
+      labels:
+        app: ezbookkeeping
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z ezbookkeeping-mysql 3306; do sleep 2; done"]
+      containers:
+        - name: ezbookkeeping
+          image: mayswind/ezbookkeeping:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: EBK_SERVER_DOMAIN
+              value: bookkeeping.hughboi.vip
+            - name: EBK_SERVER_ENABLE_GZIP
+              value: "true"
+            - name: EBK_DATABASE_TYPE
+              value: mysql
+            - name: EBK_DATABASE_HOST
+              value: ezbookkeeping-mysql:3306
+            - name: EBK_DATABASE_NAME
+              value: ezbookkeeping
+            - name: EBK_DATABASE_USER
+              value: ezbookkeeping
+            - name: EBK_LOG_MODE
+              value: file
+          envFrom:
+            - secretRef:
+                name: ezbookkeeping-env
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          volumeMounts:
+            - name: storage
+              mountPath: /ezbookkeeping/storage
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: ezbookkeeping-storage

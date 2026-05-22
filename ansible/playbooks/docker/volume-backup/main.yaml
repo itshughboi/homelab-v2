@@ -1,0 +1,129 @@
+---
+# Back up named Docker volumes to TrueNAS NFS.
+# Each volume is tar'd into a timestamped archive at the backup destination.
+# Containers using the volume are NOT stopped — this is a hot backup.
+# For databases, use the dedicated backup playbooks (vaultwarden/backup.yml etc.)
+# which handle consistency properly. This is for stateless/config volumes.
+#
+# Retention: keeps last N backups per volume, deletes older ones.
+
+- name: Docker named volume backup
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  vars:
+    backup_dest: "/mnt/truenas/docker-volume-backups"
+    retention_count: 7          # keep this many backups per volume
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    # Volumes to skip (databases with their own backup process, redis caches, etc.)
+    skip_volumes:
+      - romm_redis_data
+      - archivist-redis
+      - archivist-es
+      - redis
+
+  tasks:
+    - name: Volume backup
+      block:
+        - name: Ensure backup destination exists
+          ansible.builtin.file:
+            path: "{{ backup_dest }}"
+            state: directory
+            mode: "0755"
+
+        - name: Get list of named volumes
+          ansible.builtin.shell:
+            cmd: docker volume ls --format '{{.Name}}' | grep -v -E '^[a-f0-9]{64}$'
+          register: volume_list_raw
+          changed_when: false
+
+        - name: Filter out skipped volumes
+          ansible.builtin.set_fact:
+            volumes_to_backup: >-
+              {{
+                volume_list_raw.stdout_lines
+                | difference(skip_volumes)
+              }}
+
+        - name: Back up each volume
+          ansible.builtin.shell:
+            cmd: |
+              vol="{{ item }}"
+              dest="{{ backup_dest }}/${vol}"
+              mkdir -p "$dest"
+              timestamp="{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}"
+              archive="$dest/${vol}_${timestamp}.tar.gz"
+
+              # Get volume mountpoint
+              mountpoint=$(docker volume inspect "$vol" --format '{{.Mountpoint}}')
+
+              # Create archive using a temporary container to avoid mount conflicts
+              docker run --rm \
+                -v "${vol}:/volume-data:ro" \
+                -v "${dest}:/backup" \
+                alpine:3 \
+                tar -czf "/backup/${vol}_${timestamp}.tar.gz" -C /volume-data . 2>&1
+
+              echo "Backed up $vol to $archive"
+          loop: "{{ volumes_to_backup }}"
+          register: backup_results
+          loop_control:
+            label: "{{ item }}"
+
+        - name: Prune old backups (keep last {{ retention_count }} per volume)
+          ansible.builtin.shell:
+            cmd: |
+              vol="{{ item }}"
+              dest="{{ backup_dest }}/${vol}"
+              if [ -d "$dest" ]; then
+                ls -t "$dest"/*.tar.gz 2>/dev/null | tail -n +{{ retention_count + 1 }} | xargs rm -f
+              fi
+          loop: "{{ volumes_to_backup }}"
+          changed_when: false
+
+        - name: Calculate total backup size
+          ansible.builtin.shell:
+            cmd: du -sh "{{ backup_dest }}" | awk '{print $1}'
+          register: backup_size
+          changed_when: false
+
+        - name: Send success notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker Volume Backup: {{ inventory_hostname }}"
+              Priority: low
+              Tags: floppy_disk
+            body: |
+              Volume backup complete on {{ inventory_hostname }}
+              Volumes backed up: {{ volumes_to_backup | length }}
+              Skipped: {{ skip_volumes | join(', ') }}
+              Total backup size: {{ backup_size.stdout }}
+              Retention: {{ retention_count }} backups/volume
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Send failure notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker Volume Backup FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Volume backup FAILED on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise failure
+          ansible.builtin.fail:
+            msg: "Volume backup failed: {{ ansible_failed_task.name }}"

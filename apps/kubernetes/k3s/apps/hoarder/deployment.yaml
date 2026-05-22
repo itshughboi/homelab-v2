@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hoarder
+  namespace: hoarder
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hoarder
+  template:
+    metadata:
+      labels:
+        app: hoarder
+    spec:
+      initContainers:
+        - name: wait-for-meilisearch
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z hoarder-meilisearch 7700; do sleep 2; done"]
+      containers:
+        - name: hoarder
+          image: ghcr.io/hoarder-app/hoarder:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: MEILI_ADDR
+              value: http://hoarder-meilisearch:7700
+            - name: BROWSER_WEB_URL
+              value: http://localhost:9222
+            - name: DATA_DIR
+              value: /data
+            - name: NEXTAUTH_URL
+              value: https://hoarder.hughboi.vip
+          envFrom:
+            - secretRef:
+                name: hoarder-env
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 40
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+
+        - name: chrome
+          image: gcr.io/zenika-hub/alpine-chrome:latest
+          args:
+            - --no-sandbox
+            - --disable-gpu
+            - --disable-dev-shm-usage
+            - --remote-debugging-address=0.0.0.0
+            - --remote-debugging-port=9222
+            - --hide-scrollbars
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hoarder-data

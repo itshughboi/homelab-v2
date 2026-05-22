@@ -1,0 +1,256 @@
+---
+# k3s binary upgrade — rolling upgrade across all nodes.
+# Upgrades workers first (one at a time), then server nodes.
+# Each node is drained before upgrade and uncordoned after.
+#
+# Set the target k3s version via `k3s_version`. Find releases at:
+# https://github.com/k3s-io/k3s/releases
+#
+# IMPORTANT: Check the k3s upgrade notes before running.
+# Skipping minor versions (e.g., v1.28 → v1.31) is not supported
+# and may require multiple passes.
+
+- name: Upgrade k3s workers
+  hosts: k3s_workers
+  gather_facts: true
+  become: true
+  serial: 1
+
+  vars:
+    k3s_version: "v1.32.4+k3s1"    # set to target version
+    drain_timeout: 300
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+  tasks:
+    - name: Upgrade worker {{ inventory_hostname }}
+      block:
+        - name: Get current k3s version
+          ansible.builtin.shell:
+            cmd: k3s --version | head -1
+          register: current_version
+          changed_when: false
+
+        - name: Skip if already on target version
+          ansible.builtin.meta: end_host
+          when: k3s_version in current_version.stdout
+
+        - name: Drain node
+          ansible.builtin.shell:
+            cmd: >
+              kubectl --kubeconfig {{ kubeconfig }}
+              drain {{ inventory_hostname }}
+              --ignore-daemonsets
+              --delete-emptydir-data
+              --timeout={{ drain_timeout }}s
+          delegate_to: "{{ groups['k3s_servers'][0] }}"
+          register: drain_result
+
+        - name: Stop k3s agent
+          ansible.builtin.systemd:
+            name: k3s-agent
+            state: stopped
+
+        - name: Install target k3s version
+          ansible.builtin.shell:
+            cmd: >
+              curl -sfL https://get.k3s.io |
+              INSTALL_K3S_VERSION={{ k3s_version }}
+              sh -s - agent
+          environment:
+            K3S_URL: "https://{{ hostvars[groups['k3s_servers'][0]]['ansible_default_ipv4']['address'] }}:6443"
+            K3S_TOKEN: "{{ lookup('file', '/var/lib/rancher/k3s/server/token') }}"
+
+        - name: Start k3s agent
+          ansible.builtin.systemd:
+            name: k3s-agent
+            state: started
+
+        - name: Wait for node to be Ready
+          ansible.builtin.shell:
+            cmd: >
+              kubectl --kubeconfig {{ kubeconfig }}
+              get node {{ inventory_hostname }}
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+          delegate_to: "{{ groups['k3s_servers'][0] }}"
+          register: node_ready
+          retries: 20
+          delay: 15
+          until: node_ready.stdout == "True"
+          changed_when: false
+
+        - name: Uncordon node
+          ansible.builtin.shell:
+            cmd: >
+              kubectl --kubeconfig {{ kubeconfig }}
+              uncordon {{ inventory_hostname }}
+          delegate_to: "{{ groups['k3s_servers'][0] }}"
+
+        - name: Verify new version
+          ansible.builtin.shell:
+            cmd: k3s --version | head -1
+          register: new_version
+          changed_when: false
+
+        - name: Print upgrade result
+          ansible.builtin.debug:
+            msg: "{{ inventory_hostname }}: {{ current_version.stdout }} → {{ new_version.stdout }}"
+
+      rescue:
+        - name: Alert on worker upgrade failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k3s upgrade FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              k3s worker upgrade failed on {{ inventory_hostname }}
+              Target: {{ k3s_version }}
+              Failed task: {{ ansible_failed_task.name }}
+              Node may still be cordoned — check kubectl get nodes
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise (halts remaining workers)
+          ansible.builtin.fail:
+            msg: "k3s worker upgrade failed on {{ inventory_hostname }}. Halting."
+
+- name: Upgrade k3s servers
+  hosts: k3s_servers
+  gather_facts: true
+  become: true
+  serial: 1
+
+  vars:
+    k3s_version: "v1.32.4+k3s1"
+    drain_timeout: 300
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+  tasks:
+    - name: Upgrade server {{ inventory_hostname }}
+      block:
+        - name: Get current k3s version
+          ansible.builtin.shell:
+            cmd: k3s --version | head -1
+          register: current_version
+          changed_when: false
+
+        - name: Skip if already on target version
+          ansible.builtin.meta: end_host
+          when: k3s_version in current_version.stdout
+
+        - name: Determine if this is the primary server
+          ansible.builtin.set_fact:
+            is_primary: "{{ inventory_hostname == groups['k3s_servers'][0] }}"
+
+        - name: Drain node (skip primary if only one server)
+          ansible.builtin.shell:
+            cmd: >
+              kubectl --kubeconfig {{ kubeconfig }}
+              drain {{ inventory_hostname }}
+              --ignore-daemonsets
+              --delete-emptydir-data
+              --timeout={{ drain_timeout }}s
+          when: not is_primary or groups['k3s_servers'] | length > 1
+          register: drain_result
+
+        - name: Stop k3s server
+          ansible.builtin.systemd:
+            name: k3s
+            state: stopped
+
+        - name: Install target k3s version (server)
+          ansible.builtin.shell:
+            cmd: >
+              curl -sfL https://get.k3s.io |
+              INSTALL_K3S_VERSION={{ k3s_version }}
+              sh -
+
+        - name: Start k3s server
+          ansible.builtin.systemd:
+            name: k3s
+            state: started
+
+        - name: Wait for node to be Ready
+          ansible.builtin.shell:
+            cmd: >
+              k3s kubectl get node {{ inventory_hostname }}
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+          register: node_ready
+          retries: 20
+          delay: 15
+          until: node_ready.stdout == "True"
+          changed_when: false
+
+        - name: Uncordon node
+          ansible.builtin.shell:
+            cmd: k3s kubectl uncordon {{ inventory_hostname }}
+          when: not is_primary or groups['k3s_servers'] | length > 1
+
+        - name: Verify new version
+          ansible.builtin.shell:
+            cmd: k3s --version | head -1
+          register: new_version
+          changed_when: false
+
+        - name: Print upgrade result
+          ansible.builtin.debug:
+            msg: "{{ inventory_hostname }}: {{ current_version.stdout }} → {{ new_version.stdout }}"
+
+      rescue:
+        - name: Alert on server upgrade failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "k3s server upgrade FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              k3s SERVER upgrade failed on {{ inventory_hostname }}
+              Target: {{ k3s_version }}
+              Failed task: {{ ansible_failed_task.name }}
+              Cluster may be degraded — check immediately.
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise
+          ansible.builtin.fail:
+            msg: "k3s server upgrade failed on {{ inventory_hostname }}. Halting."
+
+- name: Send final upgrade summary
+  hosts: k3s_servers
+  gather_facts: false
+  run_once: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    k3s_version: "v1.32.4+k3s1"
+
+  tasks:
+    - name: Get cluster node status
+      ansible.builtin.shell:
+        cmd: k3s kubectl get nodes -o wide
+      register: node_status
+      changed_when: false
+
+    - name: Send completion notification
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "k3s upgrade complete: {{ k3s_version }}"
+          Priority: low
+          Tags: white_check_mark
+        body: |
+          k3s cluster upgraded to {{ k3s_version }}
+          Nodes:
+          {{ node_status.stdout }}
+        body_format: raw
+        status_code: 200
+      ignore_errors: true

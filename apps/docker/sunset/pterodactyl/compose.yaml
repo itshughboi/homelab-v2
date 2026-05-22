@@ -1,0 +1,159 @@
+services:
+  db:
+    container_name: pterodactyl_mariadb
+    image: mariadb:11.8
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    logging:
+      driver: loki
+      options:
+        loki-url: https://loki.hughboi.cc/loki/api/v1/push
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: non-blocking
+    volumes:
+      - /home/hughboi/data/pterodactyl/panel/db:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: panel
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    networks:
+      - pterodactyl
+
+  cache:
+    container_name: pterodactyl_redis
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - pterodactyl
+      
+  panel:
+    container_name: pterodactyl_panel
+    image: ghcr.io/pterodactyl/panel:latest
+    restart: unless-stopped
+    stdin_open: true
+    logging:
+      driver: loki
+      options:
+        loki-url: https://loki.hughboi.cc/loki/api/v1/push
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: non-blocking
+    tty: true
+# port required if you do not use a reverse proxy
+    # ports:
+    #  - 8081:80
+    #  - 8444:443 # OPTIONAL
+    volumes:
+      - "/home/hughboi/data/pterodactyl/panel/var/:/app/var/"
+      - "/home/hughboi/data/pterodactyl/panel/logs/:/app/storage/logs"
+      - "/home/hughboi/data/pterodactyl/panel/nginx/:/etc/nginx/conf.d/"
+    environment:
+      RECAPTCHA_ENABLED: false
+      TZ: America/Denver
+      APP_TIMEZONE: America/Denver
+      APP_ENV: production
+      APP_ENVIRONMENT_ONLY: false
+      APP_URL: "https://panel.hughboi.cc"
+      APP_SERVICE_AUTHOR: admin@hughboi.cc
+      # MAIL_FROM: admin@hughboi.cc
+      # MAIL_DRIVER: smtp
+      # MAIL_HOST: mail.hughboi.cc
+      # MAIL_PORT: 587
+      # MAIL_USERNAME: noreply@hughboi.cc
+      # MAIL_PASSWORD: REPLACE_WITH_YOUR_EMAIL_PASSWORD
+      # MAIL_ENCRYPTION: false
+      TRUSTED_PROXIES: "*"
+      PTERODACTYL_TELEMETRY_ENABLED: false
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD!
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_DRIVER: redis
+      REDIS_HOST: cache
+#      LE_EMAIL: "" # Uncomment if you want to use Let's Encrypt to generate an SSL certificate for the Panel.
+    networks:
+      - proxy
+      - pterodactyl
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.panel.entrypoints=http"
+      - "traefik.http.routers.panel.rule=Host(`panel.hughboi.cc`)"
+      - "traefik.http.middlewares.panel-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.panel.middlewares=panel-https-redirect"
+      - "traefik.http.routers.panel-secure.entrypoints=https"
+      - "traefik.http.routers.panel-secure.rule=Host(`panel.hughboi.cc`)"
+      - "traefik.http.routers.panel-secure.tls=true"
+      - "traefik.http.routers.panel-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.panel-secure.service=panel"
+      - "traefik.http.services.panel.loadbalancer.server.port=80" # make sure the loadbalancer is the last line!!!
+
+  wings:
+    container_name: pterodactyl_wings
+    image: ghcr.io/pterodactyl/wings:latest
+    restart: unless-stopped
+    logging:
+      driver: loki
+      options:
+        loki-url: https://loki.hughboi.cc/loki/api/v1/push
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: non-blocking
+    ports:
+      - 2022:2022 # SFTP
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: America/Denver 
+      APP_TIMEZONE: America/Denver
+      WINGS_UID: 1000
+      WINGS_GID: 1000
+      WINGS_USERNAME: pterodactyl25
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/var/lib/docker/containers/:/var/lib/docker/containers/"
+      - "/etc/pterodactyl/:/etc/pterodactyl/"
+      - "/var/lib/pterodactyl/:/var/lib/pterodactyl/"
+      - "/var/log/pterodactyl/:/var/log/pterodactyl/"
+      - "/tmp/pterodactyl/:/tmp/pterodactyl/"
+      # - "/etc/ssl/certs:/etc/ssl/certs:ro" #Using a proxy, so these are not needed. 
+    networks:
+      - proxy
+      - wings0
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.wings0.entrypoints=http"
+      - "traefik.http.routers.wings0.rule=Host(`wings0.hughboi.cc`)"
+      - "traefik.http.middlewares.wings0-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.wings0.middlewares=wings0-https-redirect"
+      - "traefik.http.routers.wings0-secure.entrypoints=https"
+      - "traefik.http.routers.wings0-secure.rule=Host(`wings0.hughboi.ccd]`)"
+      - "traefik.http.routers.wings0-secure.tls=true"
+      - "traefik.http.routers.wings0-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.wings0-secure.service=wings0"
+      - "traefik.http.services.wings0.loadbalancer.server.port=443" # make sure the loadbalancer is the last line!!!
+
+networks:
+  pterodactyl:
+    name: pterodactyl
+  proxy:
+    external: true
+  wings0:
+    name: wings0
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "172.50.0.0/16" # make sure this doesn't conflict with existing networks
+    driver_opts:
+      com.docker.network.bridge.name: wings0

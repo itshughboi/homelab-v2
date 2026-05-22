@@ -1,0 +1,6 @@
+proxmox_api_token = "terraform@pve!Token_Name=TOKEN_HERE"
+ssh_public_key    = " " #upload public key here
+proxmox_api_url   = "https://10.10.10.1:8006/" 
+proxmox_all       = ["pve-srv-1", "pve-srv-2", "pve-srv-3", "pve-srv-4"]
+proxmox_master    = "pve-srv-1"
+proxmox_nodes_k3s = ["pve-srv-2", "pve-srv-3", "pve-srv-4"] # target Proxmox Host. Template needs to live on shared storage to create across the cluster

@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tubearchivist
+  namespace: tube-archivist
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tubearchivist
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: tubearchivist
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: tubearchivist
+          image: bbilly1/tubearchivist
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ES_URL
+              value: "http://elasticsearch:9200"
+            - name: REDIS_CON
+              value: "redis://redis:6379"
+            - name: HOST_UID
+              value: "1000"
+            - name: HOST_GID
+              value: "1000"
+            - name: TZ
+              value: "America/Denver"
+          envFrom:
+            - secretRef:
+                name: tube-archivist-env
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: youtube
+              mountPath: /youtube
+            - name: cache
+              mountPath: /cache
+          readinessProbe:
+            httpGet:
+              path: /api/ping/
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 10
+      volumes:
+        - name: youtube
+          persistentVolumeClaim:
+            claimName: tube-archivist-media
+        - name: cache
+          persistentVolumeClaim:
+            claimName: tube-archivist-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tubearchivist
+  namespace: tube-archivist
+spec:
+  selector:
+    app: tubearchivist
+  ports:
+    - port: 8000
+      targetPort: 8000

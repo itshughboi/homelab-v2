@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-server
+  namespace: immich
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: immich-server
+  template:
+    metadata:
+      labels:
+        app: immich-server
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z immich-postgres 5432; do sleep 2; done"]
+        - name: wait-for-redis
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z immich-redis 6379; do sleep 2; done"]
+      containers:
+        - name: immich-server
+          image: ghcr.io/immich-app/immich-server:release
+          command: ["start.sh", "immich"]
+          ports:
+            - containerPort: 2283
+              name: http
+          envFrom:
+            - secretRef:
+                name: immich-env
+          volumeMounts:
+            - name: upload
+              mountPath: /usr/src/app/upload
+            - name: external-media
+              mountPath: /external-media
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/server-info/ping
+              port: 2283
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/server-info/ping
+              port: 2283
+            initialDelaySeconds: 40
+            periodSeconds: 30
+          # VAAPI hardware transcoding — uncomment to enable
+          # Requires the pod to schedule on a node with an Intel GPU
+          # securityContext:
+          #   privileged: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+      volumes:
+        - name: upload
+          persistentVolumeClaim:
+            claimName: immich-upload
+        - name: external-media
+          persistentVolumeClaim:
+            claimName: immich-external-media
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-server
+  namespace: immich
+spec:
+  selector:
+    app: immich-server
+  ports:
+    - name: http
+      port: 2283
+      targetPort: 2283

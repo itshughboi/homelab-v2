@@ -1,0 +1,1 @@
+Problem with this is that subscriptions aren't persistent. All data wiped when you close and reopen. Purely for private browsing only. No like long term use of it unless you're searching specific subreddits

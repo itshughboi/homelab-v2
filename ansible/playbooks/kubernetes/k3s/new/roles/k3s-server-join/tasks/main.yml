@@ -1,0 +1,111 @@
+---
+# k3s-server-join/tasks/main.yml
+# Runs on master-2 and master-3 AFTER master-1 is initialized and the VIP is up.
+# Joins them as additional control-plane nodes using the VIP as the server address.
+# Idempotent — if already installed, the install script is skipped.
+
+# ── Preflight ─────────────────────────────────────────────────────────────────
+
+- name: Verify this is not the init node
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname != groups['k3s_masters'][0]
+    fail_msg: >
+      k3s-server-join must not run on {{ groups['k3s_masters'][0] }} (the init node).
+      That node uses k3s-server-init. Check your playbook targeting.
+
+- name: Verify VIP is reachable before trying to join
+  ansible.builtin.wait_for:
+    host: "{{ k3s_api_vip }}"
+    port: "{{ k3s_api_port }}"
+    timeout: 30
+    msg: >
+      VIP {{ k3s_api_vip }}:{{ k3s_api_port }} is not reachable.
+      Ensure k3s-server-init ran successfully on {{ groups['k3s_masters'][0] }}
+      and kube-vip is up.
+
+# ── Retrieve node token from init node ───────────────────────────────────────
+# The token is stored as a host fact on master-1 by k3s-server-init.
+# We read it via hostvars to avoid another SSH connection.
+
+- name: Retrieve node token from init node's facts
+  ansible.builtin.set_fact:
+    k3s_node_token: "{{ hostvars[groups['k3s_masters'][0]]['k3s_node_token'] }}"
+
+- name: Verify node token was retrieved
+  ansible.builtin.assert:
+    that:
+      - k3s_node_token is defined
+      - k3s_node_token | length > 0
+    fail_msg: "Node token is empty. Did k3s-server-init complete successfully on master-1?"
+
+# ── Install k3s as additional server ─────────────────────────────────────────
+
+- name: Install k3s as additional control-plane node
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_VERSION="{{ k3s_version }}" \
+      K3S_TOKEN="{{ k3s_node_token }}" \
+      sh -s - server \
+        --server="https://{{ k3s_api_vip }}:{{ k3s_api_port }}" \
+        --tls-san="{{ k3s_api_vip }}" \
+        --tls-san="{{ ansible_host }}" \
+        {{ k3s_server_extra_args }}
+  args:
+    creates: /usr/local/bin/k3s   # skip if already installed
+  register: k3s_join
+  tags: install
+
+# ── Wait for this node to appear in the cluster ───────────────────────────────
+
+- name: Wait for k3s API server to be ready on this node
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ k3s_api_port }}"
+    delay: 5
+    timeout: 120
+  tags: wait
+
+- name: Wait for this node to be Ready
+  ansible.builtin.command:
+    cmd: kubectl get node {{ inventory_hostname }} -o jsonpath='{.status.conditions[-1].type}'
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  register: node_ready
+  until: node_ready.stdout == "Ready"
+  retries: 30
+  delay: 10
+  changed_when: false
+  tags: wait
+
+- name: Confirm node joined successfully
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} joined the cluster as a control-plane node."
+  tags: verify
+
+# ── Configure kubectl for ansible user ───────────────────────────────────────
+
+- name: Create .kube directory for ansible user
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    mode: "0700"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: kubeconfig
+
+- name: Copy kubeconfig to ansible user's home
+  ansible.builtin.copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    mode: "0600"
+  tags: kubeconfig
+
+- name: Update kubeconfig server address to use VIP
+  ansible.builtin.replace:
+    path: "/home/{{ ansible_user }}/.kube/config"
+    regexp: 'https://127\.0\.0\.1:{{ k3s_api_port }}'
+    replace: "https://{{ k3s_api_vip }}:{{ k3s_api_port }}"
+  tags: kubeconfig

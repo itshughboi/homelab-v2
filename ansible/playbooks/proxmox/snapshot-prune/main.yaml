@@ -1,0 +1,133 @@
+---
+# Delete old pre-maintenance snapshots across all Proxmox nodes.
+# Companion to snapshot-all-vms — run this a few days after a maintenance window
+# once you've confirmed everything is working.
+#
+# Only removes snapshots matching the name pattern (default: ansible-*).
+# Snapshots older than `max_age_days` are deleted.
+# Use dry_run: true first to preview what would be removed.
+
+- name: Prune old Ansible snapshots
+  hosts: proxmox
+  gather_facts: true
+  become: true
+
+  vars:
+    snapshot_pattern: "ansible-"     # prefix used by snapshot-all-vms playbook
+    max_age_days: 7                  # delete snapshots older than this
+    dry_run: true                    # CHANGE TO false to actually delete
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Prune snapshots on {{ inventory_hostname }}
+      block:
+        - name: Get all VMs on this node
+          ansible.builtin.shell:
+            cmd: qm list 2>/dev/null | awk 'NR>1 {print $1}'
+          register: vm_list
+          changed_when: false
+
+        - name: Get all containers on this node
+          ansible.builtin.shell:
+            cmd: pct list 2>/dev/null | awk 'NR>1 {print $1}'
+          register: ct_list
+          changed_when: false
+
+        - name: Find matching snapshots on VMs
+          ansible.builtin.shell:
+            cmd: |
+              python3 -c "
+              import subprocess, datetime, re
+
+              vmids = {{ (vm_list.stdout_lines + ct_list.stdout_lines) | to_json }}
+              pattern = '{{ snapshot_pattern }}'
+              max_age = {{ max_age_days }}
+              cutoff = datetime.date.today() - datetime.timedelta(days=max_age)
+              dry_run = {{ dry_run | lower }}
+
+              to_delete = []
+
+              for vmid in vmids:
+                  # Try qm first (VMs), then pct (containers)
+                  for cmd_prefix in ['qm', 'pct']:
+                      result = subprocess.run(
+                          [cmd_prefix, 'listsnapshot', vmid],
+                          capture_output=True, text=True
+                      )
+                      if result.returncode != 0:
+                          continue
+                      for line in result.stdout.split('\n'):
+                          # Line format: -> snapshot_name  date_string description
+                          if pattern not in line:
+                              continue
+                          parts = line.strip().split()
+                          if len(parts) < 2:
+                              continue
+                          snap_name = parts[1] if '->' in parts[0] else parts[0]
+                          if not snap_name.startswith(pattern):
+                              continue
+                          # Parse date from snapshot name: ansible-YYYY-MM-DD
+                          date_match = re.search(r'(\d{4}-\d{2}-\d{2})', snap_name)
+                          if date_match:
+                              snap_date = datetime.date.fromisoformat(date_match.group(1))
+                              age_days = (datetime.date.today() - snap_date).days
+                              if snap_date <= cutoff:
+                                  to_delete.append((cmd_prefix, vmid, snap_name, age_days))
+
+              if not to_delete:
+                  print('Nothing to prune — no snapshots older than {{ max_age_days }} days matching pattern')
+              else:
+                  print(f'Found {len(to_delete)} snapshots to prune:')
+                  for cmd_prefix, vmid, snap, age in to_delete:
+                      print(f'  vmid={vmid} snap={snap} age={age}d', end='')
+                      if not dry_run:
+                          del_result = subprocess.run(
+                              [cmd_prefix, 'delsnapshot', vmid, snap],
+                              capture_output=True, text=True
+                          )
+                          if del_result.returncode == 0:
+                              print(' [DELETED]')
+                          else:
+                              print(f' [FAILED: {del_result.stderr.strip()}]')
+                      else:
+                          print(' [DRY RUN - would delete]')
+              "
+          register: prune_result
+          changed_when: "'DELETED' in prune_result.stdout"
+
+        - name: Print prune results
+          ansible.builtin.debug:
+            msg: "{{ prune_result.stdout_lines }}"
+
+        - name: Send completion notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Snapshot prune: {{ inventory_hostname }}{{ ' [DRY RUN]' if dry_run else '' }}"
+              Priority: low
+              Tags: scissors
+            body: |
+              Snapshot prune on {{ inventory_hostname }}
+              Pattern: {{ snapshot_pattern }}*
+              Max age: {{ max_age_days }} days
+              Dry run: {{ dry_run | string }}
+
+              {{ prune_result.stdout }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Snapshot prune FAILED: {{ inventory_hostname }}"
+              Priority: high
+              Tags: warning
+            body: "Snapshot prune failed on {{ inventory_hostname }}: {{ ansible_failed_task.name }}"
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

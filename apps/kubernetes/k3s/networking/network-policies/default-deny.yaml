@@ -1,0 +1,21 @@
+# Apply this to every app namespace to deny all ingress by default.
+# Then add explicit allow rules for what each namespace needs.
+#
+# Usage: kubectl apply -f default-deny.yaml -n <namespace>
+# Or apply to all app namespaces at once:
+#   for ns in authentik change-detection ezbookkeeping fasten-health file-browser freshrss \
+#     gatus gitea hoarder home-assistant homepage immich jellyfin mailrise mealie n8n \
+#     netbootxyz ntfy paperless-ngx pocket-id renovate romm semaphore syncthing \
+#     tube-archivist vaultwarden; do
+#     kubectl apply -f default-deny.yaml -n $ns
+#   done
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  # namespace: set at apply time
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress

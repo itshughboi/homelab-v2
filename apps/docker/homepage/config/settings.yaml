@@ -1,0 +1,82 @@
+title: Home
+
+background:
+  image: https://wallpapercat.com/w/full/9/9/7/2112823-3840x2160-desktop-4k-minimalist-wallpaper-image.jpg #https://raw.githubusercontent.com/DenverCoder1/minimalistic-wallpaper-collection/main/images/byrotek-mountain-view.png      #https://images8.alphacoders.com/135/1354188.jpeg  #https://images8.alphacoders.com/134/1346089.png  #https://images6.alphacoders.com/134/1349805.png 
+  #image: /images/'filename.jpg'
+  blur: sm # sm, "", md, xl...  # RECENTLY LEARNED THAT BLUR CAN SLOW DOWN APPLICATION. RATHER, PRE-BLEND IN PHOTOSHOP AND UPLOAD THAT       see https://tailwindcss.com/docs/backdrop-blur
+  saturate: 60 # 0, 50, 100... see https://tailwindcss.com/docs/backdrop-saturate
+  brightness: 60 # 0, 50, 75... see https://tailwindcss.com/docs/backdrop-brightness
+  opacity: 30 # 0-100
+
+#headerStyle: boxed
+theme: dark
+color: slate
+hideVersion: true
+useEqualHeights: true
+statusStyle: "dot" #This can show ms if you clear this line out or you can change it to "basic" for UP or DOWN
+
+showStats: true
+hideErrors: true
+
+
+layout:
+
+### NESTING EXAMPLE TO NEST APPS ON TOP OF EACH OTHER
+# Title:
+#   header: false
+#   style: row
+#   Nested Title:
+#     style: columns
+#     header: false
+
+  Servers:
+    style: row
+    columns: 4
+    icon: 
+
+
+  Front-End:
+    style: row 
+    columns: 5
+  
+
+
+  Back-End:
+    style: row
+    columns: 5
+
+
+  Monitoring:
+    style: column
+  
+
+  GitOps:
+    style: column
+
+
+  Media:
+    style: column
+
+  Music:
+    style: column
+
+  Security:
+    style: column
+
+
+  Calendar:
+    style: column
+    
+  Storage:
+    style: row 
+    columns: 5
+
+
+  Glances:
+    style: row
+    columns: 4
+
+
+  Bookmarks:
+    style: column
+    columns: 4

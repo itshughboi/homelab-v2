@@ -1,0 +1,137 @@
+---
+# Host inventory report — generates a markdown snapshot of every host:
+# OS version, kernel, CPU model/cores, RAM, disk layout, uptime, IP addresses.
+# Useful before and after infrastructure changes, and as living documentation.
+# Read-only — makes no changes.
+
+- name: Collect host facts
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Get detailed CPU info
+      ansible.builtin.shell:
+        cmd: lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket|MHz' | head -10
+      register: cpu_info
+      changed_when: false
+
+    - name: Get disk layout
+      ansible.builtin.shell:
+        cmd: lsblk -d -o NAME,SIZE,TYPE,MODEL,ROTA | grep -v loop || true
+      register: disk_layout
+      changed_when: false
+
+    - name: Get filesystem usage
+      ansible.builtin.shell:
+        cmd: df -hT | grep -v tmpfs | grep -v udev | grep -v overlay
+      register: fs_usage
+      changed_when: false
+
+    - name: Get NFS mounts
+      ansible.builtin.shell:
+        cmd: mount | grep nfs || echo "None"
+      register: nfs_mounts
+      changed_when: false
+
+    - name: Get all IP addresses
+      ansible.builtin.shell:
+        cmd: ip -br addr show | grep -v '^lo'
+      register: ip_addresses
+      changed_when: false
+
+    - name: Get running services count
+      ansible.builtin.shell:
+        cmd: systemctl list-units --state=running --type=service --no-pager --no-legend | wc -l
+      register: running_services
+      changed_when: false
+
+    - name: Get failed services
+      ansible.builtin.shell:
+        cmd: systemctl list-units --state=failed --type=service --no-pager --no-legend 2>/dev/null || echo "None"
+      register: failed_services
+      changed_when: false
+
+    - name: Get OS info
+      ansible.builtin.shell:
+        cmd: cat /etc/os-release | grep -E 'PRETTY_NAME|VERSION_ID'
+      register: os_info
+      changed_when: false
+
+    - name: Get last reboot
+      ansible.builtin.shell:
+        cmd: who -b | awk '{print $3, $4}' || uptime -s
+      register: last_reboot
+      changed_when: false
+
+- name: Write inventory report
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    report_path: "/tmp/host-inventory-{{ ansible_date_time.date }}.md"
+
+  tasks:
+    - name: Compile markdown report
+      ansible.builtin.copy:
+        content: |
+          # Host Inventory Report
+          Generated: {{ ansible_date_time.iso8601 }}
+          Hosts scanned: {{ groups['all'] | length }}
+
+          ---
+
+          {% for host in groups['all'] %}
+          {% set h = hostvars[host] %}
+          ## {{ host }}
+
+          | Property | Value |
+          |---|---|
+          | **IP** | {{ h.ansible_default_ipv4.address | default('?') }} |
+          | **OS** | {{ h.ansible_distribution | default('?') }} {{ h.ansible_distribution_version | default('') }} |
+          | **Kernel** | {{ h.ansible_kernel | default('?') }} |
+          | **Arch** | {{ h.ansible_architecture | default('?') }} |
+          | **CPU** | {{ h.ansible_processor[2] | default('?') }} |
+          | **CPU Cores** | {{ h.ansible_processor_vcpus | default('?') }} vCPUs |
+          | **RAM** | {{ (h.ansible_memtotal_mb | default(0) / 1024) | round(1) }} GB |
+          | **RAM Free** | {{ (h.ansible_memfree_mb | default(0) / 1024) | round(1) }} GB |
+          | **Uptime** | {{ (h.ansible_uptime_seconds | default(0) / 3600) | round(1) }} hours |
+          | **Last Reboot** | {{ h.last_reboot.stdout | default('?') }} |
+          | **Running Services** | {{ h.running_services.stdout | default('?') }} |
+
+          **Network Interfaces:**
+          ```
+          {{ h.ip_addresses.stdout | default('?') }}
+          ```
+
+          **Disk Layout:**
+          ```
+          {{ h.disk_layout.stdout | default('?') }}
+          ```
+
+          **Filesystem Usage:**
+          ```
+          {{ h.fs_usage.stdout | default('?') }}
+          ```
+
+          **NFS Mounts:**
+          ```
+          {{ h.nfs_mounts.stdout | default('None') }}
+          ```
+
+          {% if h.failed_services.stdout | default('') not in ['', 'None'] %}
+          **!! Failed Services:**
+          ```
+          {{ h.failed_services.stdout }}
+          ```
+          {% endif %}
+
+          ---
+
+          {% endfor %}
+        dest: "{{ report_path }}"
+        mode: "0644"
+
+    - name: Print report location
+      ansible.builtin.debug:
+        msg: "Host inventory written to {{ report_path }}"

@@ -1,0 +1,76 @@
+---
+services:
+  homeassistant:
+    container_name: home-assistant
+    image: ghcr.io/home-assistant/home-assistant:2026.5.3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      homeassistant-db:
+        condition: service_healthy
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /config:/config
+      - /etc/localtime:/etc/localtime:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.home-assistant.entrypoints=http"
+      - "traefik.http.routers.home-assistant.rule=Host(`home-assistant.hughboi.cc`)"
+      - "traefik.http.middlewares.home-assistant-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.home-assistant.middlewares=home-assistant-https-redirect"
+      - "traefik.http.routers.home-assistant-secure.entrypoints=https"
+      - "traefik.http.routers.home-assistant-secure.rule=Host(`home-assistant.hughboi.cc`)"
+      - "traefik.http.routers.home-assistant-secure.tls=true"
+      - "traefik.http.routers.home-assistant-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.home-assistant-secure.service=home-assistant"
+      - "traefik.http.services.home-assistant.loadbalancer.server.port=8123"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - home-assistant
+
+  homeassistant-db:
+    container_name: homeassistant-db
+    image: docker.io/postgres:16.3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 300
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "homeassistant-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=homeassistant-db
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - home-assistant
+
+
+volumes:
+  db:
+
+networks:
+  proxy:
+    external: true
+  home-assistant:
+    internal: true

@@ -1,0 +1,21 @@
+---
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+    update_cache: yes
+
+- name: Allow SSH through UFW
+  ufw:
+    rule: allow
+    port: "{{ ssh_port }}"
+    proto: tcp
+
+- name: Enable UFW with default deny
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Reload UFW
+  ufw:
+    state: reloaded

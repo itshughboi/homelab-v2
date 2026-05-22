@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mailrise-config
+  namespace: mailrise
+data:
+  mailrise.conf: |
+    # Mailrise configuration
+    # Docs: https://mailrise.xyz/configuration
+    #
+    # Mailrise acts as an SMTP gateway that forwards to notification services.
+    # Configure your notification targets below.
+    #
+    # Example — ntfy:
+    # configs:
+    #   ntfy.ntfy:
+    #     urls:
+    #       - ntfy://ntfy.hughboi.vip/TOPIC
+    #
+    # Example — Discord:
+    # configs:
+    #   discord.alerts:
+    #     urls:
+    #       - discord://WEBHOOK_ID/WEBHOOK_TOKEN
+    #
+    # Vaultwarden and other services address this as:
+    #   SMTP_HOST=mailrise.mailrise.svc.cluster.local
+    #   SMTP_PORT=8025
+    #   SMTP_SECURITY=off
+    configs: {}

@@ -1,0 +1,14 @@
+# pve.yml — tells the exporter which Proxmox hosts to scrape.
+# The exporter uses this as its credentials config (pve.yml format).
+# Credentials come from env vars injected by the Secret, not hardcoded here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pve-exporter-config
+  namespace: prometheus-pve-exporter
+data:
+  pve.yml: |
+    default:
+      user: ""           # overridden by PVE_USER env var
+      password: ""       # overridden by PVE_PASSWORD env var
+      verify_ssl: false  # Proxmox uses self-signed certs by default

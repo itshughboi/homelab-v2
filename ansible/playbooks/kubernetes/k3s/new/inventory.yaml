@@ -1,0 +1,54 @@
+---
+# k3s Cluster Inventory
+# Matches the node layout in terraform/proxmox/k3s-*.tf
+#
+# Groups:
+#   k3s_masters   — all control-plane nodes (must be odd: 3 or 5 for HA quorum)
+#   k3s_workers   — compute-only nodes (run workloads, no etcd)
+#   k3s_longhorn  — dedicated Longhorn storage nodes (joined as workers, labeled separately)
+#   k3s_all       — every k3s node (used for prereqs that run everywhere)
+#
+# The FIRST host listed under k3s_masters is the init node.
+# All others join via the kube-vip VIP after it's established.
+
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/ansible
+    ansible_become: true
+    ansible_become_method: sudo
+
+  children:
+    k3s_masters:
+      hosts:
+        k3s-master-1:
+          ansible_host: 10.10.30.1
+        k3s-master-2:
+          ansible_host: 10.10.30.2
+        k3s-master-3:
+          ansible_host: 10.10.30.3
+
+    k3s_workers:
+      hosts:
+        k3s-worker-1:
+          ansible_host: 10.10.30.11
+        k3s-worker-2:
+          ansible_host: 10.10.30.12
+        k3s-worker-3:
+          ansible_host: 10.10.30.13
+
+    k3s_longhorn:
+      hosts:
+        k3s-longhorn-1:
+          ansible_host: 10.10.30.51
+        k3s-longhorn-2:
+          ansible_host: 10.10.30.52
+        k3s-longhorn-3:
+          ansible_host: 10.10.30.53
+
+    # Convenience group: every k3s node
+    k3s_all:
+      children:
+        k3s_masters:
+        k3s_workers:
+        k3s_longhorn:

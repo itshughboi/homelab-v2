@@ -1,0 +1,130 @@
+---
+# Proxmox storage pool usage report.
+# Shows disk usage per storage pool across all nodes, which VMs/CTs are
+# consuming the most storage, and flags pools over a warning threshold.
+# Read-only — makes no changes.
+
+- name: Collect storage data from all nodes
+  hosts: proxmox
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Get storage pool list and usage
+      ansible.builtin.shell:
+        cmd: pvesh get /nodes/{{ inventory_hostname }}/storage --output-format json 2>/dev/null
+      register: storage_raw
+      changed_when: false
+
+    - name: Get VM disk usage breakdown
+      ansible.builtin.shell:
+        cmd: |
+          python3 -c "
+          import subprocess, json
+
+          # Get all VMs
+          vms = json.loads(subprocess.run(
+              ['pvesh', 'get', '/nodes/{{ inventory_hostname }}/qemu', '--output-format', 'json'],
+              capture_output=True, text=True
+          ).stdout or '[]')
+
+          # Get all CTs
+          cts = json.loads(subprocess.run(
+              ['pvesh', 'get', '/nodes/{{ inventory_hostname }}/lxc', '--output-format', 'json'],
+              capture_output=True, text=True
+          ).stdout or '[]')
+
+          results = []
+          for vm in sorted(vms + cts, key=lambda x: x.get('maxdisk', 0), reverse=True)[:20]:
+              vmid = vm.get('vmid', '?')
+              name = vm.get('name', '?')
+              disk_gb = round(vm.get('maxdisk', 0) / 1073741824, 1)
+              status = vm.get('status', '?')
+              results.append(f'{vmid:6} {name:30} {disk_gb:8.1f} GB  {status}')
+
+          print('  VMID  Name                           Disk (GB)   Status')
+          print('  ' + '-' * 60)
+          for r in results:
+              print('  ' + r)
+          "
+      register: vm_disk_usage
+      changed_when: false
+
+    - name: Get node local disk usage
+      ansible.builtin.shell:
+        cmd: df -hT | grep -v tmpfs | grep -v overlay | grep -v udev
+      register: local_disk
+      changed_when: false
+
+    - name: Store facts for report play
+      ansible.builtin.set_fact:
+        node_storage: "{{ storage_raw.stdout | from_json }}"
+        node_vm_disks: "{{ vm_disk_usage.stdout }}"
+        node_local_disk: "{{ local_disk.stdout }}"
+
+- name: Write storage report
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    report_path: "/tmp/pve-storage-report-{{ ansible_date_time.date }}.md"
+    warn_pct: 80     # flag pools over this % usage
+
+  tasks:
+    - name: Compile storage report
+      ansible.builtin.copy:
+        content: |
+          # Proxmox Storage Report
+          Generated: {{ ansible_date_time.iso8601 }}
+
+          ---
+
+          {% for host in groups['proxmox'] %}
+          {% set h = hostvars[host] %}
+          ## Node: {{ host }}
+
+          ### Storage Pools
+
+          | Pool | Type | Total | Used | Available | Used % | Status |
+          |------|------|-------|------|-----------|--------|--------|
+          {% for pool in h.node_storage | default([]) %}
+          {% set total_gb = (pool.total | default(0) / 1073741824) | round(1) %}
+          {% set used_gb = (pool.used | default(0) / 1073741824) | round(1) %}
+          {% set avail_gb = ((pool.total | default(0) - pool.used | default(0)) / 1073741824) | round(1) %}
+          {% set pct = ((pool.used | default(0) / pool.total | default(1)) * 100) | round(0) | int %}
+          | {{ pool.storage }} | {{ pool.type | default('?') }} | {{ total_gb }} GB | {{ used_gb }} GB | {{ avail_gb }} GB | {{ pct }}%{{ ' ⚠️' if pct >= warn_pct else '' }} | {{ pool.status | default('?') }} |
+          {% endfor %}
+
+          ### Top VM/CT by Disk Allocation
+
+          ```
+          {{ h.node_vm_disks | default('No data') }}
+          ```
+
+          ### Host Filesystem Usage
+
+          ```
+          {{ h.node_local_disk | default('No data') }}
+          ```
+
+          ---
+
+          {% endfor %}
+        dest: "{{ report_path }}"
+        mode: "0644"
+
+    - name: Print report path
+      ansible.builtin.debug:
+        msg: "Storage report written to {{ report_path }}"
+
+    - name: Check for pools over warning threshold
+      ansible.builtin.debug:
+        msg: >-
+          {% for host in groups['proxmox'] %}
+          {% for pool in hostvars[host].node_storage | default([]) %}
+          {% set pct = ((pool.used | default(0) / pool.total | default(1)) * 100) | round(0) | int %}
+          {% if pct >= warn_pct %}
+          !! {{ host }}/{{ pool.storage }}: {{ pct }}% used
+          {% endif %}
+          {% endfor %}
+          {% endfor %}

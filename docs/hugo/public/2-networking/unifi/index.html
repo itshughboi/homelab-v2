@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Deployable with Ansible
+Management network needs DHCP option to point to netbootxyz machine to load iPXE see for more info: iac\bootstrap\README.md Each Proxmox node will need 3 virtual interfaces. pve-srv-1 should have 2&#43; physical NICs. See [[Proxmox Virtual Interfaces]] Management / Cluster VLAN Storage VLAN - MTU 9000 Apply QoS to VLAN 20 with QoS to prioritize Corosync traffic. Allow Jumbo Frames on VLAN 40 « 6x more data per packet. Maaximizes throughput &#43; Minimizes overhead Every device on VLAN 40 (Proxmox, Truenas, PBS) MUST support and be configure for MTU 9000 or else packets will drop. Jumbo packets can’t go over the internet which is why we created this VLAN specifically for internal storage
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2e3440">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/2-networking/unifi/">
+  <meta property="og:site_name" content="hughboi homelab">
+  <meta property="og:title" content="UniFi Overview">
+  <meta property="og:description" content="Deployable with Ansible
+Management network needs DHCP option to point to netbootxyz machine to load iPXE see for more info: iac\bootstrap\README.md Each Proxmox node will need 3 virtual interfaces. pve-srv-1 should have 2&#43; physical NICs. See [[Proxmox Virtual Interfaces]] Management / Cluster VLAN Storage VLAN - MTU 9000 Apply QoS to VLAN 20 with QoS to prioritize Corosync traffic. Allow Jumbo Frames on VLAN 40 « 6x more data per packet. Maaximizes throughput &#43; Minimizes overhead Every device on VLAN 40 (Proxmox, Truenas, PBS) MUST support and be configure for MTU 9000 or else packets will drop. Jumbo packets can’t go over the internet which is why we created this VLAN specifically for internal storage">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="website">
+
+
+  <meta itemprop="name" content="UniFi Overview">
+  <meta itemprop="description" content="Deployable with Ansible
+Management network needs DHCP option to point to netbootxyz machine to load iPXE see for more info: iac\bootstrap\README.md Each Proxmox node will need 3 virtual interfaces. pve-srv-1 should have 2&#43; physical NICs. See [[Proxmox Virtual Interfaces]] Management / Cluster VLAN Storage VLAN - MTU 9000 Apply QoS to VLAN 20 with QoS to prioritize Corosync traffic. Allow Jumbo Frames on VLAN 40 « 6x more data per packet. Maaximizes throughput &#43; Minimizes overhead Every device on VLAN 40 (Proxmox, Truenas, PBS) MUST support and be configure for MTU 9000 or else packets will drop. Jumbo packets can’t go over the internet which is why we created this VLAN specifically for internal storage">
+  <meta itemprop="wordCount" content="200">
+
+<title>UniFi Overview • hughboi homelab</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="http://localhost:1313/2-networking/unifi/">
+<link rel="stylesheet" href="/book.min.98c83e4c8e1c8661368bcb29bbaf4dcc9d31b8164f76aae322d82d86a9750c65.css" integrity="sha256-mMg&#43;TI4chmE2i8spu69NzJ0xuBZPdqrjItgthql1DGU=" crossorigin="anonymous">
+
+
+  <script defer type="module" src="/en.search.min.31642a45f54931c0ec0bfba9b5b049b7a03da1b319409196e09290d30f543550.js" integrity="sha256-MWQqRfVJMcDsC/uptbBJt6A9obMZQJGW4JKQ0w9UNVA=" crossorigin="anonymous"></script>
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/2-networking/unifi/index.xml" title="UniFi Overview" />
+
+  
+</head>
+<body dir="ltr" class="book-kind-section book-type-2-networking">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>hughboi homelab</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input id="book-search-input" type="text" 
+    placeholder="Search"
+    aria-label="Search"
+    maxlength="64" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+<ul><li><a href="https://gitea.hughboi.cc" target="_blank" rel="noopener">Gitea</a></li></ul>
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/master-guide/" class="">
+      Master Guide (Runbook)</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="toggle"  />
+    <label for="section-b451f91f7cdc5d2141c8be8e5fcc766b" class="flex">
+      <a href="/1-prep/" class="">
+        1. Prep</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-152e4d5c4ff85a42f4295919ff302d58" class="toggle" checked />
+    <label for="section-152e4d5c4ff85a42f4295919ff302d58" class="flex">
+      <a href="/2-networking/" class="">
+        2. Networking</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/2-networking/unifi/" class="active">
+      UniFi Overview</a>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-204a92253d65d259c235eef1715b87c4" class="toggle"  />
+    <label for="section-204a92253d65d259c235eef1715b87c4" class="flex">
+      <a href="/3-proxmox/" class="">
+        3. Proxmox</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-fd5b4a9972f8f65b869d37981c88da70" class="toggle"  />
+    <label for="section-fd5b4a9972f8f65b869d37981c88da70" class="flex">
+      <a href="/4-athena/" class="">
+        4. Athena</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-daf9554492503effc450c68f16ace296" class="toggle"  />
+    <label for="section-daf9554492503effc450c68f16ace296" class="flex">
+      <a href="/5-storage/" class="">
+        5. Storage</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-24543dab52bbdfff1afa8b897ec0b1ff" class="toggle"  />
+    <label for="section-24543dab52bbdfff1afa8b897ec0b1ff" class="flex">
+      <a role="button" class="">
+        6. Security</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-d5ace2344a534070fa2af9171bbb0f7f" class="toggle"  />
+    <label for="section-d5ace2344a534070fa2af9171bbb0f7f" class="flex">
+      <a href="/7-docker/" class="">
+        7. Docker</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-5dcf160d160f6c4a4dca2ea878475af7" class="toggle"  />
+    <label for="section-5dcf160d160f6c4a4dca2ea878475af7" class="flex">
+      <a href="/8-k3s/" class="">
+        8. k3s</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="toggle"  />
+    <label for="section-e2c27e6fef4b2e8ea56d2ae18a0533ac" class="flex">
+      <a href="/9-gitops/" class="">
+        9. GitOps</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" alt="Expand" />
+    </label>
+  
+
+          
+  <ul>
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+<ul><li><a href="https://10.10.10.1:8006" target="_blank" rel="noopener">Proxmox</a></li></ul>
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>UniFi Overview</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#additional-notes">Additional Notes:</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><p><em>Deployable with Ansible</em></p>
+<ul>
+<li>Management network needs DHCP option to point to netbootxyz machine to load iPXE
+<ul>
+<li>see for more info: iac\bootstrap\README.md</li>
+</ul>
+</li>
+<li>Each Proxmox node will need 3 virtual interfaces. <code>pve-srv-1</code> should have <strong>2</strong>+ physical NICs. See [[Proxmox Virtual Interfaces]]
+<ol>
+<li>Management / Cluster VLAN</li>
+<li>Storage VLAN - MTU 9000</li>
+</ol>
+</li>
+<li>Apply QoS to <strong>VLAN 20</strong> with QoS to prioritize Corosync traffic.</li>
+<li>Allow Jumbo Frames on <strong>VLAN 40</strong> &laquo; 6x more data per packet. Maaximizes throughput + Minimizes overhead</li>
+</ul>
+<blockquote class='book-hint danger'>
+<p>Every device on VLAN 40 (Proxmox, Truenas, PBS) MUST support and be configure for <strong>MTU 9000</strong> or else packets will drop. Jumbo packets can&rsquo;t go over the internet which is why we created this VLAN specifically for internal storage</p></blockquote><h3 id="additional-notes">Additional Notes:<a class="anchor" href="#additional-notes">#</a></h3>
+<p><strong>VLAN 20</strong>: Corosync is very sensitive to latency. If I&rsquo;m flooding a NIC with backups or storage retrieval, it can cause jitter and fuck with Proxmox and may cause a Fencing (Hard Reboot) event. Problem is that I enjoy seeing the webUI at 10.10.10.x/24. This has <strong>NO GATEWAY</strong>. Only internal routing.<br></p>
+<p><strong>VLAN 40</strong>:  Similar to VLAN 20, PBS or Longhorn can saturate the management network which can slow down SSH or Athena VM. This has <strong>NO GATEWAY</strong>. Only internal routing. <strong>Jumbo Frames</strong> enabled</p>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+<div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/2-networking/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Backward" />
+        <span>2. Networking</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/3-proxmox/" class="flex align-center">
+        <span>3. Proxmox</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Forward" />
+      </a>
+    
+    </span>
+  </div>
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+  
+ 
+        
+  
+    <script>(function(){document.querySelectorAll("pre:has(code)").forEach(e=>{e.addEventListener("click",e.focus),e.addEventListener("copy",function(t){if(t.preventDefault(),navigator.clipboard){const t=window.getSelection().toString()||e.textContent;navigator.clipboard.writeText(t)}})})})()</script>
+  
+
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+  
+  <aside class="book-toc">
+    <div class="book-toc-content">
+      
+  
+<nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#additional-notes">Additional Notes:</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+
+
+    </div>
+  </aside>
+  
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

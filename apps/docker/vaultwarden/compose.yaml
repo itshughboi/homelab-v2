@@ -1,0 +1,50 @@
+---
+services:
+  vaultwarden:
+    container_name: vaultwarden
+    image: vaultwarden/server:1.35.7
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:unconfined
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - DOMAIN=${DOMAIN}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURITY=${SMTP_SECURITY}
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - /home/hughboi/data/vaultwarden/data:/data/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.entrypoints=http"
+      - "traefik.http.routers.vaultwarden.rule=Host(`vaultwarden.hughboi.cc`)"
+      - "traefik.http.middlewares.vaultwarden-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.vaultwarden.middlewares=vaultwarden-https-redirect"
+      - "traefik.http.routers.vaultwarden-secure.entrypoints=https"
+      - "traefik.http.routers.vaultwarden-secure.rule=Host(`vaultwarden.hughboi.cc`)"
+      - "traefik.http.routers.vaultwarden-secure.tls=true"
+      - "traefik.http.routers.vaultwarden-secure.service=vaultwarden"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+      - "diun.enable=true"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

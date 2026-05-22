@@ -1,0 +1,153 @@
+---
+# Docker image update sweep.
+# For every compose project, pulls the latest images for pinned tags
+# and recreates only services where the image actually changed.
+# Lets you do a full fleet update from Semaphore without SSH-ing into each folder.
+#
+# Does NOT update tags — only pulls new layers for already-pinned tags.
+# To change a tag, update the compose file first, then run this.
+#
+# Services using `restart: unless-stopped` will come back automatically.
+
+- name: Docker image update sweep
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  vars:
+    compose_search_dirs:
+      - /home/hughboi/code
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    # Projects to skip (e.g., ones you want to update manually)
+    skip_projects: []
+
+  tasks:
+    - name: Image update sweep
+      block:
+        - name: Find all compose files
+          ansible.builtin.find:
+            paths: "{{ compose_search_dirs }}"
+            patterns:
+              - "compose.yaml"
+              - "compose.yml"
+              - "docker-compose.yaml"
+              - "docker-compose.yml"
+            recurse: true
+          register: compose_files
+
+        - name: Filter skipped projects
+          ansible.builtin.set_fact:
+            projects_to_update: >-
+              {{
+                compose_files.files
+                | rejectattr('path', 'search', '(' + (skip_projects | join('|')) + ')')
+                | list
+              }}
+
+        - name: Pull latest images for each project
+          ansible.builtin.shell:
+            cmd: |
+              dir="{{ item.path | dirname }}"
+              project=$(basename "$dir")
+              echo "=== Pulling: $project ==="
+              docker compose -f "{{ item.path }}" pull --quiet 2>&1
+              echo "Exit: $?"
+          loop: "{{ projects_to_update }}"
+          loop_control:
+            label: "{{ item.path | dirname | basename }}"
+          register: pull_results
+          changed_when: false
+          ignore_errors: true
+
+        - name: Recreate services where image changed
+          ansible.builtin.shell:
+            cmd: |
+              dir="{{ item.path | dirname }}"
+              project=$(basename "$dir")
+              # `up -d` only recreates containers where image/config changed
+              output=$(docker compose -f "{{ item.path }}" up -d 2>&1)
+              echo "$output"
+              # Report what was recreated
+              recreated=$(echo "$output" | grep -E 'Recreat|Started|Created' || true)
+              if [ -n "$recreated" ]; then
+                echo "CHANGED: $project"
+                echo "$recreated"
+              else
+                echo "UNCHANGED: $project"
+              fi
+          loop: "{{ projects_to_update }}"
+          loop_control:
+            label: "{{ item.path | dirname | basename }}"
+          register: up_results
+          changed_when: "'CHANGED:' in item.stdout"
+          ignore_errors: true
+
+        - name: Collect changed projects
+          ansible.builtin.set_fact:
+            changed_projects: >-
+              {{
+                up_results.results
+                | selectattr('stdout', 'search', 'CHANGED:')
+                | map(attribute='item')
+                | map(attribute='path')
+                | map('dirname')
+                | map('basename')
+                | list
+              }}
+            unchanged_projects: >-
+              {{
+                up_results.results
+                | selectattr('stdout', 'search', 'UNCHANGED:')
+                | map(attribute='item')
+                | map(attribute='path')
+                | map('dirname')
+                | map('basename')
+                | list
+              }}
+
+        - name: Clean up dangling images
+          ansible.builtin.shell:
+            cmd: docker image prune -f 2>&1
+          register: prune_result
+          changed_when: "'deleted' in prune_result.stdout"
+
+        - name: Send summary notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Image Update: {{ inventory_hostname }}"
+              Priority: low
+              Tags: arrow_up
+            body: |
+              Docker image update sweep complete on {{ inventory_hostname }}
+              Updated (image changed): {{ changed_projects | length }}
+              {{ changed_projects | join(', ') or 'none' }}
+
+              Unchanged: {{ unchanged_projects | length }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Print summary
+          ansible.builtin.debug:
+            msg:
+              - "Updated: {{ changed_projects | join(', ') or 'none' }}"
+              - "Unchanged: {{ unchanged_projects | length }} projects"
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Image update FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Image update sweep failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true

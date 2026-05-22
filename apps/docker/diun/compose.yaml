@@ -1,0 +1,40 @@
+---
+services:
+  diun:
+    container_name: diun
+    image: crazymax/diun:4.31.0
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: serve
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - TZ=America/Denver
+      - LOG_LEVEL=info
+      - DIUN_WATCH_WORKERS=20
+      - DIUN_WATCH_SCHEDULE=0 20 * * 0
+      - DIUN_WATCH_JITTER=30s
+      - DIUN_WATCH_RUNONSTARTUP=true
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
+      - DIUN_NOTIF_DISCORD_WEBHOOKURL=${DIUN_NOTIF_DISCORD_WEBHOOKURL}
+      - DIUN_NOTIF_NTFY_ENDPOINT=https://ntfy.hughboi.cc
+      - DIUN_NOTIF_NTFY_TOPIC=diun
+      - DIUN_NOTIF_NTFY_TIMEOUT=10s
+    volumes:
+      - data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "diun.enable=true"
+
+
+volumes:
+  data:

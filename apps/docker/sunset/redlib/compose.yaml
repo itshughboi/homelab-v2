@@ -1,0 +1,42 @@
+services:
+  redlib:
+    container_name: "redlib"
+    image: quay.io/redlib/redlib:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true       
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    ports:
+      - 127.0.0.1:8022:8080 # Specify `127.0.0.1:8080:8080` instead if using a reverse proxy
+    user: nobody
+    read_only: true
+    cap_drop:
+      - ALL
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redlib.entrypoints=http"
+      - "traefik.http.routers.redlib.rule=Host(`redlib.hughboi.cc`)"
+      - "traefik.http.middlewares.redlib-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.redlib.middlewares=redlib-https-redirect"
+      - "traefik.http.routers.redlib-secure.entrypoints=https"
+      - "traefik.http.routers.redlib-secure.rule=Host(`redlib.hughboi.cc`)"
+      - "traefik.http.routers.redlib-secure.tls=true"
+      - "traefik.http.routers.redlib-secure.service=redlib"
+      - "traefik.http.services.redlib.loadbalancer.server.port=8080"
+      - "traefik.docker.network=proxy"
+      - "traefik-http.routers.redlib-secure.middlewares=authentik@file"
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true

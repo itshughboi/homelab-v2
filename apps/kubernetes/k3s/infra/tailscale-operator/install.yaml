@@ -1,0 +1,110 @@
+# Tailscale Operator — Helm install reference
+#
+# Exposes k8s Services on your Tailnet without punching firewall holes or
+# going through Traefik. Useful for remote access to internal-only UIs
+# (Grafana, ArgoCD, Longhorn) from outside the home network.
+#
+# ── Prerequisites ──────────────────────────────────────────────────────────────
+#
+# 1. Tailscale OAuth client:
+#    - Tailscale Admin → Settings → OAuth clients → Generate
+#    - Scopes: devices:write, auth_keys
+#    - Copy client_id and client_secret to Vaultwarden:
+#      "homelab / tailscale / k8s-operator-oauth"
+#
+# 2. ACL tag in Tailscale:
+#    Add to your Tailscale ACL policy (Admin → Access Controls):
+#      "tagOwners": {
+#        "tag:k8s-operator": ["autogroup:admin"]
+#      }
+#
+# ── Install ────────────────────────────────────────────────────────────────────
+#
+# helm repo add tailscale https://pkgs.tailscale.com/helmcharts
+# helm repo update
+#
+# # Create the OAuth Secret first (see secret.yaml)
+# kubectl create namespace tailscale
+# kubectl create secret generic operator-oauth \
+#   --namespace tailscale \
+#   --from-literal=client_id=<client-id> \
+#   --from-literal=client_secret=<client-secret>
+#
+# helm install tailscale-operator tailscale/tailscale-operator \
+#   --namespace tailscale \
+#   --version 1.80.3 \
+#   --set oauth.clientId="$(kubectl get secret operator-oauth -n tailscale -o jsonpath='{.data.client_id}' | base64 -d)" \
+#   --set oauth.clientSecret="$(kubectl get secret operator-oauth -n tailscale -o jsonpath='{.data.client_secret}' | base64 -d)"
+#
+# ── Verify ─────────────────────────────────────────────────────────────────────
+#
+# kubectl get pods -n tailscale
+# # A new device named "homelab-k8s-operator" should appear in your Tailnet
+#
+# ── Expose a Service ───────────────────────────────────────────────────────────
+#
+# Annotate any Service to expose it on the Tailnet:
+#
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: grafana
+#   namespace: monitoring
+#   annotations:
+#     tailscale.com/expose: "true"
+#     tailscale.com/hostname: "homelab-grafana"
+# spec:
+#   ...
+#
+# After ~60 seconds, "homelab-grafana" appears in your Tailnet devices.
+# Reachable at http://homelab-grafana (Tailscale MagicDNS) from any Tailnet device.
+#
+# ── Recommended services to expose ────────────────────────────────────────────
+#
+# Service                  Namespace    Hostname
+# ─────────────────────────────────────────────────────
+# grafana                  monitoring   homelab-grafana
+# argocd-server            argocd       homelab-argocd
+# longhorn-frontend        longhorn-system  homelab-longhorn
+# kubernetes (API server)  default      homelab-k8s-api
+#
+# ── Tailscale Ingress (alternative) ───────────────────────────────────────────
+#
+# For path-based routing, use Ingress with ingressClassName: tailscale:
+#
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: grafana-ts
+#   namespace: monitoring
+# spec:
+#   ingressClassName: tailscale
+#   tls:
+#     - hosts:
+#         - homelab-grafana          # Tailscale provides TLS cert for *.ts.net
+#   rules:
+#     - host: homelab-grafana
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: grafana
+#                 port:
+#                   number: 3000
+#
+# ── Upgrading ──────────────────────────────────────────────────────────────────
+#
+# helm upgrade tailscale-operator tailscale/tailscale-operator \
+#   --namespace tailscale \
+#   --set oauth.clientId="$(kubectl get secret operator-oauth -n tailscale -o jsonpath='{.data.client_id}' | base64 -d)" \
+#   --set oauth.clientSecret="$(kubectl get secret operator-oauth -n tailscale -o jsonpath='{.data.client_secret}' | base64 -d)"
+#
+# ── Notes ──────────────────────────────────────────────────────────────────────
+#
+# - Each exposed Service creates a new Tailnet device. Keep the Tailscale device
+#   list tidy — delete devices when decommissioning services.
+# - Tailscale ACLs can restrict which Tailnet devices can reach which k8s services.
+# - The operator needs outbound internet to Tailscale's control plane — works behind NAT.
+# - Tailscale issues its own TLS cert for *.ts.net hostnames (no cert-manager needed).

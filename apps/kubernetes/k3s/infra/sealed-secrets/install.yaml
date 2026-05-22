@@ -1,0 +1,36 @@
+# Sealed Secrets Controller — Helm install manifest
+#
+# This is intentionally NOT an ArgoCD Application or HelmRelease.
+# Sealed Secrets must be deployed BEFORE ArgoCD can sync any app that
+# contains SealedSecret resources — bootstrapping via ArgoCD creates a
+# chicken-and-egg problem (ArgoCD fails to sync its own secrets).
+#
+# Deploy this manually once during cluster bootstrap, BEFORE running
+# `argocd app sync root-app`.
+#
+# Install:
+#   helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+#   helm repo update
+#   helm install sealed-secrets sealed-secrets/sealed-secrets \
+#     --namespace kube-system \
+#     --version 2.16.1 \
+#     -f apps/kubernetes/k3s/infra/sealed-secrets/values.yaml
+#
+# Verify:
+#   kubectl get pods -n kube-system -l app.kubernetes.io/name=sealed-secrets
+#   kubeseal --fetch-cert --controller-name sealed-secrets-controller --controller-namespace kube-system
+#
+# KEY BACKUP (do this immediately after install — see README.md):
+#   kubectl get secret -n kube-system \
+#     -l sealedsecrets.bitnami.com/sealed-secrets-key \
+#     -o yaml > ~/sealed-secrets-master.key
+#   # Store sealed-secrets-master.key in Vaultwarden, NOT in this repo.
+#
+# Upgrading:
+#   helm upgrade sealed-secrets sealed-secrets/sealed-secrets \
+#     --namespace kube-system \
+#     -f apps/kubernetes/k3s/infra/sealed-secrets/values.yaml
+#   # Old keys are retained automatically — existing SealedSecrets still decrypt.
+
+# values.yaml is the companion file — see below for config.
+# This file serves as the documented install reference.

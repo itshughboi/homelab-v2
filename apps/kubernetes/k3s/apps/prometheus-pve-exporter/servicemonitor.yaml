@@ -1,0 +1,40 @@
+# ServiceMonitor — tells Prometheus (via kube-prometheus-stack operator) how to scrape
+# the PVE exporter.
+#
+# The exporter uses a "multi-target" pattern: you pass the Proxmox host as a query
+# param (?target=10.10.30.X), so we configure relabeling to scrape each Proxmox node
+# separately.
+#
+# After applying, verify in Prometheus UI → Targets that pve-nodes appear healthy.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-pve-exporter
+  namespace: prometheus-pve-exporter
+  labels:
+    # Must match kube-prometheus-stack's serviceMonitorSelector label
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-pve-exporter
+  endpoints:
+    # Scrape each Proxmox node via the exporter's multi-target endpoint.
+    # The exporter proxies the request to the Proxmox API and returns metrics.
+    - port: metrics
+      path: /pve
+      interval: 60s      # Proxmox API is slow — don't hammer it
+      scrapeTimeout: 30s
+      params:
+        # Scrape all three Proxmox nodes. Add/remove entries to match your cluster.
+        target:
+          - pve-srv-1.hughboi.vip   # replace with actual Proxmox node hostnames/IPs
+          - pve-srv-2.hughboi.vip
+          - pve-srv-3.hughboi.vip
+      relabelings:
+        # Expose the proxmox target as a label so dashboards can filter per-node
+        - sourceLabels: [__param_target]
+          targetLabel: instance
+        # Replace the scrape target with the exporter's own address (not the PVE host)
+        - targetLabel: __address__
+          replacement: prometheus-pve-exporter.prometheus-pve-exporter.svc.cluster.local:9221

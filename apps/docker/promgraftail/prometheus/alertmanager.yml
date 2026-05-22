@@ -1,0 +1,40 @@
+global:
+  smtp_smarthost: "mailrise.hughboi.cc:8025"
+  smtp_from: "alertmanager@hughboi.cc"
+  smtp_require_tls: false
+  smtp_hello: "alertmanager"
+
+route:
+  receiver: discord
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 30m
+  routes:
+    - receiver: smtp
+      match_re:
+        severity: .*
+      continue: true
+
+
+
+receivers:
+  - name: discord
+    discord_configs:
+      - webhook_url: ${DISCORD_WEBHOOK_URL}
+        send_resolved: true
+        title: "{{ .CommonLabels.alertname }} - {{ .Status }}"
+        message: "{{ .CommonAnnotations.summary }}"
+        content: "{{ .CommonAnnotations.description }}"
+        username: "Prometheus"
+
+  - name: smtp
+    email_configs:
+      - to: ${EMAIL_TARGET}
+        send_resolved: true
+        headers:
+          Subject: "[Prometheus Alert] {{ .CommonLabels.alertname }}"
+        html: |
+           <b>{{ .CommonLabels.alertname }}</b><br/>
+           Status: {{ .Status }}<br/>
+           Summary: {{ .CommonAnnotations.summary }}<br/>
+           Description: {{ .CommonAnnotations.description }}

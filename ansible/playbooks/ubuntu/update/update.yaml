@@ -1,0 +1,36 @@
+---
+- hosts: all
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Update apt repository cache
+      ansible.builtin.apt:
+        update_cache: yes
+        force_apt_get: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        upgrade: dist
+        force_apt_get: yes
+
+    - name: Remove packages that are no longer needed
+      ansible.builtin.apt:
+        autoremove: yes
+
+    - name: Check if a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+        get_checksum: no
+      register: reboot_required_file
+
+    - name: Reboot the server if necessary
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible for kernel/security updates"
+        pre_reboot_delay: 5
+        post_reboot_delay: 30
+        reboot_timeout: 300
+        connect_timeout: 10
+        test_command: uptime
+      when: reboot_required_file.stat.exists

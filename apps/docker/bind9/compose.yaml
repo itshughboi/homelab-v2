@@ -1,0 +1,30 @@
+---
+services:
+  bind9:
+    container_name: bind9
+    image: ubuntu/bind9:9.18-23.10_beta
+    restart: unless-stopped
+    # bind9 requires root to bind to port 53 without cap_add NET_BIND_SERVICE
+    user: root
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - TZ=America/Denver
+      - BIND9_USER=root
+    volumes:
+      - /home/hughboi/code/bind9/config:/etc/bind:rw
+      - cache:/var/cache/bind
+    network_mode: "host"
+
+
+volumes:
+  cache:

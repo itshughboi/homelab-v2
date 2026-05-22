@@ -1,0 +1,86 @@
+---
+services:
+  romm:
+    container_name: romm
+    image: rommapp/romm:4.8.1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      romm-db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=romm-db
+      - DB_NAME=romm
+      - DB_USER=romm-user
+      - DB_PASSWD=${DB_PASSWD}
+      - ROMM_AUTH_SECRET_KEY=${ROMM_AUTH_SECRET_KEY}
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+      - STEAMGRIDDB_API_KEY=${STEAMGRIDDB_API_KEY}
+      - HASHEOUS_API_ENABLED=true
+      - RETROACHIEVEMENTS_API_KEY=${RETROACHIEVEMENTS_API_KEY}
+    volumes:
+      - romm_resources:/romm/resources
+      - romm_redis_data:/redis-data
+      - /home/hughboi/data/romm/library:/romm/library
+      - /home/hughboi/data/romm/assets:/romm/assets
+      - /home/hughboi/code/romm/config/config.yml:/romm/config/config.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.romm.entrypoints=http"
+      - "traefik.http.routers.romm.rule=Host(`romm.hughboi.cc`)"
+      - "traefik.http.middlewares.romm-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.romm.middlewares=romm-https-redirect"
+      - "traefik.http.routers.romm-secure.entrypoints=https"
+      - "traefik.http.routers.romm-secure.rule=Host(`romm.hughboi.cc`)"
+      - "traefik.http.routers.romm-secure.tls=true"
+      - "traefik.http.routers.romm-secure.service=romm"
+      - "traefik.http.services.romm.loadbalancer.server.port=8080"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - romm
+
+  romm-db:
+    container_name: romm-db
+    image: mariadb:11.8.6
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 300
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=romm
+      - MYSQL_USER=romm-user
+      - MYSQL_PASSWORD=${DB_PASSWD}
+    volumes:
+      - /home/hughboi/data/romm/mysql:/var/lib/mysql
+    networks:
+      - romm
+
+
+volumes:
+  romm_resources:
+  romm_redis_data:
+
+networks:
+  romm:
+    internal: true
+  proxy:
+    external: true

@@ -1,0 +1,82 @@
+---
+services:
+  changedetection:
+    container_name: change-detection
+    image: ghcr.io/dgtlmoon/changedetection.io:0.55.5
+    hostname: changedetection
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    depends_on:
+      playwright-chrome:
+        condition: service_started
+    environment:
+      - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000
+      - BASE_URL=https://change.hughboi.cc
+    volumes:
+      - /home/hughboi/data/change-detection:/datastore
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.change.entrypoints=http"
+      - "traefik.http.routers.change.rule=Host(`change.hughboi.cc`)"
+      - "traefik.http.middlewares.change-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.change.middlewares=change-https-redirect"
+      - "traefik.http.routers.change-secure.entrypoints=https"
+      - "traefik.http.routers.change-secure.rule=Host(`change.hughboi.cc`)"
+      - "traefik.http.routers.change-secure.tls=true"
+      - "traefik.http.routers.change-secure.service=change"
+      - "traefik.http.services.change.loadbalancer.server.port=5000"
+      - "traefik.docker.network=proxy"
+      - "diun.enable=true"
+    networks:
+      - proxy
+      - changedetection
+
+  playwright-chrome:
+    container_name: change-detect-chrome
+    image: browserless/chrome:1-chrome-stable
+    hostname: playwright-chrome
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1024
+      - SCREEN_DEPTH=16
+      - ENABLE_DEBUGGER=false
+      - PREBOOT_CHROME=true
+      - CONNECTION_TIMEOUT=300000
+      - MAX_CONCURRENT_SESSIONS=10
+      - CHROME_REFRESH_TIME=600000
+      - DEFAULT_BLOCK_ADS=true
+      - DEFAULT_STEALTH=true
+      - DEFAULT_IGNORE_HTTPS_ERRORS=true
+    tmpfs:
+      - /tmp
+      - /dev/shm
+    networks:
+      - changedetection
+
+
+networks:
+  changedetection:
+  proxy:
+    external: true

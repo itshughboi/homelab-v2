@@ -1,0 +1,164 @@
+---
+# Vaultwarden Backup Validation Playbook
+# Converted from n8n workflow: Vaultwarden_Backup_Validation.json
+#
+# Scheduling: Runs weekly. Add to crontab on your Ansible control node:
+#   0 7 * * 0 cd /path/to/playbooks && ansible-playbook -i inventory.ini vaultwarden_backup_validation.yml
+#
+# Dependencies on target host:
+#   - age  (with private key at ~/.config/age/keys.txt)
+#   - sqlite3
+#   - docker (with permission to run containers as ansible_user)
+#   - curl, tar, sha256sum
+
+- name: Vaultwarden Backup Validation
+  hosts: vaultwarden_host
+  gather_facts: true  # Fixed: was false, but ansible_date_time is used in notifications
+
+  vars:
+    backup_dir: /home/hughboi/data/vaultwarden/backups
+    age_key_file: ~/.config/age/keys.txt
+    vaultwarden_image: vaultwarden/server:1.35.7  # Fixed: was 'latest', must match production version
+    test_container_name: vw-test
+    test_container_port: 8093
+    ntfy_url: https://ntfy.hughboi.cc/n8n
+
+  tasks:
+    - name: Find the most recent encrypted backup
+      ansible.builtin.shell:
+        cmd: ls -t {{ backup_dir }}/*.tar.gz.age | head -1
+      register: latest_backup_raw
+      failed_when: latest_backup_raw.rc != 0 or latest_backup_raw.stdout | trim == ''
+
+    - name: Set backup path fact
+      ansible.builtin.set_fact:
+        backup_file: "{{ latest_backup_raw.stdout | trim }}"
+        backup_dir_path: "{{ latest_backup_raw.stdout | trim | dirname }}"
+        backup_basename: "{{ latest_backup_raw.stdout | trim | basename }}"
+
+    - name: Verify SHA256 checksum
+      ansible.builtin.shell:
+        cmd: sha256sum -c "{{ backup_basename }}.sha256"
+        chdir: "{{ backup_dir_path }}"
+      register: checksum_result
+      failed_when: checksum_result.rc != 0
+
+    - name: Create temp working directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: _vw_validate
+      register: tmp_dir
+
+    - name: Decrypt backup with age
+      ansible.builtin.shell:
+        cmd: age -d -i {{ age_key_file }} "{{ backup_file }}" > "{{ tmp_dir.path }}/vw.tar.gz"
+      register: decrypt_result
+      failed_when: decrypt_result.rc != 0
+
+    - name: Extract decrypted tarball
+      ansible.builtin.shell:
+        cmd: tar -xzf "{{ tmp_dir.path }}/vw.tar.gz" -C "{{ tmp_dir.path }}"
+      register: extract_result
+      failed_when: extract_result.rc != 0
+
+    - name: Check if hot backup (db-backup.sqlite3) exists in archive  # Fixed: mirrors actual restore procedure
+      ansible.builtin.stat:
+        path: "{{ tmp_dir.path }}/data/db-backup.sqlite3"
+      register: hot_backup_stat
+
+    - name: Promote hot backup as canonical database if present  # Fixed: matches restore docs which always prefer db-backup.sqlite3
+      ansible.builtin.command:
+        cmd: mv "{{ tmp_dir.path }}/data/db-backup.sqlite3" "{{ tmp_dir.path }}/data/db.sqlite3"
+      when: hot_backup_stat.stat.exists
+
+    - name: Run SQLite integrity check on restored database
+      ansible.builtin.shell:
+        cmd: >
+          sqlite3 "{{ tmp_dir.path }}/data/db.sqlite3" "PRAGMA integrity_check;" | grep -q "ok"
+      register: sqlite_check
+      failed_when: sqlite_check.rc != 0
+
+    - name: Set permissions for test container  # Vaultwarden runs as uid 1000
+      ansible.builtin.file:
+        path: "{{ tmp_dir.path }}/data"
+        owner: "1000"
+        group: "1000"
+        recurse: true
+      become: true
+
+    - name: Start Vaultwarden test container
+      ansible.builtin.shell:
+        cmd: >
+          docker run -d --rm --name {{ test_container_name }}
+          -p {{ test_container_port }}:80
+          -v "{{ tmp_dir.path }}/data:/data"
+          {{ vaultwarden_image }}
+      register: container_start
+      failed_when: container_start.rc != 0
+
+    - name: Wait for Vaultwarden test container to be ready
+      ansible.builtin.shell:
+        cmd: curl -sf http://localhost:{{ test_container_port }}/alive
+      register: container_ready
+      retries: 30
+      delay: 1
+      until: container_ready.rc == 0
+
+    - name: Verify Vaultwarden API responds
+      ansible.builtin.shell:
+        cmd: curl -sf http://localhost:{{ test_container_port }}/api/config
+      register: api_check
+      failed_when: api_check.rc != 0
+
+    - name: Stop test container
+      ansible.builtin.shell:
+        cmd: docker stop {{ test_container_name }}
+      ignore_errors: true
+
+    - name: Clean up temp directory
+      ansible.builtin.file:
+        path: "{{ tmp_dir.path }}"
+        state: absent
+
+    - name: Send success notification via ntfy
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        body: |
+          Vaultwarden Restore Test PASSED ✅
+          Backup: {{ backup_basename }}
+          Hot backup promoted: {{ hot_backup_stat.stat.exists }}
+          Time: {{ ansible_date_time.iso8601 }}
+        body_format: raw
+        status_code: 200
+      ignore_errors: true
+
+  rescue:
+    - name: Stop test container if still running
+      ansible.builtin.shell:
+        cmd: docker stop {{ test_container_name }}
+      ignore_errors: true
+
+    - name: Clean up temp directory on failure
+      ansible.builtin.file:
+        path: "{{ tmp_dir.path }}"
+        state: absent
+      when: tmp_dir.path is defined
+      ignore_errors: true
+
+    - name: Send failure notification via ntfy
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        body: |
+          Vaultwarden Restore Test FAILED 🚨
+          Error: {{ ansible_failed_task.name | default('Unknown task') }}
+          Backup: {{ backup_file | default('unknown') }}
+          Time: {{ ansible_date_time.iso8601 }}
+        body_format: raw
+        status_code: 200
+      ignore_errors: true
+
+    - name: Re-raise the failure
+      ansible.builtin.fail:
+        msg: "Vaultwarden backup validation failed. Notification sent to ntfy."

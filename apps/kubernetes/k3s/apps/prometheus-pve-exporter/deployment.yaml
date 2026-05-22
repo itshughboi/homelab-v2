@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-pve-exporter
+  namespace: prometheus-pve-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-pve-exporter
+  template:
+    metadata:
+      labels:
+        app: prometheus-pve-exporter
+      annotations:
+        # Prometheus auto-discovery — matches kube-prometheus-stack's podMonitor rules
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9221"
+        prometheus.io/path: "/pve"
+    spec:
+      containers:
+        - name: pve-exporter
+          image: prompve/prometheus-pve-exporter:3.5.3
+          ports:
+            - containerPort: 9221
+              name: metrics
+          env:
+            - name: PVE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pve-exporter-env
+                  key: PVE_USER
+            - name: PVE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pve-exporter-env
+                  key: PVE_PASSWORD
+            - name: PVE_TOKEN_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: pve-exporter-env
+                  key: PVE_TOKEN_NAME
+                  optional: true
+            - name: PVE_VERIFY_SSL
+              valueFrom:
+                secretKeyRef:
+                  name: pve-exporter-env
+                  key: PVE_VERIFY_SSL
+                  optional: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pve.yml
+              subPath: pve.yml
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9221
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9221
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: pve-exporter-config
