@@ -5,10 +5,11 @@
 | Cluster      | 20   | 10.10.20.0/24  | None          | Corosync heartbeat only. No gateway. QoS enabled. **DHCP disabled.**        |
 | k3s          | 30   | 10.10.30.0/24  | 10.10.30.254  | All nodes use static IPs via cloud-init. **DHCP pool starts at .200.**      |
 | Storage      | 40   | 10.10.40.0/24  | 10.10.40.254  | Jumbo Frames (MTU 9000). Outbound updates only. **DHCP disabled.**          |
-| IoT          | 50   | 10.10.50.0/24  | 10.10.50.254  | Smart home devices. Isolated — only Home Assistant can initiate into IoT.   |
-| Torrent      | 49   | 172.16.20.0/24 | 172.16.20.254 | UNTRUSTED. Fully airgapped from internal network.                           |
-| VPN          | 80   | 10.10.80.0/24  | 10.10.80.254  | Tailscale subnet router. Full VLAN access for VPN users.                    |
-| Provisioning | 99   | 10.10.99.0/24  | 10.10.99.254  | Short lease time. Nodes live here only during install.                      |
+| IoT          | 50   | 10.10.50.0/24   | 10.10.50.254  | Smart home devices. Isolated — only Home Assistant can initiate into IoT.   |
+| Torrent      | 49   | 172.16.20.0/24  | 172.16.20.254 | UNTRUSTED. Fully airgapped from internal network.                           |
+| VPN          | 80   | 10.10.80.0/24   | 10.10.80.254  | Tailscale subnet router. Full VLAN access for VPN users.                    |
+| Guest        | —    | 172.69.69.0/24  | 172.69.69.254 | AP guest WiFi. Isolated, client isolation, internet only. Auto DHCP.        |
+| Provisioning | 99   | 10.10.99.0/24   | 10.10.99.254  | Short lease time. Nodes live here only during install.                      |
 
 > [!IMPORTANT]
 > **VLAN 20 (Cluster) and VLAN 40 (Storage): DHCP must be disabled.**
@@ -28,10 +29,33 @@
 | k3s          | 10.10.30.200  | 10.10.30.220  | Moved above static/MetalLB range (was .1–.20 ⚠️)  |
 | Storage      | —             | —             | **Disabled** — all devices have static IPs         |
 | IoT          | 10.10.50.10   | 10.10.50.200  | Smart home devices receive dynamic IPs             |
+| Guest        | Auto          | Auto          | UniFi manages automatically                        |
 | Torrent      | 172.16.20.1   | 172.16.20.20  |                                                    |
 | VPN          | 10.10.80.1    | 10.10.80.20   |                                                    |
 | Provisioning | 10.10.99.1    | 10.10.99.200  |                                                    |
 
+---
+
+#### mDNS Forwarding
+
+mDNS forwarding allows device discovery to cross VLAN boundaries. **Off by default in UniFi — only enable where explicitly needed.**
+
+| Network | mDNS | Reason |
+| ------- | ---- | ------ |
+| Management (10) | Off | Proxmox/Athena don't use mDNS |
+| Cluster (20) | Off | Corosync only |
+| k3s (30) | **On** | Home Assistant discovers IoT devices across VLAN boundary |
+| Storage (40) | Off | TrueNAS/PBS don't need it |
+| IoT (50) | **On** | HA ↔ IoT device discovery |
+| Torrent (49) | Off | Airgapped |
+| VPN (80) | Off | Tailscale handles its own discovery |
+| Guest | Off | Guests must not discover internal or IoT devices |
+| Provisioning (99) | Off | Temporary network |
+
+> [!NOTE]
+> When adding a new network in UniFi, mDNS forwarding defaults to **off**. Only enable it on the specific pair of networks that need cross-VLAN discovery. Leaving it on unnecessarily widens your attack surface — a compromised guest device could discover and probe IoT devices.
+
+---
 
 ### Per-VLAN Notes
 

@@ -15,6 +15,7 @@ UniFi-based VLAN architecture that physically separates management, cluster, sto
 | IoT | 50 | 10.10.50.0/24 | 1500 | 10.10.50.254 | Smart home devices — isolated, only Home Assistant can reach in |
 | Torrent | 49 | 172.16.20.0/24 | 1500 | 172.16.20.254 | Airgapped from all RFC1918 |
 | VPN | 80 | 10.10.80.0/24 | 1500 | 10.10.80.254 | Tailscale subnet router |
+| Guest | — | 172.69.69.0/24 | 1500 | 172.69.69.254 | AP guest WiFi — isolated, internet only, client isolation on |
 | Provisioning | 99 | 10.10.99.0/24 | 1500 | 10.10.99.254 | PXE boot only |
 
 > [!IMPORTANT]
