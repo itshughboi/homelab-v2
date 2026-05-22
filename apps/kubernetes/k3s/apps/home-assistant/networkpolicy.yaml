@@ -1,0 +1,82 @@
+# Home Assistant needs two unusual network permissions:
+#
+# 1. hostNetwork: true (already set in deployment.yaml)
+#    Required for mDNS, Zigbee/Z-Wave discovery, and local device protocols.
+#    HA runs on the worker node's IP, not a pod IP.
+#
+# 2. Egress to IoT VLAN (10.10.50.0/24)
+#    HA must be able to reach smart home devices directly — sending commands,
+#    polling state, subscribing to device events. Without this, VLAN 50 devices
+#    are unreachable even though HA knows their IPs.
+#
+# Because HA uses hostNetwork, these NetworkPolicies apply to the pod's view of
+# the network. The UniFi firewall still controls the actual VLAN boundary — the
+# K3S → IoT allow rule in UniFi must also be configured for this to work.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: home-assistant-ingress
+  namespace: home-assistant
+spec:
+  podSelector:
+    matchLabels:
+      app: home-assistant
+  policyTypes:
+    - Ingress
+  ingress:
+    # Traefik — serves the HA web UI
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 8123
+          protocol: TCP
+    # Prometheus — scrapes HA metrics if the prometheus_client integration is enabled
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8123
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: home-assistant-egress
+  namespace: home-assistant
+spec:
+  podSelector:
+    matchLabels:
+      app: home-assistant
+  policyTypes:
+    - Egress
+  egress:
+    # DNS — resolve device hostnames and external services
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # IoT VLAN — smart home devices (lights, locks, sensors, cameras)
+    - to:
+        - ipBlock:
+            cidr: 10.10.50.0/24
+    # Cluster services — Postgres, Loki, internal APIs
+    - to:
+        - ipBlock:
+            cidr: 10.42.0.0/16   # pod CIDR
+        - ipBlock:
+            cidr: 10.43.0.0/16   # service CIDR
+    # Internet — cloud integrations, HACS, weather APIs, firmware updates
+    - ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+    # mDNS — local device discovery across VLANs (if Avahi reflector is used)
+    - ports:
+        - port: 5353
+          protocol: UDP

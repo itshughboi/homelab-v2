@@ -9,9 +9,10 @@ UniFi-based VLAN architecture that physically separates management, cluster, sto
 | Name | VLAN ID | CIDR | MTU | Gateway | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Management | 10 | 10.10.10.0/24 | 1500 | 10.10.10.254 | SSH, Web UIs, DNS |
-| Cluster | 20 | 10.10.20.0/24 | 1500 | **none** | Corosync heartbeat only — no gateway, QoS DSCP 46 |
-| k3s | 30 | 10.10.30.0/24 | 1500 | 10.10.30.254 | Workloads, MetalLB, Longhorn |
-| Storage | 40 | 10.10.40.0/24 | 9000 | **none** | TrueNAS, PBS, Longhorn — Jumbo Frames everywhere |
+| Cluster | 20 | 10.10.20.0/24 | 1500 | **none** | Corosync heartbeat only — no gateway, QoS DSCP 46. DHCP disabled. |
+| k3s | 30 | 10.10.30.0/24 | 1500 | 10.10.30.254 | Workloads, MetalLB, Longhorn. DHCP pool starts at .200. |
+| Storage | 40 | 10.10.40.0/24 | 9000 | **none** | TrueNAS, PBS, Longhorn — Jumbo Frames. DHCP disabled. |
+| IoT | 50 | 10.10.50.0/24 | 1500 | 10.10.50.254 | Smart home devices — isolated, only Home Assistant can reach in |
 | Torrent | 49 | 172.16.20.0/24 | 1500 | 172.16.20.254 | Airgapped from all RFC1918 |
 | VPN | 80 | 10.10.80.0/24 | 1500 | 10.10.80.254 | Tailscale subnet router |
 | Provisioning | 99 | 10.10.99.0/24 | 1500 | 10.10.99.254 | PXE boot only |
@@ -28,6 +29,33 @@ UniFi-based VLAN architecture that physically separates management, cluster, sto
 **VLAN 40 (Storage, Jumbo Frames):** PBS and Longhorn can saturate a management NIC, which slows down SSH to Athena and web UIs. Separate VLAN isolates this. Jumbo Frames (MTU 9000) give 6× more data per packet, maximizing throughput for NFS/iSCSI while minimizing CPU overhead from packet processing. No gateway because storage traffic should never leave this VLAN.
 
 **VLAN 49 (Torrent, airgapped):** Completely isolated from all RFC1918 space. Torrent traffic goes WAN only. The entire 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 range is blocked from Torrent → internal.
+
+**VLAN 50 (IoT, isolated):** Smart home devices — lights, locks, sensors, cameras — run outdated firmware and can't always be patched. This VLAN prevents any compromised device from reaching infrastructure. Home Assistant is the only service allowed to initiate connections into it. IoT devices cannot reach any RFC1918 address except through the HA → IoT firewall rule.
+
+---
+
+## MTU Verification (VLAN 40)
+
+MTU 9000 is only as good as the weakest link. A misconfigured device causes **silent packet loss** — no errors, just degraded throughput. Verify end-to-end after any infrastructure change:
+
+```sh
+# Run from a k3s worker node (which is on VLAN 40) targeting TrueNAS
+# -M do = prohibit fragmentation, -s 8972 = 9000 MTU - 28 byte IP+ICMP headers
+ping -M do -s 8972 10.10.40.5
+
+# If it fails, find the ceiling by stepping down:
+ping -M do -s 4000 10.10.40.5
+ping -M do -s 1472 10.10.40.5  # = standard 1500 MTU ceiling
+```
+
+MTU 9000 checklist (every item must be set — partial is broken):
+- [ ] UniFi switch ports carrying VLAN 40 → MTU 9000
+- [ ] USW trunk uplink port to UXG Max → MTU 9000
+- [ ] Proxmox physical NIC: `ip link set enp42s0 mtu 9000` (persist in `/etc/network/interfaces`)
+- [ ] Proxmox bridge `vmbr0`: `ip link set vmbr0 mtu 9000`
+- [ ] VLAN interface `vmbr0.40`: `ip link set vmbr0.40 mtu 9000`
+- [ ] TrueNAS: Storage → Network → Edit interface → MTU 9000
+- [ ] k3s worker VLAN 40 NIC: verify with `ip link show eth1` (or whichever interface)
 
 ---
 

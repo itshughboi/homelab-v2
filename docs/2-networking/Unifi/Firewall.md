@@ -23,7 +23,8 @@
 | Control Plane | Management (10) | Fully trusted | Admin origin, full infrastructure control |
 | Compute Plane | k3s (30) | Semi-trusted | Runs workloads and applications |
 | Data Plane | Storage (40) | Highly restricted | Critical data services (NFS, PBS, etc.) |
-| Edge / Risk Zone | Torrent (69) | Untrusted | Internet-facing, high-risk traffic |
+| Devices | IoT (50) | Untrusted | Smart home devices — isolated, HA-accessible only |
+| Edge / Risk Zone | Torrent (49) | Untrusted | Internet-facing, high-risk traffic |
 | Access Plane | VPN (80) | Conditionally trusted | User entry point into network |
 | Lifecycle | Provisioning (99) | Zero-trust / Disposable | Temporary systems for provisioning |
 
@@ -115,6 +116,38 @@ All VLANs need DNS reachability, but the source changes over time:
 | ANY | STORAGE | DENY | Default deny inbound |
 
 > [!DANGER] MTU must be 9000 end-to-end — switch ports, NICs, Proxmox bridges, and VMs. Partial MTU causes silent packet loss.
+
+---
+
+## IoT (10.10.50.0/24)
+
+*Smart home devices. Untrusted — cannot initiate to any internal network. Home Assistant is the sole exception, reaching in from k3s.*
+
+| Source | Destination | Services | Intent |
+| --- | --- | --- | --- |
+| MGMT | IoT | SSH, WEB | Admin access to device UIs |
+| K3S (HA IP only) | IoT | any | Home Assistant device control |
+| IoT | WAN | CORE, WEB | Device updates and cloud APIs |
+| IoT | RFC1918 | **DENY** | No internal access |
+| ANY | IoT | **DENY** | No inbound access |
+
+> [!NOTE] Home Assistant Source IP
+> Scope the `K3S → IoT` allow rule to Home Assistant's specific pod IP or LoadBalancer IP
+> rather than the entire 10.10.30.0/24. Home Assistant uses `hostNetwork: true` in the
+> k3s deployment, so it runs on the worker node's IP. Use the worker node IPs
+> (10.10.30.11–13) as the source, or assign HA a fixed LoadBalancer IP via MetalLB.
+
+> [!NOTE] mDNS / Bonjour
+> For Home Assistant to discover devices via mDNS (Chromecast, Apple TV, Sonos, etc.),
+> mDNS traffic must cross the VLAN boundary. Enable **mDNS forwarding** in UniFi
+> (Network → [VLAN] → Advanced → Enable multicast DNS) for both VLAN 30 and VLAN 50.
+> If UniFi's mDNS forwarder is unreliable, deploy an Avahi container on Athena bridged
+> across both VLANs as an mDNS reflector.
+
+> [!NOTE] IoT WiFi SSID
+> Create a dedicated SSID in UniFi bound to VLAN 50. Keep it completely separate from
+> your main SSID. Devices on the IoT SSID will never see your laptop, phone, or any
+> management host — even on the same physical access point.
 
 ---
 

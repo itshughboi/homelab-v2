@@ -1,25 +1,36 @@
 
-| Name         | VLAN | CIDR          | Gateway      | Notes                                                        |
-| ------------ | ---- | ------------- | ------------ | ------------------------------------------------------------ |
-| Management   | 10   | 10.10.10.0/24 | 10.10.10.254 | SSH, Web UI, Unifi, Bind9. PXE boot enabled.                 |
-| Cluster      | 20   | 10.10.20.0/24 | None         | Corosync heartbeat only. No gateway. QoS enabled.            |
-| k3s          | 30   | 10.10.30.0/24 | 10.10.30.254 |                                                              |
-| Storage      | 40   | 10.10.40.0/24 | 10.10.40.254 | Jumbo Frames (MTU 9000). Outbound updates only via firewall. |
-| Torrent      | 49   | 172.16.20.0/24 | 172.16.20.254 | UNTRUSTED. Fully airgapped from internal network.            |
-| VPN          | 80   | 10.10.80.0/24 | 10.10.80.254 | Tailscale subnet router. Full VLAN access for VPN users.     |
-| Provisioning | 99   | 10.10.99.0/24 | 10.10.99.254 | Short lease time. Nodes live here only during install.       |
+| Name         | VLAN | CIDR           | Gateway       | Notes                                                                       |
+| ------------ | ---- | -------------- | ------------- | --------------------------------------------------------------------------- |
+| Management   | 10   | 10.10.10.0/24  | 10.10.10.254  | SSH, Web UI, Unifi, Bind9. PXE boot enabled.                                |
+| Cluster      | 20   | 10.10.20.0/24  | None          | Corosync heartbeat only. No gateway. QoS enabled. **DHCP disabled.**        |
+| k3s          | 30   | 10.10.30.0/24  | 10.10.30.254  | All nodes use static IPs via cloud-init. **DHCP pool starts at .200.**      |
+| Storage      | 40   | 10.10.40.0/24  | 10.10.40.254  | Jumbo Frames (MTU 9000). Outbound updates only. **DHCP disabled.**          |
+| IoT          | 50   | 10.10.50.0/24  | 10.10.50.254  | Smart home devices. Isolated — only Home Assistant can initiate into IoT.   |
+| Torrent      | 49   | 172.16.20.0/24 | 172.16.20.254 | UNTRUSTED. Fully airgapped from internal network.                           |
+| VPN          | 80   | 10.10.80.0/24  | 10.10.80.254  | Tailscale subnet router. Full VLAN access for VPN users.                    |
+| Provisioning | 99   | 10.10.99.0/24  | 10.10.99.254  | Short lease time. Nodes live here only during install.                      |
 
+> [!IMPORTANT]
+> **VLAN 20 (Cluster) and VLAN 40 (Storage): DHCP must be disabled.**
+> Cluster is Corosync-only at the host level — no device should ever DHCP here.
+> Storage devices all have static IPs — a rogue client on VLAN 40 could reach NFS/PBS.
+> Disable in UniFi → Networks → [VLAN] → DHCP Mode → None.
+>
+> **VLAN 30 (k3s): DHCP pool was .1–.20 which directly overlapped static node IPs.**
+> Masters (.1–.3), workers (.11–.13), kube-vip (.30), Longhorn (.50–.53), MetalLB (.60–.99)
+> all live in the lower range. Pool moved to .200–.220. Update in UniFi immediately.
 
 #### DHCP
-| Name         | Start        | End          |
-| ------------ | ------------ | ------------ |
-| Management   | 10.10.10.100 | 10.10.10.200 |
-| Cluster      | 10.10.20.1   | 10.10.20.20  |
-| k3s          | 10.10.30.1   | 10.10.30.20  |
-| Storage      | 10.10.40.1   | 10.10.40.20  |
-| Torrent      | 172.16.20.1  | 172.16.20.20 |
-| VPN          | 10.10.80.1   | 10.10.80.20  |
-| Provisioning | 10.10.99.1   | 10.10.99.200 |
+| Name         | Start         | End           | Notes                                              |
+| ------------ | ------------- | ------------- | -------------------------------------------------- |
+| Management   | 10.10.10.100  | 10.10.10.200  |                                                    |
+| Cluster      | —             | —             | **Disabled** — Corosync only, no DHCP clients      |
+| k3s          | 10.10.30.200  | 10.10.30.220  | Moved above static/MetalLB range (was .1–.20 ⚠️)  |
+| Storage      | —             | —             | **Disabled** — all devices have static IPs         |
+| IoT          | 10.10.50.10   | 10.10.50.200  | Smart home devices receive dynamic IPs             |
+| Torrent      | 172.16.20.1   | 172.16.20.20  |                                                    |
+| VPN          | 10.10.80.1    | 10.10.80.20   |                                                    |
+| Provisioning | 10.10.99.1    | 10.10.99.200  |                                                    |
 
 
 ### Per-VLAN Notes
@@ -63,6 +74,29 @@ Settings:
 >
 > Partial MTU 9000 support causes **silent packet loss**. Jumbo packets cannot
 > traverse the internet — this VLAN is internal-only by design.
+
+###### VLAN 50 — IoT
+
+Smart home devices: Zigbee coordinator, Z-Wave, smart plugs, lights, sensors, cameras.
+These devices often run outdated firmware with known CVEs and cannot be patched regularly.
+Isolating them prevents any compromised device from reaching infrastructure.
+
+**Home Assistant is the only service allowed to initiate connections into this VLAN.**
+IoT devices cannot initiate connections out to any internal network — only to the internet
+for cloud APIs and updates.
+
+**IoT WiFi SSID:** Create a dedicated SSID in UniFi on VLAN 50. Keep it separate from
+your main WiFi. Devices on the IoT SSID never see your laptop or management hosts.
+
+**mDNS/Bonjour bridging:** Home Assistant needs mDNS to discover local devices (Chromecast,
+Apple TV, etc.). Enable mDNS forwarding in UniFi between VLAN 30 (k3s) and VLAN 50 (IoT)
+or run an Avahi mDNS reflector on Athena.
+
+Settings:
+- DHCP enabled (.10–.200)
+- Short lease time (4–8 hours) — IoT devices reconnect frequently
+- Block inter-VLAN: ON (baseline)
+- mDNS forwarding: ON (for Home Assistant discovery)
 
 ###### VLAN 49 — Torrent
 Fully airgapped from the internal network. WAN access only.
