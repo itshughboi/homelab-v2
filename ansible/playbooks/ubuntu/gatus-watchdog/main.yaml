@@ -206,7 +206,7 @@
           - "{{ gatus_config_dir }}:/config:ro"
           - "{{ gatus_data_dir }}/data:/data:rw"
         env:
-          TZ: "America/New_York"
+          TZ: "America/Denver"
 
     - name: Verify Gatus is responding
       uri:

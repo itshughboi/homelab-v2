@@ -15,7 +15,7 @@ data:
       "labels": ["renovate"],
       "prConcurrentLimit": 5,
       "prHourlyLimit": 2,
-      "timezone": "America/New_York",
+      "timezone": "America/Denver",
       "schedule": ["after 10pm on sunday"],
       "packageRules": [
         {

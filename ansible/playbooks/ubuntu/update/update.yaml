@@ -1,28 +1,28 @@
 ---
 - hosts: all
-  gather_facts: yes
-  become: yes
+  gather_facts: true
+  become: true
 
   tasks:
     - name: Update apt repository cache
       ansible.builtin.apt:
-        update_cache: yes
-        force_apt_get: yes
+        update_cache: true
+        force_apt_get: true
         cache_valid_time: 3600
 
     - name: Upgrade all packages
       ansible.builtin.apt:
         upgrade: dist
-        force_apt_get: yes
+        force_apt_get: true
 
     - name: Remove packages that are no longer needed
       ansible.builtin.apt:
-        autoremove: yes
+        autoremove: true
 
     - name: Check if a reboot is required
       ansible.builtin.stat:
         path: /var/run/reboot-required
-        get_checksum: no
+        get_checksum: false
       register: reboot_required_file
 
     - name: Reboot the server if necessary

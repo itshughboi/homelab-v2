@@ -14,16 +14,16 @@
   tasks:
 
     - name: Update apt cache
-      apt:
-        update_cache: yes
+      ansible.builtin.apt:
+        update_cache: true
 
     - name: Upgrade all packages
-      apt:
+      ansible.builtin.apt:
         upgrade: dist
-        autoremove: yes
+        autoremove: true
 
     - name: Install dependencies for Docker
-      apt:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
@@ -39,24 +39,24 @@
         creates: /usr/bin/docker
 
     - name: Ensure user is in docker group
-      user:
+      ansible.builtin.user:
         name: "{{ ansible_user }}"
         groups: docker
-        append: yes
+        append: true
 
     - name: Ensure Docker service is running
-      systemd:
+      ansible.builtin.systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Install Docker Compose plugin
-      apt:
+      ansible.builtin.apt:
         name: docker-compose-plugin
         state: present
 
     - name: Install git
-      apt:
+      ansible.builtin.apt:
         name: git
         state: present
 
@@ -65,7 +65,7 @@
         repo: "https://github.com/itshughboi/homelab-v2.git"
         dest: /opt/homelab
         version: main
-        update: yes
+        update: true
 
     - name: Run netbootxyz docker compose
       community.docker.docker_compose_v2:

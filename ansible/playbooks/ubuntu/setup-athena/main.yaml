@@ -31,9 +31,9 @@
 
     - name: Update apt cache and upgrade packages
       ansible.builtin.apt:
-        update_cache: yes
+        update_cache: true
         upgrade: dist
-        autoremove: yes
+        autoremove: true
 
     - name: Install base dependencies
       ansible.builtin.apt:
