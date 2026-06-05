@@ -1,8 +1,23 @@
 # Firewall Rules
 
+> [!IMPORTANT]
+> **Three rule systems exist in UniFi. Do not mix them.**
+>
+> | System | What it is | Use? |
+> | --- | --- | --- |
+> | **Object Oriented Networking (OON)** | Assigns Secure/Route/QoS/Schedule to devices/networks → auto-generates zone rules | Only if you commit fully to it |
+> | **Zone-based firewall** | Manual zone-pair policies. What this doc describes. | **Yes — this setup uses this** |
+> | **Legacy (LAN IN / LAN OUT / LAN LOCAL)** | Old per-direction rule system, being deprecated | No — never add rules here |
+>
+> OON sits above zones and writes auto-generated rules into the same zone rule table as your manual rules. If you have both OON objects AND manual zone rules for the same traffic, they can conflict or one can silently override the other depending on rule order.
+>
+> **If you have OON objects (e.g. `MGMT -> Allow ALL`, `VPN -> Allow ALL`):** check the Routing Table to see what rules they generated. If they're creating broad allow-all rules, they may be undermining specific port-level DENYs in your zone config. OON is too coarse for a multi-VLAN setup with per-port restrictions — it cannot express "MGMT → Storage only on 22, 80, 443, 8006, 8007."
+>
+> Confirmed zone-based: the lockout incident showed rules in MongoDB `trafficrule` collection (zone), not `firewallrule` (legacy).
+> Network Lists (port/IP groups) are named objects used *within* zone rules — not a separate system.
+
 > [!CAUTION]
 > ALLOW rules must be ABOVE DENY rules in UniFi (rule order matters).
-> Verify correct rule direction (LAN IN vs LAN OUT).
 
 > [!WARNING]
 > **Always make firewall changes from [unifi.ui.com](https://unifi.ui.com) (cloud portal), not the local controller.**
@@ -12,13 +27,16 @@
 
 ---
 
-## First — Two Things Before Any Rules
+## Firewall Prerequisites
 
 1. **Enable "Block inter-VLAN traffic"** in UniFi Network settings. This is the baseline default-deny. ALLOW rules below punch specific holes in it.
 
 2. Add this as the **very first rule in LAN IN**, before any VLAN-specific rules:
    `ALLOW ALL → ALL  state: established, related`
    This permits return traffic for connections you initiated, without needing explicit rules in both directions. Without it, outbound ALLOWs work but responses get dropped.
+
+> See [Security.md](Security.md) for IPS, region blocking, honeypot, NetFlow, logging, and other UniFi security settings.
+> See [Networks.md](Networks.md) for DNS configuration (Quad9 DoH, per-VLAN setup, Guest/IoT content filtering).
 
 > [!TIP]
 > **Rules are one direction only — always model the initiator.**
@@ -37,27 +55,126 @@
 
 ---
 
+## Current Rule Audit (June 2026)
+
+> [!WARNING] **`torrent to truenas` rule must be scoped down — currently Any port.**
+> Torrent writes downloads to TrueNAS via NFS — the rule is intentional but far too broad.
+> Change it:
+> - **Dst Port:** `2049` only (NFSv4) or `111, 2049` (NFSv3 — needs rpcbind)
+> - **Src:** lock to the specific torrent VM IP, not the whole Torrent zone
+> - **Dst:** lock to the TrueNAS IP, not the whole Storage zone
+>
+> Second layer of defense (more important than the firewall rule): on TrueNAS, scope the
+> NFS export to the downloads dataset only — not the entire pool. That way a compromised
+> torrent client can only touch downloads, not the rest of the NAS.
+
+> [!DANGER] **`Allow All Traffic` fires before `Block All Traffic` at the bottom.**
+> The Block All Traffic system rule is effectively dead — anything not caught by an explicit Block
+> above it passes through Allow All. Currently only three things are actually blocked:
+> `Block IoT → Internal`, `Block Invalid Traffic`, and `Isolated Networks`.
+> Everything else (including inter-VLAN paths with no explicit rule) is allowed.
+> Fix: change Security Posture to **Block** in Settings → Security → Threat Management,
+> which repositions the default to deny. After doing this, add explicit allows for:
+> Torrent → External (internet), Provisioning → External, k3s → External, MGMT → MGMT.
+
+> [!WARNING] **Duplicate VPN rules.**
+> `Allow VPN -> All` (src zone: Internal, src: VPN/10.10.80.0/24 → dst: MGMT) and
+> `Allow VPN -> MGMT` (src zone: VPN system zone → dst: MGMT) are doing the same thing
+> through two different source zones. Tailscale VLAN 80 is in the Internal zone; the system
+> VPN zone is for UniFi-native VPN. Remove the duplicate — keep the Internal zone version.
+
+> [!NOTE] **VPN rules are Any port.**
+> `Allow VPN -> MGMT/Storage/k3s/Provisioning` are all Dst Port: Any. Fine for solo use.
+> Scope to the `admin` port group if you want tighter control.
+
+**What's correctly configured:**
+- `Allow k3s -> Storage` scoped to storage port group ✓
+- `IoT -> MGMT (DNS)` scoped to dns port group ✓
+- `Block IoT -> Internal` ✓
+- `Storage -> MGMT (DNS)` and `k3s -> MGMT (DNS)` scoped ✓
+- Return traffic handled by system `Allow Return Traffic` rule ✓
+- `Isolated Networks` blocking guest ✓
+
+---
+
+## Global Rule Order
+
+> [!DANGER]
+> **This order must be enforced in UniFi.** Rules fire top-to-bottom; a DENY above
+> an ALLOW silently wins. After any restore or rule change, verify this sequence.
+
+| Global Priority | Rule | Why it must be here |
+| --- | --- | --- |
+| **1** | `ANY → ANY` state `established/related` ALLOW | Return traffic for all initiated connections. Missing this = all responses dropped. |
+| **2** | `MGMT → MGMT ANY` ALLOW | Intra-VLAN admin traffic. Zone firewall intercepts same-subnet traffic — without this your Mac can't reach pve-srv nodes or the controller VM. **Root cause of June 2026 lockout.** |
+| **3** | `VPN → MGMT SSH,WEB` ALLOW | Remote admin via Tailscale. Must be above the MGMT deny below. |
+| **4–N** | All other ALLOW rules (per-VLAN outbound) | Ordered by VLAN section below. |
+| **last** | `ANY → MGMT DENY` | Default deny inbound to admin plane. Must come after all explicit ALLOWs above. |
+
+---
+
+## Zone Map
+
+### System Zones (locked — UniFi-managed, cannot be removed)
+
+| Zone | Meaning | Networks assigned |
+| --- | --- | --- |
+| **External** | WAN — internet-facing interfaces. This is what rules call "WAN." | Internet 1, Internet 2 |
+| **Gateway** | The UXG Max device itself. Use for rules targeting the gateway (e.g. allow DNS *to* the UXG) | — (auto) |
+| **VPN** | UniFi-native VPN clients only (UniFi VPN server). **Not Tailscale.** | — |
+| **Hotspot** | Captive portal / guest portal networks | — |
+| **DMZ** | Exposed-host zone — servers reachable from External with limited internal access | — |
+
+> [!NOTE]
+> Rules in this doc that reference "WAN" map to the **External** zone in the UniFi UI.
+> Do not create a separate "WAN" zone — External already serves that purpose.
+
+### Custom Zones
+
+| Zone | Network / Interface | Notes |
+| --- | --- | --- |
+| MGMT | Management (VLAN 10) | Admin plane |
+| Cluster | Cluster (VLAN 20) | Corosync only, fully isolated |
+| IoT | IoT (VLAN 50) | Untrusted devices |
+| Torrent | Torrent (VLAN 49) | Airgapped, WAN only |
+| Internal | VPN (VLAN 80) | Tailscale subnet router |
+
+> [!NOTE]
+> The **Internal** zone currently contains VPN (Tailscale VLAN 80). Zone membership is
+> not dynamic — you cannot move a network in/out of a zone per-session. Trust is
+> controlled by zone policies (the rules below), not by which zone bucket the network
+> sits in. If Internal has loose default policies, tighten the zone-pair rules rather
+> than trying to move the network around.
+
+> [!NOTE]
+> k3s (VLAN 30), Storage (VLAN 40), and Provisioning (VLAN 99) zones not shown in the
+> screenshot above — verify they are assigned to custom zones or add them.
+
+---
+
 ## Architecture
 
-| Layer | VLAN | Trust Level | Description |
+| Layer | VLAN | Trust Level | UniFi Zone |
 | --- | --- | --- | --- |
-| Control Plane | Management (10) | Fully trusted | Admin origin, full infrastructure control |
-| Compute Plane | k3s (30) | Semi-trusted | Runs workloads and applications |
-| Data Plane | Storage (40) | Highly restricted | Critical data services (NFS, PBS, etc.) |
-| Devices | IoT (50) | Untrusted | Smart home devices — isolated, HA-accessible only |
-| Edge / Risk Zone | Torrent (49) | Untrusted | Internet-facing, high-risk traffic |
-| Access Plane | VPN (80) | Conditionally trusted | User entry point into network |
-| Lifecycle | Provisioning (99) | Zero-trust / Disposable | Temporary systems for provisioning |
+| Control Plane | Management (10) | Fully trusted | MGMT |
+| Compute Plane | k3s (30) | Semi-trusted | — (verify) |
+| Data Plane | Storage (40) | Highly restricted | — (verify) |
+| Devices | IoT (50) | Untrusted | IoT |
+| Edge / Risk Zone | Torrent (49) | Untrusted | Torrent |
+| Access Plane | VPN (80) | Conditionally trusted | Internal |
+| Lifecycle | Provisioning (99) | Zero-trust / Disposable | — (verify) |
 
 ---
 
 ## Service Groups (Legend)
 
+Conceptual groups used in the rule tables below. See **UniFi Network Lists** section for the actual port groups configured in UniFi.
+
 | Group | Ports |
 | --- | --- |
 | SSH | 22 TCP |
 | CORE | DNS 53 TCP/UDP, DHCP 67/68 UDP, NTP 123 UDP |
-| WEB | HTTP 80 TCP, HTTPS 443 TCP |
+| WEB | HTTP 80 TCP, HTTPS 443 TCP, Proxmox 8006 TCP, PBS 8007 TCP |
 | BOOT | TFTP 69 UDP, HTTP/HTTPS (PXE) |
 | STORAGE | NFS 2049, rpcbind 111, SMB 445, iSCSI 3260 |
 | COROSYNC | 5404–5405 UDP, 2224 TCP |
@@ -68,11 +185,24 @@
 
 ---
 
-## DNS — Two-Phase Setup
+## UniFi Network Lists (Port Groups)
 
-All VLANs need DNS reachability, but the source changes over time:
-- **Bootstrap:** allow `→ WAN` on port 53 (using 9.9.9.9 / 1.1.1.1)
-- **Post-Bind9:** change destination from WAN to Athena's IP (`10.10.10.8`) for all VLANs — forces all nodes through the internal resolver and prevents bypassing it via arbitrary internet DNS
+These are the actual port groups defined in UniFi → Firewall & Security → Network Lists.
+They are referenced by name in firewall rules.
+
+| List name | Ports | Notes |
+| --- | --- | --- |
+| `admin` | 22, 80, 443, **8006**, **8007** | SSH + web UIs including Proxmox and PBS |
+| `k3s-admin` | 111, 2049, 3260, 9100, 9500 | rpcbind, NFS, iSCSI, node_exporter, Longhorn |
+| `storage` | 111, **2049**, 22, 80, 443 | Admin access to storage nodes |
+| `dns` | 53, 853 | DNS + DoT |
+
+> [!WARNING]
+> The `storage` list in UniFi currently shows port **2048** — this is likely a typo.
+> NFS is **2049**. Verify and correct in UniFi → Firewall & Security → Network Lists → storage.
+
+> [!NOTE]
+> `admin` needs **8006** (Proxmox web UI) and **8007** (PBS web UI) added if not already done.
 
 ---
 
@@ -80,15 +210,47 @@ All VLANs need DNS reachability, but the source changes over time:
 
 *Admin plane. Reaches everything. Nothing initiates into it.*
 
-| Source | Destination | Services | Intent |
-| --- | --- | --- | --- |
-| MGMT | K3S (10.10.30.0/24) | SSH, K3S | Admin control |
-| MGMT | STORAGE (10.10.40.0/24) | SSH, WEB | Admin access to TrueNAS + PBS web UIs only |
-| MGMT | TORRENT (172.16.20.0/24) | SSH | Admin access only |
-| MGMT | VPN (10.10.80.0/24) | SSH | Admin access |
-| MGMT | PROVISIONING (10.10.99.0/24) | SSH | PXE control |
-| MGMT | WAN | CORE, WEB | Updates, DNS, NTP |
-| ANY | MGMT | DENY | No inbound initiation |
+> [!DANGER]
+> **UniFi zone-based firewall intercepts intra-VLAN traffic.** Without an explicit
+> `MGMT → MGMT ALLOW`, your own Mac on 10.10.10.x cannot reach pve-srv nodes or
+> the controller VM on the same subnet. This was the root cause of the June 2026 lockout.
+> The `MGMT → MGMT` row MUST be the first rule — before any DENY.
+
+> [!CAUTION]
+> **Rule order within LAN IN is global.** Placing `ANY → MGMT DENY` early in the
+> list blocks VPN → MGMT, MGMT → MGMT, and everything else. The row order in this
+> table reflects the required priority order in UniFi.
+
+| Priority | Source | Destination | Services | Intent |
+| --- | --- | --- | --- | --- |
+| **1** | **MGMT** | **MGMT (10.10.10.0/24)** | **ANY** | **Intra-VLAN admin traffic — prevents self-lockout** |
+| 2 | MGMT | K3S (10.10.30.0/24) | SSH, K3S | Admin control |
+| 3 | MGMT | STORAGE (10.10.40.0/24) | SSH, WEB | Admin access to TrueNAS + PBS web UIs only |
+| 4 | MGMT | TORRENT (172.16.20.0/24) | SSH | Admin access only |
+| 5 | MGMT | VPN (10.10.80.0/24) | SSH | Admin access |
+| 6 | MGMT | PROVISIONING (10.10.99.0/24) | SSH | PXE control |
+| 7 | MGMT | WAN | CORE, WEB | Updates, DNS, NTP |
+| 8 | VPN (10.10.80.0/24) | MGMT | SSH, WEB | Remote admin — must be above the ANY DENY below |
+| **last** | ANY | MGMT | **DENY** | No inbound initiation from other zones |
+
+> [!IMPORTANT]
+> The `VPN → MGMT` allow row is duplicated here (it also appears in the VPN section)
+> to document that it must sit **above** the `ANY → MGMT DENY` in the global LAN IN
+> rule list. If these are separate rules in UniFi, ensure VPN → MGMT has a lower rule
+> number (higher priority) than ANY → MGMT DENY.
+
+> [!NOTE]
+> The UXG Max gateway (10.10.10.254) must reach the controller VM (10.10.10.10) on
+> ports 8080 and 8443. This is covered by `MGMT → MGMT ANY` above — do not remove it.
+
+> [!DANGER] **The controller VM (10.10.10.10) is a single point of failure.**
+> If any rule blocks traffic TO 10.10.10.10, the UXG Max loses its controller and
+> cascades into WAN loss — making the gateway (.1) and all pve-srv nodes appear dead
+> even though they are up. Devices that don't route through the UXG (e.g. Synology
+> at .15 reachable via L2) will still be up, which is how you can distinguish a
+> controller-loss cascade from a true network failure.
+> Never create a rule with destination `10.10.10.10` or `10.10.10.0/24` that isn't
+> already covered by an explicit ALLOW above it.
 
 ---
 
@@ -194,9 +356,14 @@ All VLANs need DNS reachability, but the source changes over time:
 
 *Tailscale subnet router. VPN users get scoped access to Management, k3s, and Storage.*
 
+> [!WARNING]
+> `VPN → MGMT` must be placed **before** `ANY → MGMT DENY` in the global LAN IN list.
+> If it fires after the deny, VPN access to MGMT is silently blocked — this contributed
+> to VPN being useless during the June 2026 lockout.
+
 | Source | Destination | Services | Intent |
 | --- | --- | --- | --- |
-| VPN | MGMT | SSH, WEB | Admin access |
+| VPN | MGMT | SSH, WEB | Admin access — ensure this is above ANY→MGMT DENY |
 | VPN | K3S | K3S | Cluster access |
 | VPN | STORAGE | SSH, WEB | Remote admin access |
 | VPN | WAN | VPN | Tunnel egress |
@@ -257,9 +424,16 @@ Docker manipulates iptables directly, bypassing UniFi firewall rules for traffic
 > [!CAUTION]
 > This is the procedure used when firewall rules locked out the entire network —
 > WAN dropped, Proxmox nodes unreachable on 22/8006, cloud portal unavailable,
-> and Tailscale down. Root cause: new firewall rules blocked traffic to the
-> UniFi controller VM (Athena/dock-prod, 10.10.10.10), which cascaded into the
-> UXG Max losing controller contact and dropping WAN.
+> and Tailscale down.
+>
+> **Confirmed symptom:** Mac on 10.10.10.x could not reach .1–.10, but *could* reach
+> 10.10.10.15 (Synology). This rules out a blanket MGMT→MGMT deny — the issue was
+> targeted at the infrastructure IP range.
+>
+> **Most likely root cause:** A firewall rule blocked traffic to the controller VM
+> (10.10.10.10 / dock-prod). The UXG Max lost controller contact, which cascaded
+> into WAN loss and made the pve-srv nodes and gateway (.1) appear unreachable.
+> Devices not dependent on the controller (Synology at .15) stayed accessible.
 
 ### Diagnosis Sequence
 
@@ -345,15 +519,19 @@ docker restart unifi_controller
 
 ### Lessons / Prevention
 
-- [ ] **ALWAYS make firewall changes from unifi.ui.com**, never the local
+- [x] **ALWAYS make firewall changes from unifi.ui.com**, never the local
       controller — the cloud portal survives a self-inflicted lockout (this is
       only true while WAN is up; if a rule kills WAN, even this fails).
-- [ ] **Never block traffic to the controller VM (10.10.10.10)** — if the UXG
-      Max can't reach its controller, it can cascade into WAN loss.
+- [x] **Never block traffic to the controller VM (10.10.10.10)** — if the UXG
+      Max can't reach its controller, it can cascade into WAN loss. Covered by
+      the `MGMT → MGMT ANY` rule now documented in the Management section.
 - [ ] **Record the UXG Max SSH device password** in Vaultwarden — would have
       been a faster recovery path than the console → VM → docker chain.
-- [ ] **Take a manual backup before every firewall change** (this is what saved
-      us — `autobackup` had a clean pre-change snapshot).
-- [ ] Add an explicit `ALLOW MGMT → MGMT` rule above `ANY → MGMT DENY` so admin
-      traffic within the management VLAN is never caught by the deny.
-- [ ] Keep `established/related` as rule #1 in LAN IN.
+- [x] **Take a manual backup before every firewall change** — `autobackup` is
+      what saved us. Also consider a manual snapshot immediately before any change.
+- [x] **`ALLOW MGMT → MGMT` is now rule priority 1** in the Management section —
+      this was the missing rule that caused the June 2026 lockout. Zone-based
+      firewall intercepts intra-VLAN traffic; without this, your own Mac on
+      10.10.10.x cannot reach any other MGMT host.
+- [x] **`established/related` is rule #1 in LAN IN** — documented at the top
+      of this file. Verify this in UniFi after any restore.

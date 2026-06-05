@@ -1,109 +1,21 @@
-# 1. Prep
-
-Everything before the first node powers on: hardware inventory, prerequisites, SSH keys, and the PXE netboot setup that automates bare-metal Proxmox installation.
-
----
-
-## Hardware Inventory
-
-| Node | CPU | RAM | Role |
-| --- | --- | --- | --- |
-| pve-srv-1 | Ryzen 5 5600x | 96 GB | Primary node, PBS, future NAS host |
-| pve-srv-2 | Ryzen 7 5800U | 32 GB | k3s master-1 + worker-1 |
-| pve-srv-3 | — | — | k3s master-2 + worker-2 |
-| pve-srv-4 | — | — | k3s master-3 + worker-3 |
-| Libre Potato | ARM | — | Permanent PXE netboot server — lives on VLAN 99 |
-
-→ Full per-node NIC layout and bridge configs: [`Inventory/`](Inventory/)
-
-### Planned NAS Build (pve-srv-1 upgrade)
-
-- Case: Jonsbo N6
-- CPU: i5-13500
-- RAM: 96–128 GB DDR4
-- SATA Controller: Broadcom/LSI 9400-8i (8× SATA)
-- **4× 4TB Samsung 870 QVO SSD** → 2+2 mirror VDEVs (fast pool)
-- **4× 8TB WD Red Plus HDD** → 2+2 mirror VDEVs (bulk pool)
-
----
-
-## Prerequisites Checklist
-
-### Credentials (gather before touching hardware)
-
-| Credential | Where to get it | Used by |
-| --- | --- | --- |
-| Cloudflare API Token | Cloudflare → My Profile → API Tokens → Zone:DNS:Edit | cert-manager, Traefik TLS |
-| Cloudflare Zone ID | Cloudflare → domain overview | cert-manager |
-| Discord webhook URL | Channel → Edit → Integrations → Webhooks | Alertmanager, Semaphore, n8n |
-| SSH public key | `cat ~/.ssh/id_ed25519.pub` | Packer, Terraform, Ansible |
-| IGDB Client ID + Secret | dev.twitch.tv → create app | RomM |
-| SteamGridDB API key | steamgriddb.com → preferences → API | RomM |
-| RetroAchievements API key | retroachievements.org → settings | RomM |
-
-### Tooling on Your Laptop
-
-```sh
-brew install terraform ansible packer git age sops helm
-brew install --cask docker
-```
-
 ### SSH Key — Dedicated Datacenter Keypair
 
 Create a separate keypair for the homelab. This gets injected into every node at build time — don't reuse your personal key.
 
 ```sh
-ssh-keygen -t ed25519 -C "homelab-datacenter" -f ~/.ssh/homelab_id_ed25519
+ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/homelab_id_ed25519
 ```
 
-Store the private key locally for now, in Vaultwarden once it's running.
+Store the private key locally at first, then put in Vaultwarden once it's running.
 
 ### Clone the Repo
 
+> [!NOTE] Gitea is self-hosted — during a fresh rebuild it won't be running yet. Clone from the GitHub mirror:
+
 ```sh
-git clone https://gitea.hughboi.cc/hughboi/homelab.git
+git clone https://github.com/itshughboi/homelab-v2.git
 cd homelab
 ```
-
----
-
-## Architecture Overview
-
-```
-Physical hardware (4× Proxmox nodes)
-         │
-         ▼
-PXE network boot (Libre Potato, VLAN 99)
-  → Automated Proxmox install via per-node TOML answer file
-         │
-         ▼
-Proxmox 4-node cluster
-  → Terraform provisions all VMs from Template 9999
-         │
-         ├── Athena (10.10.10.8) — Management plane
-         │     Docker: Traefik, Gitea, Semaphore, Bind9
-         │     Semaphore runs all Ansible from here (laptop retires)
-         │
-         ├── dock-prod (10.10.10.10) — Production Docker host
-         │     Vaultwarden, AdGuard, Jellyfin, n8n, etc.
-         │
-         └── k3s cluster (9 nodes, VLAN 30)
-               ArgoCD watches Gitea → applies everything declaratively
-               Longhorn distributed storage across workers
-               Traefik + cert-manager for TLS ingress
-```
-
-### Guiding Principles
-
-**Everything is code.** Network config, VM provisioning, k8s manifests, DNS records — all live in Git. Rebuilding from bare metal is a known, repeatable process.
-
-**Separation of planes.** Management never mixes with storage or workload traffic. VLANs enforce this at the switch, not just the firewall.
-
-**GitOps over manual.** Push to Git → automation applies it. No SSH-and-edit habits that create undocumented state.
-
-**Secrets never touch Git unencrypted.** SOPS + Age is the rule. Once a plaintext secret hits Git history, rotation is mandatory regardless of deletion.
-
-**Blast radius by design.** A compromised workload container cannot pivot to management or storage — the VLAN firewall rules make it structurally impossible.
 
 ---
 
@@ -111,7 +23,7 @@ Proxmox 4-node cluster
 
 The Libre Potato (10.10.99.99) serves automated Proxmox installs to all nodes via iPXE over VLAN 99. It pulls updates from Gitea every 5 minutes via a systemd timer.
 
-### Boot Chain
+## Boot Chain
 
 ```
 Node powers on
@@ -124,7 +36,7 @@ Node powers on
     → Move cable from provisioning port to permanent trunk port
 ```
 
-### Why netboot.xyz over USB
+## Why netboot.xyz over USB
 
 | Method | Pros | Cons |
 | --- | --- | --- |
@@ -132,13 +44,56 @@ Node powers on
 | Ventoy USB | Works without network | Manual, slow at scale |
 | BMC/IPMI | Enterprise break-glass | Requires enterprise hardware |
 
-### BIOS Prerequisites (every node)
+---
+
+## First-Time Libre Potato Setup
+
+One-time steps to get the netboot server running. Skip if Libre Potato is already serving files or if using Ansible Playbook to install netboot
+
+```sh
+git clone https://gitea.hughboi.cc/hughboi/homelab-v2.git
+cd homelab/bootstrap/netbootxyz
+docker compose up -d
+```
+
+Go to the web UI at `http://10.10.99.99:3000`, click **Local Assets** along the top, and pull:
+- `proxmox-ve initrd`
+- `proxmox-ve vmlinuz`
+
+Move the downloaded files into `./assets/proxmox`:
+
+```sh
+# Run from bootstrap/netbootxyz
+find ./assets/asset-mirror -name "vmlinuz" -exec mv {} ./assets/proxmox/ \;
+find ./assets/asset-mirror -name "initrd" -exec mv {} ./assets/proxmox/initrd.img \;
+```
+
+> [!NOTE] Add to `.gitignore` before pushing — these are large binaries, download fresh each time:
+> ```
+> assets/proxmox/vmlinuz
+> assets/proxmox/initrd.img
+> netbootxyz/assets/asset-mirror/
+> !assets/proxmox/.gitkeep
+> ```
+
+Restart the container and verify:
+
+```sh
+docker compose up -d --force-recreate
+curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
+```
+
+> [!NOTE] Permission error? `sudo chown -R hughboi:hughboi /opt/iac`
+
+---
+
+## BIOS Prerequisites (every node)
 
 - [ ] PXE boot: **Enabled** (may need to enable "Network Stack" first before this option appears)
 - [ ] Boot order: **Network/PXE first**, then NVMe
 - [ ] Secure Boot: **OFF**
 
-### Register a Node Before Booting
+## Register a Node Before Booting
 
 Three files must be committed and pushed before powering a node on:
 
@@ -175,9 +130,9 @@ zfs.raid = "single"              # change to "mirror" if you have 2 disks
 
 **3. MAC reservation** in UniFi (VLAN 10) so the node gets its permanent IP after install.
 
-Push to Gitea → Libre Potato picks up changes within 5 minutes.
+Push to Git → Libre Potato picks up changes within 5 minutes.
 
-### Verify Netboot is Serving
+## Verify Netboot is Serving
 
 Always run this before powering on a node:
 
@@ -190,7 +145,7 @@ curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
 - `404 Not Found` → file missing from `assets/proxmox/` or path mismatch in `local.ipxe`
 - `Connection refused` → container not running — check Docker on Libre Potato
 
-### Boot Procedure
+## Boot Procedure
 
 1. Plug node into UXG Max Port 3 (VLAN 99 access port)
 2. Power on — watch it PXE boot, pull TOML, install Proxmox (fully automated)
@@ -198,7 +153,7 @@ curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
 4. Verify SSH: `ssh root@10.10.10.X`
 5. Move cable to permanent trunk port on USW Flex Mini
 
-### Auto-Refresh Timer (Libre Potato)
+## Auto-Refresh Timer (Libre Potato)
 
 The git pull timer keeps the Libre Potato current without any SSH access:
 
@@ -238,7 +193,29 @@ Enable: `systemctl enable --now netboot-update.timer`
 
 ---
 
-## Ventoy USB Fallback {#ventoy-fallback}
+## Fallback Options
+
+### Macbook as Temporary Netboot Server
+
+Use when Libre Potato is down but you still want network-based provisioning. Runs until you close the terminal — no permanent setup needed.
+
+1. Plug Macbook into UXG Max Port 3 (VLAN 99 access port) — it gets assigned `10.10.99.99/24`
+2. Run the ephemeral container:
+
+```sh
+docker run --rm -it \
+  -p 80:80 \
+  -p 69:69/udp \
+  --name netbootxyz \
+  netbootxyz/netbootxyz
+```
+
+3. Boot nodes normally — they PXE boot to your Macbook instead of Libre Potato
+4. Close the terminal when done — container is automatically removed
+
+> Config files still need to be committed to Git and the container pointed at the right assets path. This is the same boot chain, just served from your laptop temporarily.
+
+### Ventoy USB Fallback {#ventoy-fallback}
 
 Use when Libre Potato is unavailable or you're rebuilding from zero:
 
@@ -257,7 +234,7 @@ Under 5 minutes of manual work:
 1. Copy existing TOML, update: `hostname`, disk selection
 2. Add MAC → hostname entry to `local.ipxe`
 3. Add MAC reservation in UniFi (VLAN 10)
-4. Push to Gitea — Libre Potato picks up within 5 minutes
+4. Push to Git — Libre Potato picks up within 5 minutes
 5. Plug into UXG Max Port 3, power on
 6. After install: move cable to trunk port
 7. From Semaphore: run `proxmox/join-cluster` playbook

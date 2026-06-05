@@ -6,6 +6,20 @@ Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Pac
 
 ---
 
+## Principles
+
+**Everything is code.** Network config, VM provisioning, k8s manifests, DNS records — all live in Git. Rebuilding from bare metal is a known, repeatable process.
+
+**Separation of planes.** Management never mixes with storage or workload traffic. VLANs enforce this at the switch, not just the firewall.
+
+**GitOps over manual.** Push to Git → automation applies it. No SSH-and-edit habits that create undocumented state.
+
+**Secrets never touch Git unencrypted.** SOPS + Age is the rule. Once a plaintext secret hits Git history, rotation is mandatory regardless of deletion.
+
+**Blast radius by design.** A compromised workload container cannot pivot to management or storage — the VLAN firewall rules make it structurally impossible.
+
+---
+
 ## Architecture
 
 ```
@@ -74,21 +88,30 @@ Manual steps not yet applied to the live cluster:
 
 ## Bootstrap Order
 
-A full rebuild from scratch follows this order:
+A full rebuild from bare metal follows this order:
 
 ```
-1. Packer       → build Ubuntu VM template in Proxmox (packer/proxmox-iso-ubuntu/)
-2. Terraform    → provision k3s master/worker/longhorn VMs (terraform/proxmox/)
-3. Ansible      → configure OS, install k3s (ansible/playbooks/kubernetes/k3s/)
-4. kubectl      → deploy infra layer (kube-vip → MetalLB → Longhorn)
-5. kubectl      → deploy networking (cert-manager → Traefik → CrowdSec → Reflector → AdGuard)
-6. kubectl      → deploy monitoring (kube-prometheus-stack → Loki → Alloy)
-7. Helm         → install sealed-secrets (before ArgoCD — bootstrapping constraint)
-8. Helm         → install ArgoCD
-9. kubectl      → apply root-app → ArgoCD syncs all remaining apps automatically
+ 1. Network      → VLANs, firewall rules, PXE DHCP options in UniFi
+ 2. PXE          → Register nodes in local.ipxe + TOML, boot via Libre Potato
+ 3. TrueNAS      → ZFS pools, NFS datasets, MTU 9000 on VLAN 40
+ 4. Proxmox      → Disable enterprise repo, form cluster, API tokens, QDevice
+ 5. VM Template  → Build Template 9999 via Ansible playbook (or Packer for custom packages)
+ 6. Terraform    → Provision all VMs: Athena, dock-prod, 9× k3s nodes
+ 7. Ansible      → ssh-keyscan, new-host-bootstrap, k3s install, Docker on dock-prod
+ 8. Athena       → SOPS + age setup, start Docker services (DNS first), push repo to Gitea
+ 9. k3s infra    → kube-vip → MetalLB → Longhorn → Sealed Secrets
+10. k3s network  → cert-manager → Traefik → CrowdSec → Reflector → AdGuard
+11. k3s observ.  → kube-prometheus-stack → Loki → Alloy
+12. GitOps       → ArgoCD install → register Gitea repo → apply root-app.yaml
+13. Semaphore    → Wire up scheduled maintenance jobs
 ```
 
-See `apps/kubernetes/k3s/README.md` for detailed commands.
+Detailed commands for each phase live in the numbered `docs/` folders:
+- Steps 1–2: `docs/2-networking/` and `docs/1-prep/Netboot.md`
+- Steps 3: `docs/5-storage/`
+- Steps 4–6: `docs/3-proxmox/provisioning/`
+- Steps 7–8: `docs/8-k3s/` and `docs/4-athena/`
+- Steps 9–13: `docs/8-k3s/`
 
 ---
 

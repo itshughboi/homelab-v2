@@ -231,3 +231,13 @@ terraform destroy -target=proxmox_virtual_environment_vm.k3s_master[0]
 
 > [!WARNING]
 > **Never edit Terraform-managed VMs in the Proxmox GUI.** GUI changes cause state drift and `terraform apply` will revert them. For one-off changes, use `terraform import` first, then manage via code.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| Node SSH unreachable | Serial console: `screen /dev/cu.usbserial-XXXX 115200` |
+| Cluster lost quorum | `pvecm status` → check QDevice is reachable on Athena (`10.10.10.8`) |
+| Corosync fencing loop | Stop the problem node; check VLAN 20 for NIC saturation or QoS misconfiguration |

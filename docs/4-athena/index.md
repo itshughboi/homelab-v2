@@ -131,6 +131,11 @@ Sync Bind9 journal to zone file (run after Terraform updates):
 docker exec -it bind9 rndc sync
 ```
 
+Test Bind9 directly (bypasses AdGuard — useful when DNS seems broken):
+```sh
+dig @10.10.10.8 proxmox.hughboi.cc
+```
+
 > [!DANGER]
 > The TSIG key allows DNS record updates to your zone. Encrypt with SOPS before committing anywhere near Git.
 

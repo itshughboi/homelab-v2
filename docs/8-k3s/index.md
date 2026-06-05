@@ -36,24 +36,39 @@ Workers and Longhorn nodes are dual-homed (VLAN 30 + VLAN 40) so Longhorn replic
 
 ## Install / Reinstall
 
-Run the k3s Ansible playbook from Semaphore (or CLI):
-
 ```sh
+# 1. Add all nodes to known_hosts first
+ssh-keyscan 10.10.30.{1,2,3,11,12,13,51,52,53} 10.10.10.{8,10} >> ~/.ssh/known_hosts
+
+# 2. Harden and configure all VMs (hostname, UFW, fail2ban, chrony, SSH hardening)
+cd ansible/playbooks/ubuntu/new-host-bootstrap/
+ansible-playbook main.yaml -i inventory.yaml
+
+# 3. Install k3s
 cd ansible/playbooks/kubernetes/k3s/new/
 # Edit group_vars/all.yml: k3s_version, vip_ip=10.10.30.30, interface=eth0
 ansible-playbook site.yml -i inventory.yaml
+
+# 4. Install Docker on dock-prod
+cd ansible/playbooks/docker/
+ansible-playbook install-docker.yaml -i inventory.yaml
 ```
 
-The playbook handles:
+The k3s playbook handles:
 - Longhorn prerequisites (`open-iscsi`, `nfs-common`) on all nodes
 - k3s server init on master-1 with embedded etcd and kube-vip config
 - k3s server join on master-2 and master-3
 - k3s agent join on all workers and Longhorn nodes
 
-Verify after deploy:
+Verify and copy kubeconfig:
 ```sh
-kubectl get nodes
-# All 9 should be Ready within 2-3 minutes
+# Check all 9 nodes are Ready
+ssh hughboi@10.10.30.1 "sudo k3s kubectl get nodes"
+
+# Copy kubeconfig locally — points to the VIP, not master-1 directly
+ssh hughboi@10.10.30.1 "sudo cat /etc/rancher/k3s/k3s.yaml" | \
+  sed 's/127.0.0.1/10.10.30.30/' > ~/.kube/config
+chmod 600 ~/.kube/config && kubectl get nodes
 ```
 
 ---
