@@ -107,7 +107,7 @@ A full rebuild from bare metal follows this order:
 ```
 
 Detailed commands for each phase live in the numbered `docs/` folders:
-- Steps 1–2: `docs/2-networking/` and `docs/1-prep/Netboot.md`
+- Steps 1–2: `docs/1-networking/` and `docs/2-prep/`
 - Steps 3: `docs/5-storage/`
 - Steps 4–6: `docs/3-proxmox/provisioning/`
 - Steps 7–8: `docs/8-k3s/` and `docs/4-athena/`

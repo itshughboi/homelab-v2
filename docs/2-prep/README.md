@@ -14,14 +14,14 @@ Store the private key locally at first, then put in Vaultwarden once it's runnin
 
 ```sh
 git clone https://github.com/itshughboi/homelab-v2.git
-cd homelab
+cd homelab-v2
 ```
 
 ---
 
 ## PXE Netboot
 
-The Libre Potato (10.10.99.99) serves automated Proxmox installs to all nodes via iPXE over VLAN 99. It pulls updates from Gitea every 5 minutes via a systemd timer.
+The Libre Potato (10.10.99.99) serves automated Proxmox installs to all nodes via iPXE over VLAN 99. It pulls updates from Git every 5 minutes via a systemd timer.
 
 ## Boot Chain
 
@@ -51,7 +51,7 @@ Node powers on
 One-time steps to get the netboot server running. Skip if Libre Potato is already serving files or if using Ansible Playbook to install netboot
 
 ```sh
-git clone https://gitea.hughboi.cc/hughboi/homelab-v2.git
+git clone https://github.hughboi.cc/itshughboi/homelab-v2.git
 cd homelab/bootstrap/netbootxyz
 docker compose up -d
 ```

@@ -406,7 +406,7 @@ disappear from Grafana without an obvious error.
 
 ### This week
 - [ ] Create IoT VLAN 50 in UniFi + IoT WiFi SSID
-- [ ] Add IoT firewall rules per `docs/2-networking/Unifi/Firewall.md`
+- [ ] Add IoT firewall rules per `docs/1-networking/Unifi/Firewall.md`
 - [ ] Scope Proxmox API tokens to minimum permissions (create `terraform-role`)
 - [ ] Rotate Cloudflare API token with restricted zone-only DNS permissions
 - [ ] Add Vaultwarden admin behind IP restriction

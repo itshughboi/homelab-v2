@@ -14,7 +14,7 @@ Everything that goes from bare metal to running VMs: the Proxmox cluster, VM tem
 
 ### Installation
 
-Nodes are installed via PXE (see [1-prep](../1-prep/index.md)). After each node is up:
+Nodes are installed via PXE (see [2-prep](../2-prep/index.md)). After each node is up:
 
 **Disable enterprise repo, enable no-subscription:**
 ```sh

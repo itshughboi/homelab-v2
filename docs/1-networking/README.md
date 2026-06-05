@@ -1,4 +1,3 @@
-# 2. Networking
 
 UniFi-based VLAN architecture that physically separates management, cluster, storage, and workload traffic. Configure manually once — never manage with Terraform (state drift makes it unusable).
 

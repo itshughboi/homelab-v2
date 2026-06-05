@@ -46,8 +46,8 @@ Hugo turns every `.md` file in `content/` into a web page. The URL mirrors the f
 | --- | --- |
 | `content/_index.md` | `/` (home page) |
 | `content/master-guide.md` | `/master-guide/` |
-| `content/1-prep/_index.md` | `/1-prep/` (section page) |
-| `content/1-prep/netboot.md` | `/1-prep/netboot/` |
+| `content/2-prep/_index.md` | `/2-prep/` (section page) |
+| `content/2-prep/netboot.md` | `/2-prep/netboot/` |
 
 ### _index.md vs index.md
 
@@ -244,9 +244,9 @@ docs/hugo/
 └── content/               ← all documentation pages
     ├── _index.md          ← home page
     ├── master-guide.md    ← runbook (phases 1–13, commands only)
-    ├── 1-prep/
+    ├── 2-prep/
     │   └── _index.md
-    ├── 2-networking/
+    ├── 1-networking/
     │   ├── _index.md
     │   └── unifi/
     │       ├── _index.md
@@ -317,4 +317,4 @@ Check that the file is named `_index.md` (not `index.md`) if it should be a sect
 
 **Content looks different from the source markdown files**
 
-This site is a copy, not a symlink. If you've edited a source file in `docs/1-prep/` etc., you need to re-run the copy to bring changes into `docs/hugo/content/`. Eventually this should be wired up to CI.
+This site is a copy, not a symlink. If you've edited a source file in `docs/2-prep/` etc., you need to re-run the copy to bring changes into `docs/hugo/content/`. Eventually this should be wired up to CI.

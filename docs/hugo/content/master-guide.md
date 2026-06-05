@@ -34,7 +34,7 @@ weight: 5
 - `80` VPN — 10.10.80.0/24
 - `99` Provisioning — 10.10.99.0/24
 
-→ Full IP/VLAN/service reference: [1-prep](docs/1-prep/README.md)
+→ Full IP/VLAN/service reference: [2-prep](docs/2-prep/README.md)
 
 ---
 
@@ -72,7 +72,7 @@ ssh-keygen -t ed25519 -C "homelab-datacenter" -f ~/.ssh/homelab_id_ed25519
 - [ ] Add first firewall rule: `ALLOW ALL → ALL  state: established, related`
 - [ ] Add remaining firewall rules by VLAN (see Phase 1 detail)
 
-→ [Full networking detail](2-networking/index.md)
+→ [Full networking detail](1-networking/index.md)
 
 ---
 
@@ -98,9 +98,9 @@ Boot each node:
 2. Verify: `ssh root@10.10.10.X`
 3. Move cable to permanent trunk port (USW Flex Mini)
 
-Fallback if Libre Potato is dead: [Ventoy USB](docs/1-prep/README.md#ventoy-fallback)
+Fallback if Libre Potato is dead: [Ventoy USB](docs/2-prep/README.md#ventoy-fallback)
 
-→ [Full PXE detail](docs/1-prep/README.md)
+→ [Full PXE detail](docs/2-prep/README.md)
 
 ---
 
