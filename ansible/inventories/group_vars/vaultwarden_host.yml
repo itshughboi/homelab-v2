@@ -1,3 +1,4 @@
+# ntfy topic consumed by an n8n workflow that copies the vaultwarden backup to File Browser
 ntfy_url: https://ntfy.hughboi.cc/n8n
 
 loki_url: https://loki.hughboi.cc/loki/api/v1/push

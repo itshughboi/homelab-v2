@@ -33,9 +33,10 @@ allow-query {            // If not on this list, Bind will **refuse** the query
     recursion yes;       // recursion enabled, but delegated to forwarder, NOT disabled   
     allow-recursion { 10.10.10.0/24; 10.0.0.0/24; home-vlans; tailscale;};
     
-    forward only;           // Non-authoritative queries —> send it to the forwarder(s) (Adguard/Unbound or Quad9)
-    forwarders {            // recursion gets handled by forwarders (all external traffic)
-        10.10.10.10;        // Adguard/Unbound
+    forward only;           // Non-authoritative queries —> send it to the forwarder(s)
+    forwarders {            // tried in order — Quad9 is fallback if AdGuard is unreachable
+        10.10.10.10;        // AdGuard/Unbound (primary)
+        9.9.9.9;            // Quad9 fallback
     };
 
 

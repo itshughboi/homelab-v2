@@ -1,13 +1,13 @@
-### DHCP Boot Options
-These are set on the DHCP options for the Provisioning VLAN (99).
+Set on the Provisioning VLAN (99) in UniFi:
+Settings → Networks → Provisioning → DHCP → Network Boot (enable checkbox)
 
-| Option | Value          | Description        |
-| ------ | -------------- | ------------------ |
-| 66     | 10.10.99.99    | TFTP boot server   |
-| 67     | ipxe.efi       | Boot filename      |
+| UniFi Field | Value | Equivalent DHCP Option |
+| --- | --- | --- |
+| Server IP (first field) | `10.10.99.99` | Option 66 / next-server |
+| Boot File URL (second field) | `http://10.10.99.99:8080/proxmox/local.ipxe` | Option 67 / boot filename |
 
 > [!NOTE]
-> Setting Option 67 to `netboot.xyz.efi` instead loads the interactive menu
+> Changing the boot file URL to point at `netboot.xyz.efi` loads the interactive menu
 > and requires manual OS selection. Useful as a fallback if automated boot fails.
 
 ---

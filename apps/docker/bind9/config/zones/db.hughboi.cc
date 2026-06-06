@@ -2,7 +2,7 @@ $TTL    3d                                                          ; 3 day TTL 
 
                                                                     ; **State of Authority** (SOA) = metadata for the zone 
 @       IN      SOA     ns1.hughboi.cc. admin.hughboi.cc. (
-                        2024091808  ; Serial (YYYYMMDDNN)           ; change every time I edit zone
+                        2026060501  ; Serial (YYYYMMDDNN)           ; change every time I edit zone
                         1w          ; Refresh (1 week)              ; checks updates from secondary DNS server at this interval
                         1d          ; Retry (1 day)                 ; if refresh fails, retry daily
                         4w          ; Expire (4 weeks)              ; if no refresh succeeds for 4 weeks, discard data
@@ -14,8 +14,8 @@ $TTL    3d                                                          ; 3 day TTL 
 
                                                                     ; A records for the domain
 @                   IN      A       10.10.10.10                     ; root domain hughboi.cc (Traefik)
-ns1                 IN      A       10.10.10.9	                    ; local server IP
-*                   IN      A       10.10.10.10                     ; Wildcard for subdomains of hughboi.cc -> NGINX
+ns1                 IN      A       10.10.10.8                      ; Bind9 on Athena
+*                   IN      A       10.10.10.10                     ; Wildcard for subdomains of hughboi.cc -> Traefik
 
                                                                     ;production-servers
 pve-srv-1           IN      A       10.10.10.1
@@ -25,9 +25,9 @@ pve-srv-4           IN      A       10.10.10.4
 truenas             IN      A       10.10.10.5
 pbs                 IN      A       10.10.10.6                      ; Port 8007 - Proxmox Backup Server
 postgres            IN      A       10.10.10.7                      ; Port 5432
-ansible             IN	    A	    10.10.10.8
-bind9               IN      A       10.10.10.9
-ubnt-prod           IN      A       10.10.10.10
+athena              IN      A       10.10.10.8                      ; Ansible, Gitea, Semaphore, Bind9
+bind9               IN      A       10.10.10.8                      ; alias — Bind9 lives on Athena
+dock-prod           IN      A       10.10.10.10                     ; Docker host, Traefik
 
                                                                     ; test dig/nslookup
 testing             IN      A       10.99.99.99                     ; test

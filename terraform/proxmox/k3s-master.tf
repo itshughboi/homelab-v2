@@ -32,15 +32,16 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   network_device {
-    bridge = "vmbr0"
-    vlan_id = 3
+    bridge  = "vmbr0"
+    vlan_id = 30
+    mtu     = 1500
   }
 
   initialization {
     datastore_id = "local-lvm"
 
     dns {
-      servers = ["9.9.9.9", "1.1.1.1"]
+      servers = ["10.10.10.8", "10.10.10.10", "9.9.9.9"]
     }
 
     ip_config {

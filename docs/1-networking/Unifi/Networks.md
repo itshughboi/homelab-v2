@@ -1,17 +1,16 @@
-# Networks
 
-| Name | VLAN ID | CIDR | Gateway | Notes |
-| --- | --- | --- | --- | --- |
-| Management | 10 | 10.10.10.0/24 | 10.10.10.254 | SSH, Web UI, UniFi, Bind9. PXE boot enabled. |
-| Cluster | 20 | 10.10.20.0/24 | None | Corosync only. QoS DSCP 46. DHCP disabled. |
-| k3s | 30 | 10.10.30.0/24 | 10.10.30.254 | Workloads, MetalLB, Longhorn. DHCP pool starts at .200. |
-| Storage | 40 | 10.10.40.0/24 | 10.10.40.254 | Jumbo Frames (MTU 9000). Outbound updates only. DHCP disabled. |
-| IoT | 50 | 10.10.50.0/24 | 10.10.50.254 | Smart home devices. Isolated — only Home Assistant can initiate in. |
-| Torrent | 49 | 172.16.20.0/24 | 172.16.20.254 | Airgapped from all RFC1918. WAN only. |
-| Tailscale VPN | 80 | 10.10.80.0/24 | 10.10.80.254 | Tailscale subnet router. |
-| WireGuard VPN | 81 | 10.10.81.0/24 | 10.10.81.254 | UniFi WireGuard server. Remote access fallback for devices that can't run Tailscale. |
-| Guest | — | 172.69.69.0/24 | 172.69.69.254 | AP guest WiFi. Client isolation. Internet only. |
-| Provisioning | 99 | 10.10.99.0/24 | 10.10.99.254 | PXE boot only. Short lease. |
+| Name          | VLAN ID | CIDR           | Gateway       | Notes                                                                                |
+| ------------- | ------- | -------------- | ------------- | ------------------------------------------------------------------------------------ |
+| Management    | 10      | 10.10.10.0/24  | 10.10.10.254  | SSH, Web, UniFi, Bind9. PXE                                                          |
+| Cluster       | 20      | 10.10.20.0/24  | None          | Corosync only. QoS DSCP 46. DHCP disabled.                                           |
+| k3s           | 30      | 10.10.30.0/24  | 10.10.30.254  | Workloads, MetalLB, Longhorn. DHCP pool starts at .200.                              |
+| Storage       | 40      | 10.10.40.0/24  | 10.10.40.254  | Jumbo Frames (MTU 9000). Outbound updates only. DHCP disabled.                       |
+| IoT           | 50      | 10.10.50.0/24  | 10.10.50.254  | Smart home devices. Isolated — only Home Assistant can initiate in.                  |
+| Torrent       | 49      | 172.16.20.0/24 | 172.16.20.254 | Airgapped from all RFC1918. WAN only.                                                |
+| Tailscale VPN | 80      | 10.10.80.0/24  | 10.10.80.254  | Tailscale subnet router.                                                             |
+| WireGuard VPN | 81      | 10.10.81.0/24  | 10.10.81.254  | UniFi WireGuard server. Remote access fallback for devices that can't run Tailscale. |
+| Guest         | —       | 172.69.69.0/24 | 172.69.69.254 | AP guest WiFi. Client isolation. Internet only.                                      |
+| Provisioning  | 99      | 10.10.99.0/24  | 10.10.99.254  | PXE boot only. Short lease.                                                          |
 
 See [VLANs + VMs.md](VLANs%20+%20VMs.md) for full DHCP ranges, mDNS settings, and per-VLAN notes.
 
@@ -22,47 +21,33 @@ See [VLANs + VMs.md](VLANs%20+%20VMs.md) for full DHCP ranges, mDNS settings, an
 Configure DNS per-network (not at gateway level) for full control:
 Settings → Networks → [Network] → Advanced → DHCP Name Server → uncheck Auto.
 
-| Network | DNS servers | Reason |
-| --- | --- | --- |
-| Management | `10.10.10.8` (Bind9/Athena), `9.9.9.9` fallback | Full internal resolution |
-| k3s | `10.10.10.8`, `9.9.9.9` fallback | Internal resolution for workloads |
-| Storage | `10.10.10.8`, `9.9.9.9` fallback | Internal resolution |
-| Tailscale VPN | `10.10.10.8`, `9.9.9.9` fallback | Same as management |
-| WireGuard VPN | `10.10.10.8`, `9.9.9.9` fallback | Remote clients need internal resolution |
-| Provisioning | `10.10.10.8`, `9.9.9.9` fallback | PXE nodes need internal DNS |
-| Torrent | `9.9.9.9` only | Internal IPs would break the airgap |
-| IoT | Gateway default (UniFi content filter) | Do not point at Bind9 — see below |
-| Guest | Gateway default (UniFi content filter) | Do not point at Bind9 — see below |
+| Network       | DNS servers                                | Reason                                                                                        |
+| ------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Management    | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | Full internal resolution                                                                      |
+| k3s           | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | Internal resolution for workloads                                                             |
+| Storage       | `9.9.9.9`, `1.1.1.2`                       | Package updates only. **DHCP disabled — configure statically on each machine (TrueNAS, PBS)** |
+| Tailscale VPN | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | Same as management                                                                            |
+| WireGuard VPN | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | Remote clients need internal resolution                                                       |
+| Provisioning  | `9.9.9.9`<br>`1.1.1.2`                     | PXE nodes need internal DNS                                                                   |
+| Torrent       | `9.9.9.9`, `1.1.1.2`                       | Internal IPs would break the airgap                                                           |
+| IoT           | `9.9.9.9`, `1.1.1.2`                       |                                                                                               |
+| Guest         | `9.9.9.9`, `1.1.1.2`                       |                                                                                               |
 
-### Two-Phase Setup
+### DNS Resolution Chain
 
-- **Bootstrap (before Bind9 is live):** allow all VLANs `→ WAN` port 53, use `9.9.9.9 / 1.1.1.1` as temporary resolvers
-- **Post-Bind9:** change destination to Athena (`10.10.10.8`) for all trusted VLANs — forces nodes through the internal resolver and prevents bypassing it via arbitrary internet DNS
+- Bind9 (`10.10.10.8`) is authoritative for `*.hughboi.cc` and `*.hughboi.vip` — answers these directly from zone files
+- All other queries are forwarded to AdGuard (`10.10.10.10`), which handles ad/tracker blocking
+- AdGuard passes unblocked queries to Unbound, which does full recursion via Quad9
+- If AdGuard is unreachable, Bind9 falls back to `9.9.9.9` (Quad9) directly
 
-### Upstream Resolver: Quad9 DoH — IPv4 Filtered (primary)
-
-Bind9 on Athena forwards upstream to Quad9's filtered DoH endpoint, which blocks malicious domains at the resolver before any firewall rule fires:
-
-- DoH URL: `https://dns.quad9.net/dns-query`
-- Plain IPv4 (fallback / bootstrap): `9.9.9.9`
-- Port for DoT: `853`
-- Configure in Bind9 as a DoT forwarder (`9.9.9.9` port 853) or DoH via a stub resolver (e.g. `dns-over-https` package or Unbound as a front-end)
-
-### Guest and IoT — UniFi Built-in Content Filter (not Bind9)
+### UniFi Content Filter
 
 Guest WiFi and IoT must **not** point at the internal Bind9/AdGuard instance — that exposes your internal resolver to untrusted devices.
 
-Use UniFi's per-network content filter instead:
-- Network → [Guest or IoT] → Advanced → Content Filtering → enable **Ad Blocking**
-- Runs at the gateway with no internal infrastructure exposed
-- Filtering quality is lower than AdGuard (no custom rules), but sufficient for ad/tracker blocking on untrusted networks
+Use UniFi's content filter instead:
+- Settings -> CyberSecure -> Content Filter -> Create filters for all networks you want it on (guest, iot) -> Adblock Enabled
 
-| Network | DNS resolver | Content filter |
-| --- | --- | --- |
-| Management, k3s, Storage, Tailscale VPN, WireGuard VPN, Provisioning | Bind9 → Quad9 DoH | AdGuard (via Bind9) |
-| IoT | Gateway default | UniFi Ad Blocking |
-| Guest | Gateway default | UniFi Ad Blocking |
-| Torrent | `9.9.9.9` direct | None |
+
 
 ---
 
@@ -73,7 +58,10 @@ Settings → Networks → [Network] → Advanced → mDNS
 Bridges multicast DNS announcements between VLANs so Home Assistant (k3s VLAN 30 or Docker on VLAN 10) can discover smart home devices (IoT VLAN 50).
 
 **Current config:**
-- VLANs in proxy: **Management (10)**, **k3s (30)**, **IoT (50)**
+- VLANs in proxy: 
+	- Management (10)
+	- k3s (30)
+	- IoT (50)
 - Scope to specific device types (Chromecast, Apple TV, Sonos) — prevents all k3s services from being announced into IoT
 
 > [!NOTE]
@@ -89,34 +77,65 @@ Settings → Switching → IGMP Snooping (or per-network Advanced settings)
 
 Without it: Chromecast, Apple TV, Sonos, and other multicast-heavy devices send traffic to every port on the VLAN.
 
-Enable on: **IoT (50)**, **k3s (30)**, **Management (10)**. Not needed on Cluster (20, no gateway) or Torrent (49, no multicast).
+Enable on: 
+- Management (10)
+- k3s (30)
+- IoT (50)
 
 ---
 
 ## Jumbo Frames (MTU 9000)
 
-Enable on **specific switch ports only** — not globally.
+Jumbo frames are enabled globally on the switch, but only take effect on VLANs where MTU 9000 is configured. Devices on other VLANs are unaffected.
 
-Ports that need jumbo frames: switch ports connected to storage nodes (pve-srv-1 on USW Flex Mini port 1, TrueNAS if directly connected).
+MTU 9000 fits ~6x more data per packet than standard MTU 1500 — fewer packets means less per-packet overhead (headers, interrupts, CPU cycles), which directly increases NFS/backup throughput between Proxmox, TrueNAS, and PBS.
 
-**Do not enable globally.** Devices that can't handle 9000 MTU will silently drop oversized packets. Storage nodes are the only ones that benefit.
+- **Enable on switch:** Devices → [USW Flex Mini] → Settings → Disable Global Switch Settings → Jumbo Frames Enabled
+- **Set per-network:** Settings → Networks → Storage (VLAN 40) → MTU → 9000
 
-See [Switch_Port_Assignments.md](Switch_Port_Assignments.md) for port layout.
+**Verify end-to-end after any infrastructure change** — partial MTU support causes silent packet loss with no errors, just degraded throughput. Only testable once TrueNAS or PBS has a `10.10.40.x` IP.
+
+```sh
+# Run from a storage node targeting TrueNAS (or between any two VLAN 40 hosts)
+# -M do = prohibit fragmentation  
+# -s 8972 = 9000 MTU minus 28-byte IP+ICMP headers
+ping -M do -s 8972 10.10.40.x
+
+# If it fails, step down to find the ceiling:
+ping -M do -s 4000 10.10.40.x
+ping -M do -s 1472 10.10.40.x   # standard 1500 MTU ceiling — if this fails, MTU is broken everywhere
+```
+
+MTU 9000 checklist — every item must be set, partial is broken:
+- [ ] UniFi switch: Devices → [USW Flex Mini] → Settings → Disable Global Switch Settings → Jumbo Frames Enabled
+- [ ] UniFi network: Settings → Networks → Storage (VLAN 40) → MTU → 9000
+- [ ] Proxmox slave port (e.g. enp42s0 for pve-srv-1)
+- [ ] Proxmox parent bridge (`vmbr1` on pve-srv-1, `vmbr0` on pve-srv-2/3/4) → MTU 9000
+	- [ ] See [[Virtual Interfaces]]
+- [ ] Proxmox VLAN sub-interface (`.40`) → MTU 9000
+- [ ] TrueNAS NIC on VLAN 40 → MTU 9000
+- [ ] PBS NIC on VLAN 40 → MTU 9000
 
 ---
 
 ## QoS
 
-Settings → Traffic Management → QoS
+> [!IMPORTANT] **Prerequisite — enable Smart Queue Management (SQM) first**
+> QoS policies cannot be saved until SQM is active on the WAN interface.
+> Settings → Internet → [WAN] → Advanced → Manual → Smart Queues → enable → set Downrate and Uprate to your actual ISP speeds → Save.
+> SQM also prevents bufferbloat independently of QoS policies — it's worth enabling regardless.
 
-Prevents Torrent traffic from saturating the WAN uplink and degrading SSH and video calls.
+Settings → Overview → Policy Based Routing → Create Policy
 
-| VLAN | Priority | Reason |
-| --- | --- | --- |
-| Management (10) | Highest | Admin SSH must never lag |
-| Tailscale VPN (80) / WireGuard VPN (81) | High | Remote access |
-| k3s (30) | Medium | Workload traffic |
-| IoT (50) | Medium-low | Smart home, not latency-sensitive |
-| Torrent (49) | Lowest | Bulk transfer, should never starve others |
+| VLAN                                    | Priority   | Behavior             | Reason                                         |
+| --------------------------------------- | ---------- | -------------------- | ---------------------------------------------- |
+| Management (10)                         | Highest    | Prioritize           | Admin SSH must never lag                       |
+| Tailscale VPN (80) / WireGuard VPN (81) | High       | Prioritize           | Remote access                                  |
+| k3s (30)                                | Medium     | Prioritize           | Workload traffic                               |
+| IoT (50)                                | Medium-low | Prioritize           | Smart home, not latency-sensitive              |
+| Torrent (49)                            | Lowest     | Prioritize and Limit | Cap upload so it can't starve everything else. |
 
-**Also enable Smart Queue Management (SQM)** on the WAN interface — prevents bufferbloat, which makes the connection feel laggy during heavy downloads even when raw throughput is fine. More impactful than queue priorities for most homelab usage.
+**Prioritize** — marks traffic for priority queuing, no bandwidth cap. Use for anything you want to go fast.
+**Prioritize and Limit** — caps bandwidth AND marks as lowest priority. Use for Torrent — set the upload limit to something like `15 Mbps` (leaving ~5 Mbps headroom on a 20 Mbps uplink) so it physically cannot consume the full pipe.
+
+**Torrent**: Set Upload Burst: "Short" in QoS policy

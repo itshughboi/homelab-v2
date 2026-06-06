@@ -35,7 +35,9 @@ resource "proxmox_virtual_environment_vm" "athena" {
   }
 
   network_device {
-    bridge = "vmbr1" # typically vmbr0 but my pve-srv-1 uses vmbr1 for VLANs
+    bridge  = "vmbr1" # pve-srv-1 uses vmbr1; mini PCs use vmbr0
+    vlan_id = 10
+    mtu     = 1500
   }
 
   initialization {
