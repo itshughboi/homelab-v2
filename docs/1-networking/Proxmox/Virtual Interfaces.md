@@ -47,13 +47,19 @@ Each Proxmox node needs virtual interfaces for each VLAN it participates in.
 | vmbr1.20 | VLAN                 | vmbr1        | —             | —            | 1500 | Cluster / Corosync — create if not present         |
 | vmbr1.40 | VLAN                 | vmbr1        | —             | —            | 9000 | Storage — Jumbo Frames — create if not present     |
 
+![[Screenshot 2026-06-08 at 2.55.54 PM.png]]
+
 > [!WARNING] **TODO — TrueNAS and PBS not yet on VLAN 40**
-> Both VMs are currently on Management (VLAN 10) only. Steps to migrate:
-> 1. In Proxmox: VM → Hardware → Add Network Device → Bridge: `vmbr1`, VLAN Tag: `40`, MTU: `9000`
-> 2. Inside TrueNAS: assign a static IP in `10.10.40.0/24`, DNS `9.9.9.9`, no gateway
-> 3. Inside PBS: same — static `10.10.40.x`, no gateway
-> 4. Update the `TORRENT → TrueNAS NFS` firewall rule destination from `10.10.10.5` → new `10.10.40.x` IP (see Firewall/Rules.md)
-> 5. Verify jumbo frames end-to-end: `ping -M do -s 8972 10.10.40.x`
+> Both VMs are currently on Management (VLAN 10) only. Each needs a **second NIC** added for VLAN 40 storage traffic.
+> Keep the existing VLAN 10 NIC — it stays as the management interface (web UI, SSH).
+>
+> Steps for each VM (TrueNAS and PBS):
+> 1. In Proxmox: VM → Hardware → Add → Network Device → Bridge: `vmbr1`, VLAN Tag: `40`, MTU: `9000`
+> 2. Inside TrueNAS: configure the new NIC with static IP `10.10.40.5`, no gateway, DNS `9.9.9.9`
+> 3. Inside PBS: configure the new NIC with static IP `10.10.40.6`, no gateway, DNS `9.9.9.9`
+> 4. Add MAC reservations in UniFi for both new NICs (see [MAC Reservations.md](../Unifi/Assignments/MAC%20Reservations.md))
+> 5. Update the `TORRENT → TrueNAS NFS` firewall rule destination from `10.10.10.5` → `10.10.40.5` (see Firewall/Rules.md)
+> 6. Verify jumbo frames end-to-end: `ping -M do -s 8972 10.10.40.5`
 
 > [!IMPORTANT]
 > `vmbr1` itself must be set to MTU 9000. The parent bridge MTU must be >= the highest sub-interface MTU.

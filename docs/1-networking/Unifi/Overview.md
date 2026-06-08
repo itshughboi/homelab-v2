@@ -26,13 +26,13 @@ Build network → Secure it → Add services
 2. Configure in this order:
    1. WAN — DHCP
    2. WAN DNS — `9.9.9.9`, `1.1.1.1` or `1.1.1.2`
-   3. VLANs — see [Networks.md](Networks.md)
-   4. DHCP PXE options 66/67 on VLAN 99 — see [PXE Options.md](PXE%20Options.md)
+   3. VLANs — see [Networks/](Networks/README.md)
+   4. DHCP PXE options 66/67 on VLAN 99 — see [Networks/PXE Options.md](Networks/PXE%20Options.md)
    5. Firewall — see [Firewall/](Firewall/README.md)
-   6. LACP / MLAG if applicable — see [LACP - MLAG.md](LACP%20-%20MLAG.md)
+   6. LACP / MLAG if applicable — see [Networks/LACP - MLAG.md](Networks/LACP%20-%20MLAG.md)
    7. MAC reservations (static IPs for core infra):
       - Libre Potato → `10.10.99.99`
-      - Proxmox servers → see [MAC Reservations.md](MAC%20Reservations.md)
+      - Proxmox servers → see [Assignments/MAC Reservations.md](Assignments/MAC%20Reservations.md)
    8. Netboot provisioning — see [docs/2-prep/](../../2-prep/README.md)
 
 > [!NOTE]

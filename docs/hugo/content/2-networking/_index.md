@@ -157,9 +157,9 @@ Before any per-VLAN rules:
 
 ## MAC Reservations / Static IPs
 
-See [`Unifi/MAC Reservations.md`](Unifi/MAC%20Reservations.md) for the full table.
+See [`Unifi/Assignments/MAC Reservations.md`](Unifi/Assignments/MAC%20Reservations.md) for the full table.
 
-See [`Unifi/Static Clients.md`](Unifi/Static%20Clients.md) for the network assignment list.
+See [`Unifi/Assignments/Static Clients.md`](Unifi/Assignments/Static%20Clients.md) for the network assignment list.
 
 ---
 
@@ -202,4 +202,4 @@ pve-srv-1 needs 2+ physical NICs (one for management/workloads, one for dedicate
 
 pve-srv-1 currently uses a single 2.5 GbE NIC. LACP bonding is documented for when an enterprise-tier UniFi switch is available (MLAG requires enterprise tier).
 
-See [`Unifi/LACP - MLAG.md`](Unifi/LACP%20-%20MLAG.md) for details.
+See [`Unifi/Networks/LACP - MLAG.md`](Unifi/Networks/LACP%20-%20MLAG.md) for details.

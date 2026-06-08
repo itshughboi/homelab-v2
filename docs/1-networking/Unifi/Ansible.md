@@ -48,7 +48,7 @@ ansible-vault encrypt group_vars/unifi.yaml
 
 Using `community.general` UniFi modules:
 
-- VLAN / network creation (all VLANs in [Networks.md](Networks.md))
+- VLAN / network creation (all VLANs in [Networks/README.md](Networks/README.md))
 - DHCP option configuration (Option 66/67 on VLAN 99 for PXE)
 - Firewall rule creation
 - Switch port profiles

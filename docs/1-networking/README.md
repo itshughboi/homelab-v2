@@ -9,18 +9,11 @@ All networking is built on UniFi (UXG Max + USW Flex Mini). Configure manually t
 | File | Contents |
 | --- | --- |
 | [Overview.md](Unifi/Overview.md) | Controller access, bootstrap order of operations |
-| [Networks.md](Unifi/Networks.md) | VLAN table, DNS config, mDNS, IGMP, Jumbo Frames, QoS |
-| [VLANs + VMs.md](Unifi/VLANs%20+%20VMs.md) | DHCP ranges, mDNS forwarding, per-VLAN notes |
-| [VPN.md](Unifi/VPN.md) | Tailscale (VLAN 80) + WireGuard (VLAN 81) |
+| [Networks/](Unifi/Networks/README.md) | VLAN table, DNS, WiFi, VPN, PXE, LACP, mDNS, QoS |
 | [Firewall/](Unifi/Firewall/README.md) | Zone-based firewall rules, setup, reference, recovery |
-| [PXE Options.md](Unifi/PXE%20Options.md) | DHCP boot options 66/67, switch port assignments |
-| [MAC Reservations.md](Unifi/MAC%20Reservations.md) | Static IP assignments for core infrastructure |
-| [Static Clients.md](Unifi/Static%20Clients.md) | Network assignment list |
-| [Switch_Port_Assignments.md](Unifi/Switch_Port_Assignments.md) | Physical port layout |
-| [WiFi.md](Unifi/WiFi.md) | Channel AI, WiFiman, guest speed limit |
-| [Security.md](Unifi/Security.md) | IPS, region blocking, honeypot, NetFlow |
+| [Security/](Unifi/Security/README.md) | IPS, region blocking, honeypot, logging, hardening |
+| [Assignments/](Unifi/Assignments/MAC%20Reservations.md) | MAC reservations, switch ports, network assignments |
 | [Ansible.md](Unifi/Ansible.md) | Ansible integration reference (not active — see file for why) |
-| [LACP - MLAG.md](Unifi/LACP%20-%20MLAG.md) | Bonding notes for future switch upgrade |
 
 ---
 

@@ -119,7 +119,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | Source | Destination | Services | Intent |
 | --- | --- | --- | --- |
 | MGMT | TORRENT | SSH | Admin access |
-| TORRENT VM IP (172.16.20.x) | TrueNAS IP (10.10.40.x) | NFS 2049 | Download writes to TrueNAS — scoped to exact IPs, not whole zones |
+| TORRENT VM IP (172.16.20.x) | TrueNAS (`10.10.40.5`) | NFS 2049 | Download writes to TrueNAS — scoped to exact IPs, not whole zones |
 | TORRENT | WAN | CORE, WEB, TORRENT | Internet + torrent traffic |
 | TORRENT | RFC1918 | DENY | Full internal isolation |
 | ANY | TORRENT | DENY | No inbound access |
@@ -132,9 +132,9 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 > [!WARNING] **TODO — TrueNAS is not yet on VLAN 40**
 > TrueNAS is currently on Management (10.10.10.5) while the VLAN 40 migration is pending.
-> The `TORRENT → TrueNAS NFS` rule in UniFi currently points at `10.10.10.5`, not `10.10.40.x`.
+> The `TORRENT → TrueNAS NFS` rule in UniFi currently points at `10.10.10.5`, not `10.10.40.5`.
 > When TrueNAS moves to VLAN 40:
-> 1. Update the rule destination from `10.10.10.5` → new `10.10.40.x` IP
+> 1. Update the rule destination from `10.10.10.5` → `10.10.40.5`
 > 2. Confirm the MGMT → STORAGE rule still covers the TrueNAS web UI on the new IP
 > 3. Update MAC reservation in UniFi to reflect the new network assignment
 
@@ -191,7 +191,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 > [!NOTE]
 > WireGuard clients receive IPs from `10.10.81.0/24` and resolve internal hostnames via Bind9 (`10.10.10.8`) —
-> configured in [Networks.md](../Networks.md). No additional DNS rules needed beyond what the Tailscale section already has.
+> configured in [Networks/DNS.md](../Networks/DNS.md). No additional DNS rules needed beyond what the Tailscale section already has.
 
 ---
 

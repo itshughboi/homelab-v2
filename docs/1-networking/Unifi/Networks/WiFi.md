@@ -32,4 +32,4 @@ Settings → WiFi → `hughboi-guest` → Advanced → Client Rate Limiting
 
 Adjust based on your WAN speed. The goal is preventing a single guest from hogging the pipe, not degrading normal browsing.
 
-Guest SSID is bound to VLAN — see [Networks.md](Networks.md). Client isolation is enabled; guests cannot see each other or any internal hosts.
+Guest SSID is bound to VLAN — see [Networks/README.md](Networks/README.md). Client isolation is enabled; guests cannot see each other or any internal hosts.

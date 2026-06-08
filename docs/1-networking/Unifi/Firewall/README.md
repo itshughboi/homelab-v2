@@ -26,7 +26,7 @@ Zone-based firewall rules for the UXG Max. This setup uses **zone-based firewall
 
 > [!WARNING]
 > **Always make firewall changes from [unifi.ui.com](https://unifi.ui.com), not the local controller at `10.10.10.10:8443`.**
-> The controller is self-hosted, but the linked cloud account at unifi.ui.com reaches it independently of your local network.
+> The controller is self-hosted, but the linked cloud account at unifi.ui.com reaches it independently of local network.
 > If a rule blocks your own VLAN, the local controller becomes unreachable — the cloud portal is the way back in.
 > This only works while WAN is up. If a rule kills WAN too, see [Recovery.md](Recovery.md).
 
@@ -93,5 +93,5 @@ same VLAN cannot reach each other once Block is enabled.
 Cluster (VLAN 20) is exempt — no gateway, purely switched, never reaches the zone firewall.
 IoT, Guest, Torrent, and Provisioning do not need intra-VLAN rules.
 
-> See [Security.md](../Security.md) for IPS, region blocking, honeypot, NetFlow, and logging settings.
-> See [Networks.md](../Networks.md) for DNS and per-VLAN configuration.
+> See [Security/](../Security/README.md) for IPS, region blocking, honeypot, NetFlow, and logging settings.
+> See [Networks/README.md](../Networks/README.md) for DNS and per-VLAN configuration.
