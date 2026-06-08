@@ -33,7 +33,7 @@ Build network → Secure it → Add services
    7. MAC reservations (static IPs for core infra):
       - Libre Potato → `10.10.99.99`
       - Proxmox servers → see [Assignments/MAC Reservations.md](Assignments/MAC%20Reservations.md)
-   8. Netboot provisioning — see [docs/2-prep/](../../2-prep/README.md)
+   8. Netboot provisioning — see [Networks/Netboot.md](Networks/Netboot.md)
 
 > [!NOTE]
 > All UniFi configuration is done manually through the UI. Set it once, take a backup, and leave it.

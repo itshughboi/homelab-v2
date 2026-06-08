@@ -26,7 +26,7 @@ tailscale up --advertise-routes=10.10.10.0/24,10.10.20.0/24,10.10.30.0/24,10.10.
 - Type: Next Hop
 - Next Hop: Tailscale VM IP (`10.10.80.x`)
 
-See `docs/6-security/Tailscale.md` for full setup.
+See `docs/5-security/Tailscale.md` for full setup.
 
 ---
 

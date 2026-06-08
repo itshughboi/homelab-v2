@@ -1,9 +1,3 @@
----
-title: "4. Athena"
-weight: 40
-bookCollapseSection: true
----
-
 # 4. Athena
 
 Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.
@@ -43,11 +37,11 @@ Secret changes → SOPS encrypted, pushed to Gitea
 Run from your laptop (before Semaphore exists):
 
 ```sh
-cd ansible/playbooks/ubuntu/
-ansible-playbook bootstrap-athena.yml -i inventory.yaml
+ansible-playbook ansible/playbooks/ubuntu/setup-athena/main.yaml \
+  -i ansible/playbooks/ubuntu/setup-athena/inventory.yaml
 ```
 
-This installs Docker and all management services on Athena. After it completes, Semaphore is the operator.
+This installs Docker, OpenTofu, SOPS, age, and all management services on Athena. After it completes, Semaphore is the operator.
 
 ---
 
@@ -57,19 +51,32 @@ Set this up before pushing any secrets to Git.
 
 **Why SOPS + Age instead of Vault:** no additional service to maintain, Age is modern and simple, private key never leaves Athena. Vault is overkill for one operator.
 
-```sh
-# On Athena
-apt install age sops
+> [!IMPORTANT]
+> **Run `age-setup.sh` on Athena, not your laptop.**
+> The private key must live on the machine that decrypts secrets at runtime — that's Athena,
+> since Semaphore runs all playbooks from there. If you run it on your laptop, Semaphore
+> won't be able to decrypt anything. The setup-athena playbook installs `age` for you.
 
-# Generate keypair — private key NEVER leaves Athena
-age-keygen -o ~/.config/sops/age/keys.txt
-# Output includes: Public key: age1...
-```
+SSH into Athena after the bootstrap playbook completes, then:
 
-Run the setup script (populates `.sops.yaml` in repo root):
 ```sh
+cd /opt/homelab
 ./scripts/age-setup.sh
 ```
+
+The script generates the keypair at `~/.config/sops/age/keys.txt`, patches `.sops.yaml`
+with the public key, and tells you to commit it. The public key is safe to commit — only
+the private key is sensitive.
+
+```sh
+# After the script runs:
+git add .sops.yaml
+git commit -m "chore: configure sops age public key"
+git push
+```
+
+Back up the private key to Vaultwarden immediately (or temporarily to your phone's password
+manager until Vaultwarden is deployed — losing this key makes every encrypted secret permanently unreadable).
 
 Or manually update `.sops.yaml`:
 ```yaml
@@ -124,6 +131,11 @@ Sync Bind9 journal to zone file (run after Terraform updates):
 docker exec -it bind9 rndc sync
 ```
 
+Test Bind9 directly (bypasses AdGuard — useful when DNS seems broken):
+```sh
+dig @10.10.10.8 proxmox.hughboi.cc
+```
+
 > [!DANGER]
 > The TSIG key allows DNS record updates to your zone. Encrypt with SOPS before committing anywhere near Git.
 
@@ -156,7 +168,7 @@ From here, all Ansible runs through Semaphore. The laptop never needs to SSH any
 
 ## Ansible Playbook Reference
 
-See [`Ansible.md`](docs/4-athena/Ansible.md) for full playbook documentation. Key playbooks:
+See [`Ansible.md`](docs/3-athena/Ansible.md) for full playbook documentation. Key playbooks:
 
 | Playbook | Path | Purpose |
 | --- | --- | --- |
@@ -174,7 +186,7 @@ See [`Ansible.md`](docs/4-athena/Ansible.md) for full playbook documentation. Ke
 
 Pocket ID is a lightweight OIDC provider that enables SSO across Proxmox, Gitea, Semaphore, and other services — one login for everything.
 
-Set up after Athena is running. See [`Terraform Bind9.md`](Terraform%20Bind9.md) and [`../7-docker/Pocket ID - Proxmox.md`](../7-docker/Pocket%20ID%20-%20Proxmox.md) for configuration.
+Set up after Athena is running. See [`Terraform Bind9.md`](Terraform%20Bind9.md) and [`../6-docker/Pocket ID - Proxmox.md`](../6-docker/Pocket%20ID%20-%20Proxmox.md) for configuration.
 
 ---
 

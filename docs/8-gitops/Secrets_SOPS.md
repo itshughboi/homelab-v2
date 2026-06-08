@@ -2,7 +2,7 @@
 
 Since everything is in Git, passwords and API keys cannot be stored in plain text.
 
-> **Scope:** SOPS + Age handles the **Ansible / Terraform layer** — provisioning secrets that Athena needs at runtime (`terraform.tfvars`, Ansible `secrets.yaml`). Kubernetes app secrets are handled separately by **Sealed Secrets** (see [`index.md`](docs/9-gitops/index.md#secrets-in-kubernetes)). These are complementary tools, not alternatives.
+> **Scope:** SOPS + Age handles the **Ansible / Terraform layer** — provisioning secrets that Athena needs at runtime (`terraform.tfvars`, Ansible `secrets.yaml`). Kubernetes app secrets are handled separately by **Sealed Secrets** (see [`index.md`](docs/8-gitops/index.md#secrets-in-kubernetes)). These are complementary tools, not alternatives.
 
 ---
 

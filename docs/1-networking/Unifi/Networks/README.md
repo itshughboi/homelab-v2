@@ -5,7 +5,8 @@
 | [WiFi.md](WiFi.md) | Channel AI, WiFiman, guest speed limit |
 | [VPN.md](VPN.md) | Tailscale (VLAN 80) + WireGuard (VLAN 81) |
 | [VLANs + VMs.md](VLANs%20+%20VMs.md) | DHCP ranges, mDNS forwarding, per-VLAN notes |
-| [PXE Options.md](PXE%20Options.md) | DHCP boot options 66/67 for VLAN 99 |
+| [PXE Options.md](PXE%20Options.md) | UniFi DHCP options 66/67, provisioning flow, switch port assignments |
+| [Netboot.md](Netboot.md) | Libre Potato setup, boot procedure, systemd timer, Ventoy/Macbook fallbacks |
 | [LACP - MLAG.md](LACP%20-%20MLAG.md) | Bonding notes for future switch upgrade |
 
 See [VLANs + VMs.md](VLANs%20+%20VMs.md) for full DHCP ranges, mDNS settings, and per-VLAN notes.

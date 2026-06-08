@@ -80,7 +80,7 @@ sops --decrypt secret.enc.yaml
 
 `.sops.yaml` in the repo root defines which files get encrypted and which Age public key to use. The private key never leaves Athena.
 
-→ Full GitOps workflow and Sealed Secrets integration: [9-gitops/Secrets_SOPS.md](../9-gitops/Secrets_SOPS.md)
+→ Full GitOps workflow and Sealed Secrets integration: [8-gitops/Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md)
 
 ---
 

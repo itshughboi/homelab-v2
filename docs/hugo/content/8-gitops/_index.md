@@ -34,7 +34,7 @@ Ansible/Terraform secrets (SOPS + Age):
 
 ## ArgoCD
 
-See [`8-k3s/index.md#gitops`](../8-k3s/index.md#gitops-argocd) for the full install sequence.
+See [`7-k3s/index.md#gitops`](../7-k3s/index.md#gitops-argocd) for the full install sequence.
 
 ### App of Apps Pattern
 

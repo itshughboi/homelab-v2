@@ -4,6 +4,46 @@ All networking is built on UniFi (UXG Max + USW Flex Mini). Configure manually t
 
 ---
 
+## Before You Start
+
+### Credentials (gather before touching hardware)
+
+| Credential | Where to get it | Used by |
+| --- | --- | --- |
+| Cloudflare API Token | Cloudflare → My Profile → API Tokens → Zone:DNS:Edit | cert-manager, Traefik TLS |
+| Cloudflare Zone ID | Cloudflare → domain overview | cert-manager |
+| Discord webhook URL | Channel → Edit → Integrations → Webhooks | Alertmanager, Semaphore, n8n |
+| SSH public key | `cat ~/.ssh/id_ed25519.pub` | Packer, Terraform, Ansible |
+| IGDB Client ID + Secret | dev.twitch.tv → create app | RomM |
+| SteamGridDB API key | steamgriddb.com → preferences → API | RomM |
+| RetroAchievements API key | retroachievements.org → settings | RomM |
+
+### Tooling (laptop)
+
+```sh
+brew install terraform ansible packer git age sops helm
+brew install --cask docker
+```
+
+### SSH Key — Dedicated Homelab Keypair
+
+Create a separate keypair for the homelab. This gets injected into every node at build time — don't reuse your personal key.
+
+```sh
+ssh-keygen -t ed25519 -C "homelab-datacenter" -f ~/.ssh/homelab_id_ed25519
+```
+
+Store the private key locally for now, in Vaultwarden once it's running.
+
+### Clone the Repo
+
+```sh
+git clone https://gitea.hughboi.cc/hughboi/homelab.git
+cd homelab
+```
+
+---
+
 ## UniFi
 
 | File | Contents |

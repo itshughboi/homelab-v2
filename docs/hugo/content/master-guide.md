@@ -34,7 +34,7 @@ weight: 5
 - `80` VPN — 10.10.80.0/24
 - `99` Provisioning — 10.10.99.0/24
 
-→ Full IP/VLAN/service reference: [2-prep](docs/2-prep/README.md)
+→ Full IP/VLAN/service reference: [1-networking](docs/1-networking/README.md)
 
 ---
 
@@ -98,9 +98,9 @@ Boot each node:
 2. Verify: `ssh root@10.10.10.X`
 3. Move cable to permanent trunk port (USW Flex Mini)
 
-Fallback if Libre Potato is dead: [Ventoy USB](docs/2-prep/README.md#ventoy-fallback)
+Fallback if Libre Potato is dead: [Ventoy USB](docs/1-networking/Unifi/Networks/Netboot.md#ventoy-fallback)
 
-→ [Full PXE detail](docs/2-prep/README.md)
+→ [Full PXE detail](docs/1-networking/Unifi/Networks/Netboot.md)
 
 ---
 
@@ -114,7 +114,7 @@ Fallback if Libre Potato is dead: [Ventoy USB](docs/2-prep/README.md#ventoy-fall
 - [ ] Use bridge interface `br0` inside TrueNAS — never assign IPs to raw NICs
 - [ ] Test MTU 9000 on VLAN 40: `ping -M do -s 8972 10.10.40.X`
 
-→ [Full storage detail](5-storage/index.md)
+→ [Full storage detail](4-storage/index.md)
 
 ---
 
@@ -300,9 +300,9 @@ git push gitea main
 
 Set up Semaphore at `semaphore.hughboi.cc`: SSH key, Gitea repo, inventory → `ansible/inventories/`.
 
-Start remaining Docker services (see [7-docker](7-docker/index.md) for full ordered list).
+Start remaining Docker services (see [6-docker](6-docker/index.md) for full ordered list).
 
-→ [Full Athena/Docker detail](4-athena/index.md) · [Docker services reference](7-docker/index.md)
+→ [Full Athena/Docker detail](3-athena/index.md) · [Docker services reference](6-docker/index.md)
 
 ---
 
@@ -340,7 +340,7 @@ kubectl get secret -n kube-system -l sealedsecrets.bitnami.com/sealed-secrets-ke
 # → store in Vaultwarden, DO NOT commit to git
 ```
 
-→ [Full k3s infrastructure detail](8-k3s/index.md)
+→ [Full k3s infrastructure detail](7-k3s/index.md)
 
 ---
 
@@ -432,13 +432,13 @@ kubectl apply -f apps/root-app.yaml
 
 **Before ArgoCD syncs any app:** check the app's `secret.yaml` for the `kubectl create secret` commands to run first. If ArgoCD syncs before secrets exist, pods crash — delete the Secret and recreate it correctly.
 
-→ [Full GitOps detail](9-gitops/index.md)
+→ [Full GitOps detail](8-gitops/index.md)
 
 ---
 
 ## Phase 13 — Scheduled Maintenance
 
-Wire up in Semaphore UI. See [scheduled jobs table](8-k3s/index.md#semaphore-jobs) for the full list.
+Wire up in Semaphore UI. See [scheduled jobs table](7-k3s/index.md#semaphore-jobs) for the full list.
 
 Critical ones to set up immediately:
 - `kubernetes/k3s/etcd-backup` — Daily (your entire cluster state)
@@ -466,4 +466,4 @@ Critical ones to set up immediately:
 | Netboot 404 | Check `local.ipxe` MAC mapping + file exists in `assets/proxmox/` |
 | Sealed Secrets lost | Must re-seal all secrets — verify backup is in Vaultwarden |
 
-→ [Full troubleshooting](8-k3s/index.md#troubleshooting)
+→ [Full troubleshooting](7-k3s/index.md#troubleshooting)

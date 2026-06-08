@@ -1,27 +1,8 @@
-### SSH Key — Dedicated Datacenter Keypair
+The Libre Potato (`10.10.99.99`) serves automated Proxmox installs to all nodes via iPXE over VLAN 99. It pulls updates from Gitea every 5 minutes via a systemd timer.
 
-Create a separate keypair for the homelab. This gets injected into every node at build time — don't reuse your personal key.
-
-```sh
-ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/homelab_id_ed25519
-```
-
-Store the private key locally at first, then put in Vaultwarden once it's running.
-
-### Clone the Repo
-
-> [!NOTE] Gitea is self-hosted — during a fresh rebuild it won't be running yet. Clone from the GitHub mirror:
-
-```sh
-git clone https://github.com/itshughboi/homelab-v2.git
-cd homelab-v2
-```
+For UniFi DHCP options and switch port assignments see [PXE Options.md](PXE%20Options.md).
 
 ---
-
-## PXE Netboot
-
-The Libre Potato (10.10.99.99) serves automated Proxmox installs to all nodes via iPXE over VLAN 99. It pulls updates from Git every 5 minutes via a systemd timer.
 
 ## Boot Chain
 
@@ -36,7 +17,7 @@ Node powers on
     → Move cable from provisioning port to permanent trunk port
 ```
 
-## Why netboot.xyz over USB
+### Why netboot.xyz over USB
 
 | Method | Pros | Cons |
 | --- | --- | --- |
@@ -46,12 +27,20 @@ Node powers on
 
 ---
 
+## BIOS Prerequisites (every node)
+
+- [ ] PXE boot: **Enabled** (may need to enable "Network Stack" first before this option appears)
+- [ ] Boot order: **Network/PXE first**, then NVMe
+- [ ] Secure Boot: **OFF**
+
+---
+
 ## First-Time Libre Potato Setup
 
-One-time steps to get the netboot server running. Skip if Libre Potato is already serving files or if using Ansible Playbook to install netboot
+One-time steps to get the netboot server running. Skip if Libre Potato is already serving files.
 
 ```sh
-git clone https://github.hughboi.cc/itshughboi/homelab-v2.git
+git clone https://gitea.hughboi.cc/hughboi/homelab.git
 cd homelab/bootstrap/netbootxyz
 docker compose up -d
 ```
@@ -68,7 +57,8 @@ find ./assets/asset-mirror -name "vmlinuz" -exec mv {} ./assets/proxmox/ \;
 find ./assets/asset-mirror -name "initrd" -exec mv {} ./assets/proxmox/initrd.img \;
 ```
 
-> [!NOTE] Add to `.gitignore` before pushing — these are large binaries, download fresh each time:
+> [!NOTE]
+> Add to `.gitignore` before pushing — these are large binaries, download fresh each time:
 > ```
 > assets/proxmox/vmlinuz
 > assets/proxmox/initrd.img
@@ -76,7 +66,7 @@ find ./assets/asset-mirror -name "initrd" -exec mv {} ./assets/proxmox/initrd.im
 > !assets/proxmox/.gitkeep
 > ```
 
-Restart the container and verify:
+Restart and verify:
 
 ```sh
 docker compose up -d --force-recreate
@@ -86,12 +76,6 @@ curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
 > [!NOTE] Permission error? `sudo chown -R hughboi:hughboi /opt/iac`
 
 ---
-
-## BIOS Prerequisites (every node)
-
-- [ ] PXE boot: **Enabled** (may need to enable "Network Stack" first before this option appears)
-- [ ] Boot order: **Network/PXE first**, then NVMe
-- [ ] Secure Boot: **OFF**
 
 ## Register a Node Before Booting
 
@@ -128,9 +112,11 @@ zfs.raid = "single"              # change to "mirror" if you have 2 disks
   chain http://10.10.99.99:8080/proxmox/pve-srv-1.toml
 ```
 
-**3. MAC reservation** in UniFi (VLAN 10) so the node gets its permanent IP after install.
+**3. MAC reservation** in UniFi (VLAN 10) so the node gets its permanent IP after install — see [MAC Reservations.md](../Assignments/MAC%20Reservations.md).
 
-Push to Git → Libre Potato picks up changes within 5 minutes.
+Push to Gitea → Libre Potato picks up changes within 5 minutes.
+
+---
 
 ## Verify Netboot is Serving
 
@@ -145,6 +131,8 @@ curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
 - `404 Not Found` → file missing from `assets/proxmox/` or path mismatch in `local.ipxe`
 - `Connection refused` → container not running — check Docker on Libre Potato
 
+---
+
 ## Boot Procedure
 
 1. Plug node into UXG Max Port 3 (VLAN 99 access port)
@@ -152,6 +140,8 @@ curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
 3. Wait for Proxmox login prompt at `https://10.10.10.X:8006`
 4. Verify SSH: `ssh root@10.10.10.X`
 5. Move cable to permanent trunk port on USW Flex Mini
+
+---
 
 ## Auto-Refresh Timer (Libre Potato)
 
@@ -199,7 +189,7 @@ Enable: `systemctl enable --now netboot-update.timer`
 
 Use when Libre Potato is down but you still want network-based provisioning. Runs until you close the terminal — no permanent setup needed.
 
-1. Plug Macbook into UXG Max Port 3 (VLAN 99 access port) — it gets assigned `10.10.99.99/24`
+1. Plug Macbook into UXG Max Port 3 (VLAN 99 access port) — it gets assigned `10.10.99.x/24`
 2. Run the ephemeral container:
 
 ```sh
@@ -212,8 +202,6 @@ docker run --rm -it \
 
 3. Boot nodes normally — they PXE boot to your Macbook instead of Libre Potato
 4. Close the terminal when done — container is automatically removed
-
-> Config files still need to be committed to Git and the container pointed at the right assets path. This is the same boot chain, just served from your laptop temporarily.
 
 ### Ventoy USB Fallback {#ventoy-fallback}
 
@@ -234,7 +222,7 @@ Under 5 minutes of manual work:
 1. Copy existing TOML, update: `hostname`, disk selection
 2. Add MAC → hostname entry to `local.ipxe`
 3. Add MAC reservation in UniFi (VLAN 10)
-4. Push to Git — Libre Potato picks up within 5 minutes
+4. Push to Gitea — Libre Potato picks up within 5 minutes
 5. Plug into UXG Max Port 3, power on
 6. After install: move cable to trunk port
 7. From Semaphore: run `proxmox/join-cluster` playbook
