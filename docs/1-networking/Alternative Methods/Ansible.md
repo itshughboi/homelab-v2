@@ -2,7 +2,12 @@
 
 ### Ansible vs Terraform
 - Terraform is a source of truth whereas Ansible is saying, apply these changes if not met
-- When I have a problem with Unifi, If i was using Terraform I need to debug if it's Unifi Controller, Unifi API, Terraform Provider, or Terraform file. Management can become a nightmare if I want to do anything in the Unifi UI as I have to retroactively apply that to my terraform file to make sure 'drift' doesn't happen.
+- When I have a problem with Unifi, If i was using Terraform I need to debug if it's:
+	- Unifi Controller, 
+	- Unifi API, 
+	- Terraform Provider,
+	- Terraform file. 
+- Management can become a nightmare if I want to do anything in the Unifi UI as I have to retroactively apply that to my terraform file to make sure 'drift' doesn't happen.
 
 ### Ansible Flow
 1. Configure Unifi manually and create a management network + provisioning network with netboot options.

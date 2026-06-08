@@ -69,4 +69,4 @@ ArgoCD watches the Gitea `/kubernetes` folder. All app deployments are declarati
 push to Git, ArgoCD syncs the cluster.
 
 Firewall note: k3s nodes cannot initiate connections to Management (VLAN 10).
-See [`1-networking/Unifi/Firewall.md`](../1-networking/Unifi/Firewall.md) for full k3s rules.
+See [`1-networking/Unifi/Firewall/Rules.md`](../1-networking/Unifi/Firewall/Rules.md) for full k3s rules.

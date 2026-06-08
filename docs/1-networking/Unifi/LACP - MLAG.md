@@ -1,4 +1,3 @@
-# LACP / MLAG
 
 > [!NOTE] Future Consideration
 > LACP bonding is not currently implemented due to switch hardware limitations.

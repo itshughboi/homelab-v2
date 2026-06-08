@@ -1,8 +1,7 @@
 # [ARCHIVED] Terraform — UniFi Network Management
 
 > **Status: Archived.** Terraform is no longer the active tool for UniFi/network management.
-> Ansible is the source of truth. See [`04_Infrastructure_as_Code/01_IaC_Philosophy.md`](../04_Infrastructure_as_Code/01_IaC_Philosophy.md)
-> for the reasoning.
+> If automating, Ansible is the source of truth.
 >
 > Terraform is still used for Proxmox VM provisioning and Bind9 DNS integration —
 > this archive covers the UniFi piece only.

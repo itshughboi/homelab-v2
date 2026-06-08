@@ -1,7 +1,7 @@
 # UniFi Security Settings
 
 UniFi security features that live outside the firewall rule tables.
-Firewall rules → [Firewall.md](Firewall.md). DNS config → [Networks.md](Networks.md).
+Firewall rules → [Firewall/](Firewall/README.md). DNS config → [Networks.md](Networks.md).
 
 ---
 

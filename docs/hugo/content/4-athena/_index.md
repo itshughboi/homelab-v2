@@ -156,7 +156,7 @@ From here, all Ansible runs through Semaphore. The laptop never needs to SSH any
 
 ## Ansible Playbook Reference
 
-See [`Ansible.md`](Ansible.md) for full playbook documentation. Key playbooks:
+See [`Ansible.md`](docs/4-athena/Ansible.md) for full playbook documentation. Key playbooks:
 
 | Playbook | Path | Purpose |
 | --- | --- | --- |

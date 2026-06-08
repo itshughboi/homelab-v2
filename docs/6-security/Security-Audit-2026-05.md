@@ -368,14 +368,14 @@ A compromised bulb or lock can reach management infrastructure directly.
 
 **Fix applied:**
 - VLAN 50 (IoT, `10.10.50.0/24`) added to all networking docs
-- Firewall rules documented in `Unifi/Firewall.md`
+- Firewall rules documented in `Unifi/Firewall/Rules.md`
 - Home Assistant `networkpolicy.yaml` created with explicit IoT egress allow
 - IoT WiFi SSID guidance added
 
 **Manual steps remaining:**
 1. Create VLAN 50 in UniFi → Networks → Create New Network
 2. Create IoT SSID → WiFi → Create → bind to VLAN 50
-3. Add firewall rules per `Unifi/Firewall.md` → IoT section
+3. Add firewall rules per `Unifi/Firewall/Rules.md` → IoT section
 4. Enable mDNS forwarding between VLAN 30 and VLAN 50 in UniFi
 5. Move smart home devices to the IoT SSID / VLAN 50
 
@@ -406,7 +406,7 @@ disappear from Grafana without an obvious error.
 
 ### This week
 - [ ] Create IoT VLAN 50 in UniFi + IoT WiFi SSID
-- [ ] Add IoT firewall rules per `docs/1-networking/Unifi/Firewall.md`
+- [ ] Add IoT firewall rules per `docs/1-networking/Unifi/Firewall/Rules.md`
 - [ ] Scope Proxmox API tokens to minimum permissions (create `terraform-role`)
 - [ ] Rotate Cloudflare API token with restricted zone-only DNS permissions
 - [ ] Add Vaultwarden admin behind IP restriction

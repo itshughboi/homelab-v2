@@ -15,11 +15,22 @@ Subnets must stay distinct — both create routes and overlapping them causes ro
 
 Tailscale runs as a subnet router on a VM in VLAN 80, advertising internal RFC1918 routes to remote devices. No port forwarding required — Tailscale punches through NAT via its coordination server.
 
-See `docs/6-security/Tailscale.md` for setup.
+Advertise all homelab subnets from the Tailscale VM:
+```sh
+tailscale up --advertise-routes=10.10.10.0/24,10.10.20.0/24,10.10.30.0/24,10.10.40.0/24,10.10.50.0/24,10.10.80.0/24,10.10.99.0/24,172.16.20.0/24 --accept-routes
+```
+
+**UniFi static route required** — without this, the tunnel works but inter-VLAN → Tailscale peer routing fails:
+- Settings → Routing → Create New Route
+- Destination: `100.64.0.0/10`
+- Type: Next Hop
+- Next Hop: Tailscale VM IP (`10.10.80.x`)
+
+See `docs/6-security/Tailscale.md` for full setup.
 
 ---
 
-## WireGuard VPN Server (Future — requires public IP or DDNS)
+## WireGuard VPN Server (VLAN 81 — requires public IP or DDNS)
 
 Settings → VPN → VPN Server → Create → WireGuard
 

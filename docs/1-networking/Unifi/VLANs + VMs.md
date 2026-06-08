@@ -31,7 +31,8 @@
 | IoT          | 10.10.50.10   | 10.10.50.200  | Smart home devices receive dynamic IPs             |
 | Guest        | Auto          | Auto          | UniFi manages automatically                        |
 | Torrent      | 172.16.20.1   | 172.16.20.20  |                                                    |
-| VPN          | 10.10.80.1    | 10.10.80.20   |                                                    |
+| Tailscale    | 10.10.80.1    | 10.10.80.20   |                                                    |
+| Wireguard    | 10.10.81.1    | 10.10.81.20   | Clients receive IPs from this range when connected |
 | Provisioning | 10.10.99.1    | 10.10.99.200  |                                                    |
 
 ---
@@ -129,9 +130,13 @@ gluetun (VPN killswitch), qBittorrent, Soularr live here.
 > RFC1918 block required in firewall. UniFi doesn't have a built-in RFC1918 alias —
 > create an IP group covering `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`.
 
-###### VLAN 80 — VPN
+###### VLAN 80 — Tailscale
 Tailscale subnet router only. VPN users get scoped access to Management, k3s, and Storage.
-See firewall rules for exact permissions.
+Zone: `Tailscale`. See firewall rules for exact permissions.
+
+###### VLAN 81 — Wireguard
+UniFi WireGuard VPN server. Fallback remote access for devices that can't run Tailscale.
+Zone: `Wireguard`. Requires public IP or DDNS. See [VPN.md](VPN.md) for setup.
 
 ###### VLAN 99 — Provisioning
 Temporary. Nodes live here only during Proxmox installation, then move to Management.
