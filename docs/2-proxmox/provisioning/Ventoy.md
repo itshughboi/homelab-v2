@@ -1,69 +1,99 @@
-# [ARCHIVED] Ventoy Fallback (Manual USB Install)
+# Node Install — Ventoy USB (Primary Method)
 
-> **Status: Break-glass only.** All nodes — including pve-srv-1 — provision via netboot.
-> The Libre Potato on VLAN 99 is independent of any Proxmox node, so there is no
-> "first node" exception. Only reach for this if the Libre Potato itself is dead or
-> netboot is otherwise unavailable.
+> **This is the canonical way nodes are installed.** Netboot/PXE was tried and abandoned
+> — see the [post-mortem](../../1-networking/Netboot/README.md) for why. Ventoy boots the
+> ISO as real install media, which sidesteps the entire class of failures that sank the
+> PXE approach.
 
-Use this when netboot is unavailable or you need a one-off install without the full PXE chain.
+Two flavors — pick per situation:
 
----
+| Flavor | What happens | When |
+| --- | --- | --- |
+| **Automated** (recommended) | Per-node ISO with the answer file baked in → boot, walk away, comes back installed | Normal node provisioning |
+| **Manual** | Stock ISO → click through the Proxmox installer by hand | No tooling handy, or a one-off |
 
-## Prepare Ventoy
+Both keep the same end state. The automated flavor keeps your per-node config in git
+(`bootstrap/netbootxyz/assets/proxmox/pve-srv-X.toml`) — those TOMLs drop straight in.
 
-1. Rename the main Ventoy partition (where ISOs live) to `PROXMOX_AIC`
-
-> [!DANGER]
-> The partition must be named exactly `PROXMOX_AIC` or the automated answer file
-> will be ignored and you'll get a manual install prompt.
-
-2. Download the Proxmox VE ISO from https://www.proxmox.com/en/downloads/proxmox-virtual-environment/iso
-   and copy it to the Ventoy partition
-
----
-
-## Answer File
-
-3. Create `answer.toml` adjacent to the ISO on the Ventoy partition:
-
-```toml
-[global]
-keyboard = "us"
-timezone = "America/Denver"
-# Generate hashed password: printf "yourpassword" | openssl passwd -6 -stdin
-root_password = "$6$rTFai9692MmsAq8I$6y7kogOLaIgjCYwNcMyHmSuMUqXXsU2baJbgkR9d1wuPpwj7Yx8bVhPADOBuHU7qXf.42wVUmyX4y3s4MBtLg/"
-reboot_on_error = false
-
-[network]
-source = "from-dhcp"
-hostname = "pve-srv-1"
-
-[disk]
-# Proxmox tries each disk in order and picks the first one it finds
-selection = ["nvme0n1", "sda"]
-filesystem = "zfs"
-zfs.raid = "single"
-```
-
-> The `hostname` field here is how Terraform and Ansible files pick up the node name.
-> Update it for each node if doing multiple manual installs.
+> [!TIP] No provisioning VLAN, no cable move
+> Because the answer files use `source = "from-answer"` with a **static** management IP,
+> you plug the node straight into its **permanent trunk port** (VLAN 10) and it installs
+> directly onto `10.10.10.X`. There is no VLAN 99 step and no "move the cable afterward"
+> dance anymore — that was a netboot-era constraint.
 
 ---
 
-## Boot
+## BIOS Prerequisites (per node)
 
-4. Boot the node from the Ventoy USB
-5. On the Proxmox boot menu select **Automated Installation**
-6. Wait for the login prompt at `https://IP:8006`
+- [ ] **USB boot: Enabled**, USB first in boot order (Network/PXE no longer needed)
+- [ ] Secure Boot: **OFF**
 
 ---
 
-## This File Also Lives in Git
+## Flavor A — Automated (baked answer file)
 
-The `answer.toml` can be pulled from the IAC repo so you don't have to recreate it:
+`proxmox-auto-install-assistant` is an **amd64 Proxmox tool**. Your Mac and the Libre
+Potato are ARM and can't run it — but **pve-srv-1 already has it** (ships with PVE 8.2+).
+Prepare the ISOs there.
+
+### 1. On pve-srv-1: prepare a per-node ISO
 
 ```sh
-git clone https://github.com/itshughboi/homelab-v2.git
+# Confirm the tool + exact flags (do this once)
+proxmox-auto-install-assistant prepare-iso --help
+
+# Download the stock ISO
+wget https://enterprise.proxmox.com/iso/proxmox-ve_9.1-1.iso
+
+# Validate the answer file before baking it in
+proxmox-auto-install-assistant validate-answer pve-srv-4.toml
+
+# Bake the answer file into a new ISO (--fetch-from iso = no network needed at install)
+proxmox-auto-install-assistant prepare-iso \
+  proxmox-ve_9.1-1.iso \
+  --fetch-from iso \
+  --answer-file pve-srv-4.toml \
+  --output pve-srv-4-auto.iso
 ```
 
-Look in `bootstrap/` for the per-node TOML files.
+Repeat for each node (`pve-srv-2`, `pve-srv-3`, …) with its own TOML. The TOMLs live in
+the repo at `bootstrap/netbootxyz/assets/proxmox/` — pull them with `git clone` so you
+don't recreate them.
+
+### 2. Copy the prepared ISO(s) onto the Ventoy USB
+
+Drop `pve-srv-4-auto.iso` (and the others) into the Ventoy partition. One stick can hold
+all of them.
+
+### 3. Boot the node
+
+1. Plug node into its **permanent trunk port** (USW Flex Mini, VLAN 10)
+2. Boot from the Ventoy USB → pick that node's `pve-srv-X-auto.iso`
+3. Select **Automated Installation** at the Proxmox boot menu (or it proceeds on its own)
+4. Walk away — installs unattended, reboots onto `10.10.10.X`
+5. Verify: `https://10.10.10.X:8006` and `ssh root@10.10.10.X`
+
+---
+
+## Flavor B — Manual (stock ISO, click through)
+
+No prep tooling needed. Use when you just want a node up.
+
+1. Download the stock Proxmox VE ISO and drop it on the Ventoy USB
+2. Boot node from Ventoy → pick the ISO → **Install Proxmox VE** (graphical)
+3. Click through: disk, country/keyboard, password, and **set the management IP/hostname
+   by hand** (`10.10.10.X/24`, gw `10.10.10.254`, dns `10.10.10.8`, hostname `pve-srv-X`)
+4. Reboot → `https://10.10.10.X:8006`
+
+---
+
+## After Install (either flavor)
+
+Everything past the install is already automated and lives in git:
+
+- **Network bridges/VLANs** — `ansible/playbooks/proxmox/network-setup/`
+- **Repos + updates** — `ansible/playbooks/proxmox/cluster-update/`
+- **Cluster join** — see [README.md](README.md#proxmox-cluster)
+
+The installer's only job is "bootable Proxmox on the disk with the right IP." Ansible/
+Semaphore does the rest — which is where the real GitOps automation already works.

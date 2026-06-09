@@ -1,3 +1,9 @@
+> [!WARNING] Archived — netboot is abandoned
+> Nodes are installed via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md), not PXE.
+> The DHCP boot options here are no longer needed; see the
+> [post-mortem](../../Netboot/README.md). Kept for reference only — the switch-port table
+> at the bottom is still accurate for the physical layout.
+
 UniFi-side configuration for PXE booting nodes on VLAN 99. For Libre Potato setup, boot procedure, and fallbacks see [Netboot/](../../Netboot/README.md).
 
 ---
@@ -42,13 +48,13 @@ Settings → Networks → Provisioning → DHCP → Network Boot (enable checkbo
 
 ###### UXG Max
 
-| Port | Mode   | Device       | Native VLAN | Tagged VLANs | IP          | Notes                                                                               |
-| ---- | ------ | ------------ | ----------- | ------------ | ----------- | ----------------------------------------------------------------------------------- |
-| 1    | Access | Synology     | 10          | All          | Tailscale   | Temporary — becoming available soon                                                 |
-| 2    | Trunk  | Libre Potato | 99          | All          | 10.10.99.99 | Netboot server. Native VLAN 99 so Libre Potato gets provisioning DHCP on boot. Unplug for Mac management access during bootstrap. |
-| 3    | Access | —            | 99          | —            | —           | Dedicated provisioning port. VLAN 99 only — plug node in here to PXE boot.          |
-| 4    | Trunk  | Uplink       | 10          | All          | —           | USW Flex Mini (port 5)                                                              |
-| 5    | —      | Uplink       | —           | —            | DHCP        | Comcast WAN                                                                         |
+| Port | Mode   | Device                | Native VLAN | Tagged VLANs | IP                   | Notes                                                                                                                             |
+| ---- | ------ | --------------------- | ----------- | ------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Access | Synology              | 10          | All          | Tailscale            | Temporary — becoming available soon                                                                                               |
+| 2    | Trunk  | Libre Potato (SUNSET) | 10          | All          | 10.10.99.99 (SUNSET) | Netboot server. Native VLAN 99 so Libre Potato gets provisioning DHCP on boot. Unplug for Mac management access during bootstrap. |
+| 3    | Trunk  | —                     | 10          | All          | —                    | Dedicated provisioning port. VLAN 99 only — plug node in here to PXE boot.                                                        |
+| 4    | Trunk  | Uplink                | 10          | All          | —                    | USW Flex Mini (port 5)                                                                                                            |
+| 5    | —      | Uplink                | —           | —            | DHCP                 | Comcast WAN                                                                                                                       |
 
 ###### USW Flex Mini
 

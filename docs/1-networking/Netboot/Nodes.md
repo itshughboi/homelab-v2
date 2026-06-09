@@ -1,3 +1,9 @@
+> [!WARNING] Historical — netboot is abandoned
+> Nodes are installed via [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md), not PXE.
+> This page documents the old per-node PXE registration flow and is kept for reference
+> only. See the [post-mortem](README.md) for why. The per-node TOMLs referenced here are
+> still used — Ventoy bakes them into the install ISO instead of serving them over HTTP.
+
 ## Register a Node Before Booting
 
 Three things must be in place before powering a node on:

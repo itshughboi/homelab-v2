@@ -76,31 +76,24 @@ ssh-keygen -t ed25519 -C "homelab-datacenter" -f ~/.ssh/homelab_id_ed25519
 
 ---
 
-## Phase 2 — PXE Netboot
+## Phase 2 — Node Install (Ventoy USB)
 
-**Goal:** Libre Potato serves automated Proxmox installs over the network.
+**Goal:** each node installs Proxmox automatically from a prepared USB.
 
-For each node, before powering it on:
-- [ ] Create TOML at `bootstrap/netbootxyz/config/proxmox/pve-srv-X.toml`
-- [ ] Add MAC → hostname entry in `local.ipxe`
-- [ ] Add MAC reservation in UniFi (VLAN 10)
-- [ ] Enable PXE boot in node BIOS, boot order: PXE first, Secure Boot: OFF
+> PXE netboot was tried and abandoned — see the
+> [post-mortem](1-networking/Netboot/README.md). Nodes now install via Ventoy.
 
-Verify serving before booting anything:
-```sh
-curl -I http://10.10.99.99:8080/ipxe.efi
-curl -I http://10.10.99.99:8080/proxmox/pve-srv-1.toml
-# Both must return 200 OK
-```
+For each node:
+- [ ] On pve-srv-1: `proxmox-auto-install-assistant prepare-iso ... --fetch-from iso --answer-file pve-srv-X.toml` (TOMLs live in `bootstrap/netbootxyz/assets/proxmox/`)
+- [ ] Copy the prepared ISO onto the Ventoy USB
+- [ ] Node BIOS: USB boot first, Secure Boot OFF
 
 Boot each node:
-1. Plug into UXG Max Port 3 (VLAN 99) → power on → wait for Proxmox login prompt
-2. Verify: `ssh root@10.10.10.X`
-3. Move cable to permanent trunk port (USW Flex Mini)
+1. Plug into its **permanent trunk port** (USW Flex Mini, VLAN 10) — no cable move needed
+2. Boot from Ventoy → pick `pve-srv-X-auto.iso` → **Automated Installation** → walk away
+3. Verify: `ssh root@10.10.10.X`
 
-Fallback if Libre Potato is dead: [Ventoy USB](docs/1-networking/Unifi/Networks/Netboot.md#ventoy-fallback)
-
-→ [Full PXE detail](docs/1-networking/Unifi/Networks/Netboot.md)
+→ [Full Ventoy detail](2-proxmox/provisioning/Ventoy.md)
 
 ---
 

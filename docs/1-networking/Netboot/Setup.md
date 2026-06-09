@@ -1,3 +1,8 @@
+> [!WARNING] Historical — netboot is abandoned
+> Nodes are installed via [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md), not PXE.
+> This page documents the old Libre Potato netboot setup and is kept for reference only.
+> See the [post-mortem](README.md) for why.
+
 ## First-Time Libre Potato Setup
 
 One-time steps to get the netboot server running. Skip if Libre Potato is already serving files.

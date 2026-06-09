@@ -5,11 +5,15 @@
 
 ---
 
-## VLAN 99 — Provisioning
+## VLAN 99 — Provisioning (legacy, unused)
+
+> Netboot was abandoned — nodes install via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md).
+> This reservation is no longer required; kept until the Libre Potato is repurposed. See the
+> [post-mortem](../../Netboot/README.md).
 
 | Device | MAC | IP | Notes |
 | --- | --- | --- | --- |
-| Libre Potato | b6:c4:ec:25:85:13 | 10.10.99.99 | Netboot server — reserve this BEFORE provisioning any nodes |
+| Libre Potato | b6:c4:ec:25:85:13 | 10.10.99.99 | Former netboot server — unused |
 
 ---
 
@@ -18,9 +22,9 @@
 | Name      | MAC               | IP         | NIC     |
 | --------- | ----------------- | ---------- | ------- |
 | pve-srv-1 | 04:7c:16:87:65:66 | 10.10.10.1 | enp42s0 |
-| pve-srv-2 | —                 | 10.10.10.2 | enp4s0  |
-| pve-srv-3 | —                 | 10.10.10.3 | —       |
-| pve-srv-4 | —                 | 10.10.10.4 | —       |
+| pve-srv-2 | c8:ff:bf:00:80:7c | 10.10.10.2 | enp4s0  |
+| pve-srv-3 | 1c:83:41:40:ff:0b | 10.10.10.3 | —       |
+| pve-srv-4 | c8:ff:bf:03:f3:50 | 10.10.10.4 | —       |
 
 ---
 

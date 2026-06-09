@@ -1,39 +1,35 @@
 
-| Name         | VLAN | CIDR           | Gateway       | Notes                                                                       |
-| ------------ | ---- | -------------- | ------------- | --------------------------------------------------------------------------- |
-| Management   | 10   | 10.10.10.0/24  | 10.10.10.254  | SSH, Web UI, Unifi, Bind9. PXE boot enabled.                                |
-| Cluster      | 20   | 10.10.20.0/24  | None          | Corosync heartbeat only. No gateway. QoS enabled. **DHCP disabled.**        |
-| k3s          | 30   | 10.10.30.0/24  | 10.10.30.254  | All nodes use static IPs via cloud-init. **DHCP pool starts at .200.**      |
-| Storage      | 40   | 10.10.40.0/24  | 10.10.40.254  | Jumbo Frames (MTU 9000). Outbound updates only. **DHCP disabled.**          |
-| IoT          | 50   | 10.10.50.0/24   | 10.10.50.254  | Smart home devices. Isolated — only Home Assistant can initiate into IoT.   |
-| Torrent      | 49   | 172.16.20.0/24  | 172.16.20.254 | UNTRUSTED. Fully airgapped from internal network.                           |
-| VPN          | 80   | 10.10.80.0/24   | 10.10.80.254  | Tailscale subnet router. Full VLAN access for VPN users.                    |
-| Guest        | —    | 172.69.69.0/24  | 172.69.69.254 | AP guest WiFi. Isolated, client isolation, internet only. Auto DHCP.        |
-| Provisioning | 99   | 10.10.99.0/24   | 10.10.99.254  | Short lease time. Nodes live here only during install.                      |
+| Name         | VLAN | CIDR           | Gateway       | Notes                                                                     |
+| ------------ | ---- | -------------- | ------------- | ------------------------------------------------------------------------- |
+| Management   | 10   | 10.10.10.0/24  | 10.10.10.254  | SSH, Web UI, Unifi, Bind9. Nodes install directly onto this VLAN.          |
+| Cluster      | 20   | 10.10.20.0/24  | None          | Corosync heartbeat only. No gateway. QoS enabled. **DHCP disabled.**      |
+| k3s          | 30   | 10.10.30.0/24  | 10.10.30.254  | All nodes use static IPs via cloud-init. **DHCP disabled.**               |
+| Storage      | 40   | 10.10.40.0/24  | None          | Jumbo Frames (MTU 9000). Internal only. **DHCP disabled.**                |
+| Torrent      | 49   | 172.16.20.0/24 | 172.16.20.254 | UNTRUSTED. Fully airgapped from internal network.                         |
+| IoT          | 50   | 10.10.50.0/24  | 10.10.50.254  | Smart home devices. Isolated — only Home Assistant can initiate into IoT. |
+| Guest        | 69   | 172.69.69.0/24 | 172.69.69.254 | AP guest WiFi. Isolated, client isolation, internet only. Auto DHCP.      |
+| VPN          | 80   | 10.10.80.0/24  | 10.10.80.254  | Tailscale subnet router. Full VLAN access for VPN users.                  |
+| WireGuard    | 81   | 10.10.81.0/24  | 10.10.81.254  | UniFi WireGuard VPN server. Fallback remote access. Requires public IP.   |
+| Provisioning | 99   | 10.10.99.0/24  | 10.10.99.254  | Legacy netboot VLAN — unused since provisioning moved to Ventoy USB.       |
 
 > [!IMPORTANT]
-> **VLAN 20 (Cluster) and VLAN 40 (Storage): DHCP must be disabled.**
-> Cluster is Corosync-only at the host level — no device should ever DHCP here.
-> Storage devices all have static IPs — a rogue client on VLAN 40 could reach NFS/PBS.
+> **VLANs 20, 30, 40: DHCP must be disabled.**
+> All devices on these VLANs have static IPs (cloud-init for k3s, host-level config for Cluster/Storage). A rogue DHCP client on any of these could grab an IP already in use by a node, MetalLB service, or storage device.
 > Disable in UniFi → Networks → [VLAN] → DHCP Mode → None.
->
-> **VLAN 30 (k3s): DHCP pool was .1–.20 which directly overlapped static node IPs.**
-> Masters (.1–.3), workers (.11–.13), kube-vip (.30), Longhorn (.50–.53), MetalLB (.60–.99)
-> all live in the lower range. Pool moved to .200–.220. Update in UniFi immediately.
 
 #### DHCP
-| Name         | Start         | End           | Notes                                              |
-| ------------ | ------------- | ------------- | -------------------------------------------------- |
-| Management   | 10.10.10.100  | 10.10.10.200  |                                                    |
-| Cluster      | —             | —             | **Disabled** — Corosync only, no DHCP clients      |
-| k3s          | 10.10.30.200  | 10.10.30.220  | Moved above static/MetalLB range (was .1–.20 ⚠️)  |
-| Storage      | —             | —             | **Disabled** — all devices have static IPs         |
-| IoT          | 10.10.50.10   | 10.10.50.200  | Smart home devices receive dynamic IPs             |
-| Guest        | Auto          | Auto          | UniFi manages automatically                        |
-| Torrent      | 172.16.20.1   | 172.16.20.20  |                                                    |
-| Tailscale    | 10.10.80.1    | 10.10.80.20   |                                                    |
-| Wireguard    | 10.10.81.1    | 10.10.81.20   | Clients receive IPs from this range when connected |
-| Provisioning | 10.10.99.1    | 10.10.99.200  |                                                    |
+| Name         | Start        | End          | Notes                                                   |
+| ------------ | ------------ | ------------ | ------------------------------------------------------- |
+| Management   | 10.10.10.100 | 10.10.10.200 |                                                         |
+| Cluster      | —            | —            | **Disabled** — Corosync only, no DHCP clients           |
+| k3s          | —            | —            | **Disabled** — all nodes have static IPs via cloud-init |
+| Storage      | —            | —            | **Disabled** — all devices have static IPs              |
+| Torrent      | 172.16.20.10 | 172.16.20.20 |                                                         |
+| IoT          | 10.10.50.10  | 10.10.50.200 | Smart home devices receive dynamic IPs                  |
+| Guest        | Auto         | Auto         | UniFi manages automatically                             |
+| Tailscale    | 10.10.80.10  | 10.10.80.20  |                                                         |
+| Wireguard    | 10.10.81.10  | 10.10.81.20  | Clients receive IPs from this range when connected      |
+| Provisioning | 10.10.99.100 | 10.10.99.200 |                                                         |
 
 ---
 
@@ -47,10 +43,11 @@ mDNS forwarding allows device discovery to cross VLAN boundaries. **Off by defau
 | Cluster (20) | Off | Corosync only |
 | k3s (30) | **On** | Home Assistant discovers IoT devices across VLAN boundary |
 | Storage (40) | Off | TrueNAS/PBS don't need it |
-| IoT (50) | **On** | HA ↔ IoT device discovery |
 | Torrent (49) | Off | Airgapped |
+| IoT (50) | **On** | HA ↔ IoT device discovery |
+| Guest (69) | Off | Guests must not discover internal or IoT devices |
 | VPN (80) | Off | Tailscale handles its own discovery |
-| Guest | Off | Guests must not discover internal or IoT devices |
+| WireGuard (81) | Off | VPN clients don't need local discovery |
 | Provisioning (99) | Off | Temporary network |
 
 > [!NOTE]
@@ -63,6 +60,10 @@ mDNS forwarding allows device discovery to cross VLAN boundaries. **Off by defau
 ###### VLAN 10 — Management
 The admin plane. Reaches everything. Nothing initiates into it (firewall enforces this).
 Core services that live here: Unifi controller, Proxmox web UI, Docker host, Ansible (Athena), Bind9.
+
+**DHCP Guarding:** Enable on Management VLAN — a rogue DHCP server here could redirect all management traffic.
+Settings → Networks → Management → Advanced → DHCP Guarding → Enabled.
+Trusted DHCP server: `10.10.10.254` (the UXG Max gateway — the only legitimate DHCP server on this network).
 
 ###### VLAN 20 — Cluster (Corosync)
 Corosync is extremely sensitive to latency. If a NIC gets flooded with backup or storage traffic,
@@ -80,25 +81,24 @@ Settings:
 Nodes pull from internet, access storage, talk to each other. Cannot initiate to Management.
 See firewall rules for specifics.
 
+> [!NOTE]
+> k3s node IPs are set statically via cloud-init at Terraform provision time — the VM comes up with the correct IP on first boot and never touches DHCP. No need to boot → grab MAC → set reservation → reboot. MetalLB manages its own IP pool (.60–.99) entirely inside Kubernetes and is independent of UniFi DHCP.
+
 ###### VLAN 40 — Storage
-TrueNAS, PBS, and Longhorn traffic. PBS or Longhorn can saturate the management NIC —
-this VLAN exists specifically to isolate that traffic.
+East-west storage traffic only: PBS ↔ TrueNAS replication/NFS, Longhorn replica sync between worker nodes. MTU 9000 benefits these VM-to-VM flows directly.
 
-**Has gateway (`10.10.40.254`) for outbound package updates only. Firewall restricts all other outbound.**
+**No gateway — internal only.** All devices are dual-homed; internet access goes via the VLAN 10 management interface.
 
-Settings:
-- **Jumbo Frames (MTU 9000)**
+**Proxmox → PBS backup jobs do NOT use this VLAN.** The Proxmox hypervisor hosts only have VLAN 10 IPs, so backup jobs always go over management at MTU 1500. This is acceptable — PBS compresses and deduplicates before sending, so actual wire traffic is much smaller than raw VM size.
 
-> [!DANGER] Jumbo Frames — MTU must be 9000 end-to-end
-> Every device on VLAN 40 must be configured for MTU 9000:
-> - Switch ports
-> - Physical NICs
-> - Proxmox bridges (vmbr)
-> - Proxmox physical interface (e.g. enp42s0)
-> - VMs (if applicable)
->
-> Partial MTU 9000 support causes **silent packet loss**. Jumbo packets cannot
-> traverse the internet — this VLAN is internal-only by design.
+MTU 9000 (Jumbo Frames) — must be configured end-to-end on every device on this VLAN. See [Switching.md](Switching.md#jumbo-frames).
+
+###### VLAN 49 — Torrent
+Fully airgapped from the internal network. WAN access only.
+gluetun (VPN killswitch), qBittorrent, Soularr live here.
+
+> RFC1918 block required in firewall. UniFi doesn't have a built-in RFC1918 alias —
+> create an IP group covering `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`.
 
 ###### VLAN 50 — IoT
 
@@ -123,12 +123,9 @@ Settings:
 - Block inter-VLAN: ON (baseline)
 - mDNS forwarding: ON (for Home Assistant discovery)
 
-###### VLAN 49 — Torrent
-Fully airgapped from the internal network. WAN access only.
-gluetun (VPN killswitch), qBittorrent, Soularr live here.
-
-> RFC1918 block required in firewall. UniFi doesn't have a built-in RFC1918 alias —
-> create an IP group covering `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`.
+###### VLAN 69 — Guest
+AP guest WiFi. Internet access only — isolated from all internal VLANs and from other
+guest clients (client isolation on). UniFi manages DHCP automatically.
 
 ###### VLAN 80 — Tailscale
 Tailscale subnet router only. VPN users get scoped access to Management, k3s, and Storage.
@@ -139,8 +136,12 @@ UniFi WireGuard VPN server. Fallback remote access for devices that can't run Ta
 Zone: `Wireguard`. Requires public IP or DDNS. See [VPN.md](VPN.md) for setup.
 
 ###### VLAN 99 — Provisioning
-Temporary. Nodes live here only during Proxmox installation, then move to Management.
-Short DHCP lease time. Libre Potato is the only permanent resident.
+> [!NOTE] Unused — netboot abandoned
+> This VLAN existed for PXE provisioning. Nodes now install via
+> [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) directly onto Management (VLAN 10),
+> so VLAN 99, its DHCP boot options, and the dedicated provisioning port are no longer
+> needed. See the [post-mortem](../../Netboot/README.md). Kept here until the VLAN and the
+> Libre Potato are formally decommissioned/repurposed.
 
 ---
 
@@ -159,21 +160,20 @@ for VLAN 40 — no VLAN config changes needed, just move vmbr1.40 to the new int
 
 #### VM Overview
 
-| VM        | Host      | VLAN  | RAM   | CPU | Notes                                      |
-| --------- | --------- | ----- | ----- | --- | ------------------------------------------ |
-| unifi     | pve-srv-1 | 10    | 2GB   | 2   | Controller only, LXC                       |
-| athena    | pve-srv-1 | 10    | 8GB   | 4   | Ansible, OpenTofu, Bind9, Gitea, Semaphore |
-| docker    | pve-srv-1 | 10    | 24GB  | 4   | Docker + Traefik + application workloads   |
-| truenas   | pve-srv-1 | 10/40 | 32GB  | 4   | Dual-homed, drives passed through          |
-| pbs       | pve-srv-1 | 10/40 | 4GB   | 2   | Dual-homed, NFS datastore on TrueNAS       |
-| tailscale | pve-srv-1 | 80    | 512MB | 1   | Subnet router only                         |
-| master-1  | pve-srv-2 | 30    | 4GB   | 2   | Control plane, tainted NoSchedule          |
-| worker-1  | pve-srv-2 | 30/40 | 24GB  | 6   | Workloads + Longhorn, 500GB SSD            |
-| master-2  | pve-srv-3 | 30    | 4GB   | 2   | Control plane, tainted NoSchedule          |
-| worker-2  | pve-srv-3 | 30/40 | 24GB  | 6   | Workloads + Longhorn, 500GB SSD            |
-| master-3  | pve-srv-4 | 30    | 4GB   | 2   | Control plane, tainted NoSchedule          |
-| worker-3  | pve-srv-4 | 30/40 | 24GB  | 6   | Workloads + Longhorn, 500GB SSD            |
-| netboot   | dedicated | 99    | —     | —   | Libre Potato, bare metal                   |
+| VM        | Host      | VLAN  | RAM  | CPU | Notes                                                       |
+| --------- | --------- | ----- | ---- | --- | ----------------------------------------------------------- |
+| athena    | pve-srv-1 | 10    | 6GB  | 4   | Ansible, OpenTofu, Bind9, Gitea, Semaphore                  |
+| docker    | pve-srv-1 | 10    | 32GB | 8   | Docker + Traefik + application workloads.  Unifi Controller |
+| truenas   | pve-srv-1 | 10/40 | 32GB | 4   | Dual-homed, drives passed through                           |
+| pbs       | pve-srv-1 | 10/40 | 8GB  | 2   | Dual-homed, NFS datastore on TrueNAS                        |
+| tailscale | pve-srv-1 | 80    | 2GB  | 1   | Subnet router only                                          |
+| master-1  | pve-srv-2 | 30    | 4GB  | 2   | Control plane, tainted NoSchedule                           |
+| worker-1  | pve-srv-2 | 30/40 | 24GB | 6   | Workloads + Longhorn, 500GB SSD                             |
+| master-2  | pve-srv-3 | 30    | 4GB  | 2   | Control plane, tainted NoSchedule                           |
+| worker-2  | pve-srv-3 | 30/40 | 24GB | 6   | Workloads + Longhorn, 500GB SSD                             |
+| master-3  | pve-srv-4 | 30    | 4GB  | 2   | Control plane, tainted NoSchedule                           |
+| worker-3  | pve-srv-4 | 30/40 | 24GB | 6   | Workloads + Longhorn, 500GB SSD                             |
+| netboot   | dedicated | 99    | —    | —   | Libre Potato — **unused** (netboot abandoned, see post-mortem) |
 
 > [!NOTE] Athena — Why everything lives here
 > Athena is the management plane. Gitea and Semaphore live here rather than
@@ -183,6 +183,5 @@ for VLAN 40 — no VLAN config changes needed, just move vmbr1.40 to the new int
 > a subdomain via Traefik later once it's running.
 >
 > Gitea is configured with GitHub push mirroring — every push to Gitea
-> automatically mirrors to GitHub as an offsite backup. Netboot also points
-> to the public GitHub repo as a fallback.
+> automatically mirrors to GitHub as an offsite backup.
 

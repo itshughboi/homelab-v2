@@ -1,104 +1,46 @@
 # Provisioning Overview
 
-> The netboot container is configured via Ansible playbook on first run.
-> Container lives at `/opt/homelab/bootstrap/netbootxyz` on `10.10.99.99`.
+> Nodes are installed via **Ventoy USB** — see [Ventoy.md](Ventoy.md) for the full method.
+> Netboot/PXE was tried and abandoned; the [post-mortem](../../1-networking/Netboot/README.md)
+> records why so it isn't re-attempted.
 
 ---
 
-## Why PXE / Netbootxyz
+## How nodes are provisioned
 
-Four approaches exist for bare-metal provisioning. This homelab uses **netbootxyz** (classic PXE):
-
-| Method | How It Boots | Best For |
+| Method | How It Boots | Status |
 | --- | --- | --- |
-| **Classic PXE / Netboot** ✅ | DHCP → iPXE → Installer (answer.toml) | Homelabs, flexible, no vendor lock-in |
-| Image-Based | PXE → disk imaging agent → reboot | Datacenters, k8s fleets — faster but more complex |
-| BMC / IPMI / Redfish | API → mount ISO → autoinstall | Enterprises, break-glass recovery |
-| Bare-Metal-as-a-Service | Provider-controlled | Hyperscalers |
+| **Ventoy USB** ✅ | USB → Proxmox ISO (answer baked in) → automated install | **In use** |
+| Classic PXE / Netboot | DHCP → iPXE → installer | Abandoned — see [post-mortem](../../1-networking/Netboot/README.md) |
+| MAAS | DHCP → MAAS PXE → image to disk | Evaluated — needs IPMI + heavy infra, [details](MAAS.md) |
+| BMC / IPMI / Redfish | API → mount ISO → autoinstall | N/A — consumer mini PCs have no BMC |
 
-PXE pros for this use case: simple, cheap, flexible, no vendor lock-in.
-PXE cons: slower at scale, PXE infra (Libre Potato) must stay healthy.
+The short version: netboot.xyz is an interactive menu tool, not a provisioning pipeline,
+and loading a 1.8 GB ISO as an initrd over the network proved too fragile. Ventoy boots
+the ISO as real media and the answer file is baked into the ISO with
+`proxmox-auto-install-assistant`. The per-node TOMLs still live in git.
 
 ---
 
-## Boot Chain
+## Flow (summary)
 
 ```
-ipxe.efi (DHCP Option 67)
+pve-srv-1 (amd64): prepare-iso --fetch-from iso --answer-file pve-srv-X.toml
+    ↓ copy prepared ISO onto Ventoy USB
+Boot node from USB → Automated Installation → installs onto 10.10.10.X
     ↓
-local.ipxe (iPXE script — reads node MAC)
-    ↓
-pve-srv-X.toml (per-node answer file)
-    ↓
-Proxmox automated install
+Ansible/Terraform take over (network, cluster, VMs)
 ```
 
-DHCP hands the node `ipxe.efi` which bootstraps iPXE. iPXE then runs `local.ipxe`,
-reads the node's MAC, and pulls the correct per-node TOML to drive the automated install.
+Because the answer files set a **static** management IP, you plug the node straight into
+its permanent trunk port (VLAN 10) — no VLAN 99 provisioning step and no cable move. Full
+steps in [Ventoy.md](Ventoy.md).
 
 ---
 
 ## BIOS Prerequisites (per node)
 
-1. PXE boot enabled (may need to enable **Network Stack** first before PXE option appears)
-2. Boot order set to **PXE first**
-3. Secure Boot **OFF**
+1. **USB boot enabled**, USB first in boot order
+2. Secure Boot **OFF**
 
----
-
-## Provisioning Flow
-
-1. Plug node into **UXG Max port 3** (dedicated VLAN 99 access port)
-2. Power on — DHCP assigns a `10.10.99.x` address and returns:
-   - Option 66: `10.10.99.99` (boot server)
-   - Option 67: `ipxe.efi` (boot filename, served via HTTP)
-3. Node downloads `ipxe.efi` from `http://10.10.99.99:8080/ipxe.efi`
-4. iPXE loads, runs `local.ipxe`, identifies node by MAC address
-5. Node pulls its specific TOML: `http://10.10.99.99:8080/proxmox/pve-srv-X.toml`
-6. Proxmox installs and configures automatically
-7. Node receives its permanent IP via MAC reservation on VLAN 10
-8. Move cable from port 3 to permanent trunk port on USW Flex Mini
-9. Athena can now reach it on VLAN 10
-
-> [!IMPORTANT] HTTP not TFTP
-> UniFi serves `ipxe.efi` via HTTP by default in newer firmware, not TFTP.
-> The netboot container must be serving on port 8080 over HTTP. TFTP-only
-> setups will silently fail at the binary download step.
-
----
-
-## Verify Netboot is Serving
-
-```sh
-curl -I http://10.10.99.99:8080/ipxe.efi
-curl -I http://10.10.99.99:8080/proxmox/pve-srv-2.toml
-```
-
-Expected: `HTTP/1.1 200 OK` on both.
-
-- `404 Not Found` — file not in `./assets/proxmox` or mapping wrong
-- `Connection refused` — container not running or firewall blocking 8080
-
----
-
-## Adding a New Node
-
-1. Copy an existing `.toml` file, update hostname, MAC, and IP values
-2. Add the new node's MAC and hostname mapping to `local.ipxe`
-3. Add MAC reservation in UniFi for VLAN 10
-4. Push to Gitea — the git pull timer picks it up within 5 minutes (mirrors to GitHub automatically)
-5. Plug new node into port 3 and power on
-6. After install: move cable to permanent trunk port on USW Flex Mini
-
----
-
-## Troubleshooting
-
-**Permission denied on netboot host:**
-```sh
-sudo chown -R 1000:1000 /opt/homelab/bootstrap/netbootxyz
-```
-Then reboot the container.
-
-**PXE boots but wrong node config loads:**
-Check MAC mapping in `local.ipxe` — the MAC must match exactly.
+(Network/PXE boot is no longer required.)

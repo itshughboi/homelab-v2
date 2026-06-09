@@ -7,13 +7,16 @@
 | Port | Mode | Device | VLAN | IP | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Access | — | — | — | Available |
-| 2 | Access | Libre Potato (netboot) | 99 | 10.10.99.99 | Permanent |
-| 3 | Access | — | 99 | — | Dedicated provisioning port — plug new nodes here first |
+| 2 | Access | Libre Potato | 99 | 10.10.99.99 | **Unused** — was netboot server; free to repurpose |
+| 3 | Access | — | 99 | — | **Free** — was the provisioning port; no longer needed |
 | 4 | Trunk | Uplink to USW Flex Mini | N/A | N/A | Port 5 on Flex Mini |
 | 5 | — | Comcast WAN | N/A | DHCP | WAN uplink |
 
-> Port 3 stays permanently as a VLAN 99 access port. Any future node that needs
-> provisioning just gets plugged in here first.
+> [!NOTE] Netboot abandoned
+> Ports 2 and 3 (and VLAN 99) were the PXE provisioning setup. Nodes now install via
+> [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) and plug straight into their
+> permanent trunk port on the Flex Mini — see the [post-mortem](../../Netboot/README.md).
+> These ports are free to repurpose.
 
 ---
 

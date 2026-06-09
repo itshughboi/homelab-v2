@@ -27,13 +27,15 @@ Build network → Secure it → Add services
    1. WAN — DHCP
    2. WAN DNS — `9.9.9.9`, `1.1.1.1` or `1.1.1.2`
    3. VLANs — see [Networks/](Networks/README.md)
-   4. DHCP PXE options 66/67 on VLAN 99 — see [Networks/PXE Options.md](Networks/PXE%20Options.md)
-   5. Firewall — see [Firewall/](Firewall/README.md)
-   6. LACP / MLAG if applicable — see [Networks/LACP - MLAG.md](Networks/LACP%20-%20MLAG.md)
-   7. MAC reservations (static IPs for core infra):
-      - Libre Potato → `10.10.99.99`
-      - Proxmox servers → see [Assignments/MAC Reservations.md](Assignments/MAC%20Reservations.md)
-   8. Netboot provisioning — see [Networks/Netboot.md](Networks/Netboot.md)
+   4. Firewall — see [Firewall/](Firewall/README.md)
+   5. LACP / MLAG if applicable — see [Switching.md](Networks/Switching.md)
+   6. MAC reservations (static IPs for core infra) → see [Assignments/MAC Reservations.md](Assignments/MAC%20Reservations.md)
+
+> [!NOTE]
+> Node provisioning is **not** a UniFi step anymore — nodes install via
+> [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md) directly onto VLAN 10. The old
+> VLAN 99 DHCP PXE options (66/67) are no longer configured; see the
+> [netboot post-mortem](../Netboot/README.md).
 
 > [!NOTE]
 > All UniFi configuration is done manually through the UI. Set it once, take a backup, and leave it.

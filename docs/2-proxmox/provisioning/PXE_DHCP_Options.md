@@ -1,4 +1,10 @@
-# PXE / DHCP Options
+# [ARCHIVED] PXE / DHCP Options
+
+> [!WARNING] Not in use
+> Provisioning moved to [Ventoy USB](Ventoy.md); netboot/PXE is
+> [abandoned](../../1-networking/Netboot/README.md). The DHCP boot options below
+> (66/67 on VLAN 99) are **no longer needed** and can be removed from UniFi. Kept for
+> reference only.
 
 ---
 
