@@ -1,10 +1,10 @@
 > [!WARNING] Archived — netboot is abandoned
 > Nodes are installed via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md), not PXE.
 > The DHCP boot options here are no longer needed; see the
-> [post-mortem](../../Netboot/README.md). Kept for reference only — the switch-port table
+> [post-mortem](../../Alternative%20Methods/Netboot/README.md). Kept for reference only — the switch-port table
 > at the bottom is still accurate for the physical layout.
 
-UniFi-side configuration for PXE booting nodes on VLAN 99. For Libre Potato setup, boot procedure, and fallbacks see [Netboot/](../../Netboot/README.md).
+UniFi-side configuration for PXE booting nodes on VLAN 99. For Libre Potato setup, boot procedure, and fallbacks see [Netboot/](../../Alternative%20Methods/Netboot/README.md).
 
 ---
 

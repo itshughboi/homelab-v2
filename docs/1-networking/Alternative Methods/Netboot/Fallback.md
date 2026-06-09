@@ -1,5 +1,5 @@
 > [!WARNING] Historical — netboot is abandoned
-> Nodes are installed via [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md) — that is now
+> Nodes are installed via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) — that is now
 > the **primary** method, documented in its own doc (don't look for it here). The one item
 > below is a netboot-era fallback, kept for reference only. See the [post-mortem](README.md).
 
@@ -23,6 +23,6 @@ docker run --rm -it \
 
 > [!NOTE]
 > The Ventoy USB method that used to live here is now the **primary** install method —
-> see [provisioning/Ventoy.md](../../2-proxmox/provisioning/Ventoy.md). The old version on
+> see [provisioning/Ventoy.md](../../../2-proxmox/provisioning/Ventoy.md). The old version on
 > this page was incomplete (it skipped `proxmox-auto-install-assistant`), so it was removed
 > rather than left to mislead.

@@ -15,7 +15,7 @@
 > [!NOTE] Netboot abandoned
 > Ports 2 and 3 (and VLAN 99) were the PXE provisioning setup. Nodes now install via
 > [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) and plug straight into their
-> permanent trunk port on the Flex Mini — see the [post-mortem](../../Netboot/README.md).
+> permanent trunk port on the Flex Mini — see the [post-mortem](../../Alternative%20Methods/Netboot/README.md).
 > These ports are free to repurpose.
 
 ---

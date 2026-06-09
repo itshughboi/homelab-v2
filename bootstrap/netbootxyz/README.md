@@ -2,7 +2,7 @@
 
 > [!WARNING] Deprecated — no longer active
 > This PXE setup was abandoned in favour of [Ventoy USB](../../docs/2-proxmox/provisioning/Ventoy.md);
-> see the [post-mortem](../../docs/1-networking/Netboot/README.md) for the full reasoning.
+> see the [post-mortem](../../docs/1-networking/Alternative%20Methods/Netboot/README.md) for the full reasoning.
 > The compose stack, `local.ipxe`, and `config/menus/*.ipxe` here are inactive and kept only
 > as reference. The `assets/proxmox/*.toml` answer files, however, are **still live** — Ventoy
 > consumes them.

@@ -1,7 +1,7 @@
 # Node Install — Ventoy USB (Primary Method)
 
 > **This is the canonical way nodes are installed.** Netboot/PXE was tried and abandoned
-> — see the [post-mortem](../../1-networking/Netboot/README.md) for why. Ventoy boots the
+> — see the [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md) for why. Ventoy boots the
 > ISO as real install media, which sidesteps the entire class of failures that sank the
 > PXE approach.
 

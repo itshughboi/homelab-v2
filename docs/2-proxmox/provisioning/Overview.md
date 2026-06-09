@@ -1,7 +1,7 @@
 # Provisioning Overview
 
 > Nodes are installed via **Ventoy USB** — see [Ventoy.md](Ventoy.md) for the full method.
-> Netboot/PXE was tried and abandoned; the [post-mortem](../../1-networking/Netboot/README.md)
+> Netboot/PXE was tried and abandoned; the [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md)
 > records why so it isn't re-attempted.
 
 ---
@@ -11,7 +11,7 @@
 | Method | How It Boots | Status |
 | --- | --- | --- |
 | **Ventoy USB** ✅ | USB → Proxmox ISO (answer baked in) → automated install | **In use** |
-| Classic PXE / Netboot | DHCP → iPXE → installer | Abandoned — see [post-mortem](../../1-networking/Netboot/README.md) |
+| Classic PXE / Netboot | DHCP → iPXE → installer | Abandoned — see [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md) |
 | MAAS | DHCP → MAAS PXE → image to disk | Evaluated — needs IPMI + heavy infra, [details](MAAS.md) |
 | BMC / IPMI / Redfish | API → mount ISO → autoinstall | N/A — consumer mini PCs have no BMC |
 

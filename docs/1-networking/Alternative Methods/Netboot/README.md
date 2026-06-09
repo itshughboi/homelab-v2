@@ -1,7 +1,7 @@
 # [ABANDONED] Netboot / PXE — Post-Mortem
 
 > **Netboot is no longer used.** Nodes are installed via **Ventoy USB** —
-> see [provisioning/Ventoy.md](../../2-proxmox/provisioning/Ventoy.md).
+> see [provisioning/Ventoy.md](../../../2-proxmox/provisioning/Ventoy.md).
 >
 > This folder is kept as a record of what was tried and why it didn't work, so the
 > same ground isn't re-trodden. [Setup.md](Setup.md), [Nodes.md](Nodes.md), and
@@ -60,7 +60,7 @@ Two blockers at this scale:
   The Libre Potato (2 GB, SD card) can't host it; it'd have to run as a VM on pve-srv-1.
   That's a lot of infrastructure to install three more nodes that rarely get reimaged.
 
-See [provisioning/MAAS.md](../../2-proxmox/provisioning/MAAS.md) for the full evaluation.
+See [provisioning/MAAS.md](../../../2-proxmox/provisioning/MAAS.md) for the full evaluation.
 
 ---
 

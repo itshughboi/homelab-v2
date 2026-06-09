@@ -19,7 +19,7 @@
 
 | File | Contents |
 | --- | --- |
-| [Netboot/](Netboot/README.md) | **Post-mortem** — why PXE was dropped. Nodes now install via [Ventoy USB](../2-proxmox/provisioning/Ventoy.md). |
+| [Netboot/](Alternative%20Methods/Netboot/README.md) | **Post-mortem** — why PXE was dropped. Nodes now install via [Ventoy USB](../2-proxmox/provisioning/Ventoy.md). |
 
 
 ---

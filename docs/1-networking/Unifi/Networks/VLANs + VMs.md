@@ -140,7 +140,7 @@ Zone: `Wireguard`. Requires public IP or DDNS. See [VPN.md](VPN.md) for setup.
 > This VLAN existed for PXE provisioning. Nodes now install via
 > [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) directly onto Management (VLAN 10),
 > so VLAN 99, its DHCP boot options, and the dedicated provisioning port are no longer
-> needed. See the [post-mortem](../../Netboot/README.md). Kept here until the VLAN and the
+> needed. See the [post-mortem](../../Alternative%20Methods/Netboot/README.md). Kept here until the VLAN and the
 > Libre Potato are formally decommissioned/repurposed.
 
 ---

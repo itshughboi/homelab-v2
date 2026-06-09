@@ -35,7 +35,7 @@ Build network → Secure it → Add services
 > Node provisioning is **not** a UniFi step anymore — nodes install via
 > [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md) directly onto VLAN 10. The old
 > VLAN 99 DHCP PXE options (66/67) are no longer configured; see the
-> [netboot post-mortem](../Netboot/README.md).
+> [netboot post-mortem](../Alternative%20Methods/Netboot/README.md).
 
 > [!NOTE]
 > All UniFi configuration is done manually through the UI. Set it once, take a backup, and leave it.

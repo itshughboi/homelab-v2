@@ -46,7 +46,7 @@ Before booting each node, confirm BIOS settings:
 - [ ] Secure Boot: **OFF**
 
 Nodes are installed via **Ventoy USB** (see [Ventoy.md](Ventoy.md)). Netboot/PXE was
-abandoned — [post-mortem](../../1-networking/Netboot/README.md). After each node is up:
+abandoned — [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md). After each node is up:
 
 **Disable enterprise repo, enable no-subscription:**
 ```sh

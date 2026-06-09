@@ -1,7 +1,7 @@
 > **Not in use** — current provisioning is [Ventoy USB](Ventoy.md) + Proxmox answer files.
 > MAAS was evaluated as the "proper" netboot-style tool but ruled out for now: consumer
 > mini PCs have no IPMI/BMC (so no remote power-on, MAAS's main draw) and it's too heavy to
-> host on the ARM Libre Potato. See the [netboot post-mortem](../../1-networking/Netboot/README.md).
+> host on the ARM Libre Potato. See the [netboot post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md).
 > This doc is reference material if MAAS is ever reconsidered (e.g. the cluster grows or
 > nodes with IPMI are added).
 

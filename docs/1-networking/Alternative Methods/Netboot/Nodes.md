@@ -1,5 +1,5 @@
 > [!WARNING] Historical — netboot is abandoned
-> Nodes are installed via [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md), not PXE.
+> Nodes are installed via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md), not PXE.
 > This page documents the old per-node PXE registration flow and is kept for reference
 > only. See the [post-mortem](README.md) for why. The per-node TOMLs referenced here are
 > still used — Ventoy bakes them into the install ISO instead of serving them over HTTP.
@@ -79,7 +79,7 @@ The MAC in hex, no colons, lowercase — e.g. `c8:ff:bf:03:f3:50` → `MAC-c8ffb
 
 ---
 
-**3. MAC reservation** in UniFi (VLAN 10) so the node gets its permanent IP after install — see [MAC Reservations.md](../Unifi/Assignments/MAC%20Reservations.md).
+**3. MAC reservation** in UniFi (VLAN 10) so the node gets its permanent IP after install — see [MAC Reservations.md](../../Unifi/Assignments/MAC%20Reservations.md).
 
 Push to Gitea → Libre Potato picks up changes within 5 minutes (systemd timer runs `git pull` and restarts the container if anything in `bootstrap/netbootxyz` changed).
 

@@ -9,7 +9,7 @@
 
 > Netboot was abandoned — nodes install via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md).
 > This reservation is no longer required; kept until the Libre Potato is repurposed. See the
-> [post-mortem](../../Netboot/README.md).
+> [post-mortem](../../Alternative%20Methods/Netboot/README.md).
 
 | Device | MAC | IP | Notes |
 | --- | --- | --- | --- |

@@ -206,7 +206,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 > This VLAN existed for PXE/netboot provisioning, which has been **abandoned**. Nodes now
 > install via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) directly onto
 > Management (VLAN 10), so the provisioning zone serves no purpose. See the
-> [netboot post-mortem](../../Netboot/README.md).
+> [netboot post-mortem](../../Alternative%20Methods/Netboot/README.md).
 >
 > **Action:** these rules can be removed from UniFi along with the VLAN 99 network and its
 > DHCP boot options. The rules below are retained only as a record of what was in place.

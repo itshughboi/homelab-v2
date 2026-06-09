@@ -81,7 +81,7 @@ ssh-keygen -t ed25519 -C "homelab-datacenter" -f ~/.ssh/homelab_id_ed25519
 **Goal:** each node installs Proxmox automatically from a prepared USB.
 
 > PXE netboot was tried and abandoned — see the
-> [post-mortem](1-networking/Netboot/README.md). Nodes now install via Ventoy.
+> [post-mortem](1-networking/Alternative%20Methods/Netboot/README.md). Nodes now install via Ventoy.
 
 For each node:
 - [ ] On pve-srv-1: `proxmox-auto-install-assistant prepare-iso ... --fetch-from iso --answer-file pve-srv-X.toml` (TOMLs live in `bootstrap/netbootxyz/assets/proxmox/`)

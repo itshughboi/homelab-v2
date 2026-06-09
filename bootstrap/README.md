@@ -3,7 +3,7 @@
 > [!WARNING] Netboot/PXE is deprecated — kept for reference
 > Bare-metal provisioning moved to **Ventoy USB**
 > ([docs](../docs/2-proxmox/provisioning/Ventoy.md)); the netboot.xyz PXE setup below is no
-> longer active. See the [post-mortem](../docs/1-networking/Netboot/README.md) for why. These
+> longer active. See the [post-mortem](../docs/1-networking/Alternative%20Methods/Netboot/README.md) for why. These
 > files are retained as a useful record, not deleted.
 >
 > **Still active:** the per-node answer files in
