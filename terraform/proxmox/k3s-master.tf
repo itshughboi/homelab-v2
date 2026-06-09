@@ -12,7 +12,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   started     = true
 
   clone {
-    vm_id = 9999   # Pre-existing VM template
+    vm_id = 9999 # Pre-existing VM template
     full  = true
   }
 

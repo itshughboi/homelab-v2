@@ -1,8 +1,14 @@
-# UniFi Terraform
+# UniFi Terraform — SUNSET (reference only)
 
-Manages UniFi network infrastructure as code: VLANs, firewall rules, port profiles, DHCP reservations, PXE boot, and DNS overrides.
+> [!WARNING] Not in use — UniFi is managed manually
+> The UniFi network is configured **by hand in the UI**, not by Terraform — see
+> [docs/1-networking/Unifi/](../../docs/1-networking/Unifi/Overview.md). This workspace is kept
+> as a **reference implementation** in case the network is ever moved to IaC. It is not applied,
+> and it still encodes pre-sunset bits (e.g. the netboot/PXE provisioning VLAN). The docs — not
+> this code — are the source of truth for the live network.
 
-> **Warning:** All network changes must be made through Terraform, not the UniFi UI. UniFi does not sync UI changes back to Terraform state — any GUI change creates drift that will be reverted on the next `terraform apply`. Make the change in code, then apply.
+Models UniFi infrastructure as code: VLANs, firewall rules, port profiles, DHCP reservations,
+PXE boot, and DNS overrides — for reference.
 
 ---
 

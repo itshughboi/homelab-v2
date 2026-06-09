@@ -49,6 +49,16 @@ reservations for both NICs to prevent conflicts.
 | ------- | ---------- | --------- | ---- |
 | truenas | 10.10.40.5 | pve-srv-1 | NAS — storage NIC |
 | pbs     | 10.10.40.6 | pve-srv-1 | Proxmox Backup Server — storage NIC |
+| k3s-worker-1 | 10.10.40.11 | pve-srv-2 | k3s worker — storage NIC (Longhorn) |
+| k3s-worker-2 | 10.10.40.12 | pve-srv-3 | k3s worker — storage NIC (Longhorn) |
+| k3s-worker-3 | 10.10.40.13 | pve-srv-4 | k3s worker — storage NIC (Longhorn) |
+| k3s-longhorn-1 | 10.10.40.51 | pve-srv-2 | Longhorn storage — storage NIC |
+| k3s-longhorn-2 | 10.10.40.52 | pve-srv-3 | Longhorn storage — storage NIC |
+| k3s-longhorn-3 | 10.10.40.53 | pve-srv-4 | Longhorn storage — storage NIC |
+
+> The k3s worker/Longhorn VLAN-40 NICs come from `terraform/proxmox/k3s-{worker,longhorn}.tf`
+> (eth1). Longhorn must be told to use this network via its `storage-network` setting, else
+> replica traffic stays on VLAN 30.
 
 ---
 

@@ -10,5 +10,5 @@ terraform {
 provider "proxmox" {
   endpoint  = var.proxmox_api_url
   api_token = var.proxmox_api_token
-  insecure  = true  # if proxmox is using Self Signed Certs
+  insecure  = true # if proxmox is using Self Signed Certs
 }

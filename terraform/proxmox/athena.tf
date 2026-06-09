@@ -7,31 +7,31 @@ resource "proxmox_virtual_environment_vm" "athena" {
 
   #agent       = 1 # QEMU option for speed + proxmox console viewing
 
-# Ensure the VM starts after creation
+  # Ensure the VM starts after creation
   started = true
 
-#  lifecycle {
-#    prevent_destroy = true
-#}
+  #  lifecycle {
+  #    prevent_destroy = true
+  #}
 
   clone {
     vm_id = 9999 # Pre-existing VM template made with Packer we are cloning from
-    full = true
+    full  = true
   }
 
   cpu {
     cores = 4
-    type  = "host" 
+    type  = "host"
   }
 
   memory {
     dedicated = 8192
   }
 
-  disk {  # VERY IMPORTANT. NEEDS TO MATCH WHAT THE TEMPLATE IS ALREADY USING. Otherwise a secondary disk will be created
+  disk {                       # VERY IMPORTANT. NEEDS TO MATCH WHAT THE TEMPLATE IS ALREADY USING. Otherwise a secondary disk will be created
     datastore_id = "local-lvm" # Change to your storage name (e.g., 'ssd-storage')
-    interface    = "scsi0" # disk that the template uses
-    size         = 50 # Size in GB
+    interface    = "scsi0"     # disk that the template uses
+    size         = 50          # Size in GB
   }
 
   network_device {
@@ -50,7 +50,7 @@ resource "proxmox_virtual_environment_vm" "athena" {
       ipv4 {
         # Hardcoding the IP for reliability
         address = "10.10.10.8/24" # Adjust the subnet/IP to match your network
-        gateway = "10.10.10.254"    # Your router/gateway IP
+        gateway = "10.10.10.254"  # Your router/gateway IP
       }
     }
 

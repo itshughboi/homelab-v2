@@ -126,6 +126,20 @@ docker exec crowdsec cscli decisions list
 
 ---
 
+## Identity / SSO
+
+Two OIDC providers, split by platform — **not** redundant:
+
+| Provider | Serves | Where |
+| --- | --- | --- |
+| **Pocket ID** | Docker stack SSO (e.g. Proxmox OIDC) | dock-prod — `pocket.hughboi.cc` ([setup](../6-docker/Pocket%20ID%20-%20Proxmox.md)) |
+| **Authentik** | k3s app SSO (forward-auth via Traefik) | k3s — `apps/kubernetes/k3s/apps/authentik/` |
+
+As the Docker→k3s migration completes, Authentik becomes the primary; Pocket ID stays for
+anything that remains on Docker / for Proxmox OIDC.
+
+---
+
 ## Kubernetes NetworkPolicies
 
 Default-deny is applied to all app namespaces. Explicit allow rules for:
