@@ -1,4 +1,4 @@
-# 9. GitOps
+# 8. GitOps
 
 ArgoCD + SOPS/Age. Push to Git → cluster applies it. Secrets encrypted at rest, decrypted at runtime on Athena. Every app deployment is a `git push`.
 
@@ -84,67 +84,46 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 
 ## SOPS + Age
 
-Full reference: [`Secrets_SOPS.md`](Secrets_SOPS.md)
+One SOPS convention across the repo: **plaintext files are gitignored; their `.sops`-encrypted
+counterparts are committed** (the encrypted form is safe — age/AES-256-GCM). Two scopes, two
+docs:
 
-### Setup (One-Time, on Athena)
+| Scope | Files | Status | Doc |
+| --- | --- | --- | --- |
+| **Docker** | `apps/docker/**/.env` → `.env.sops` | **Live** (the only rule in `.sops.yaml`) | [sops-secrets.md](sops-secrets.md) |
+| **Ansible / Terraform** | `secrets.yaml`, `terraform.tfvars` → `.sops` versions | **Planned** | [Secrets_SOPS.md](Secrets_SOPS.md) |
 
-```sh
-apt install age sops
+> [!IMPORTANT] Not active until the age key is set
+> `.sops.yaml` still ships `AGE_PUBLIC_KEY_PLACEHOLDER` — SOPS encrypts nothing until you run
+> `./scripts/age-setup.sh` on Athena (audit finding **C2**). Until then, secrets like
+> `terraform.tfvars` are just gitignored plaintext on disk, **not** encrypted-and-committed.
 
-# Generate keypair — private key NEVER leaves Athena
-age-keygen -o ~/.config/sops/age/keys.txt
-# Save the public key output: age1...
-
-# Auto-populate .sops.yaml in repo:
-./scripts/age-setup.sh
-```
-
-### .sops.yaml
-
-```yaml
-creation_rules:
-  - path_regex: secrets\.yaml$
-    age: "age1..."
-  - path_regex: terraform\.tfvars$
-    age: "age1..."
-```
-
-This file is safe to commit — it contains only the public key.
-
-### Encrypt / Decrypt
-
-```sh
-sops --encrypt --in-place secrets.yaml   # encrypt in place
-sops secrets.yaml                         # open decrypted in $EDITOR (re-encrypts on save)
-sops --decrypt secrets.yaml               # print decrypted to stdout
-```
-
-### What Gets Encrypted
-
-| File | Contains |
-| --- | --- |
-| `terraform/proxmox/terraform.tfvars` | Proxmox API token |
-| `ansible/playbooks/*/secrets.yaml` | UniFi credentials, service API keys |
-| Any file with passwords, tokens, API keys before committing |
+Setup, encrypt/decrypt, multi-machine, rotation, and recovery are documented in the two scope
+docs above — not duplicated here.
 
 ---
 
 ## Git Rules (Non-Negotiable)
 
 ```gitignore
-# Terraform secrets — never commit
+# Plaintext secrets — never commit
 terraform.tfvars
 terraform.tfvars.json
 *.tfstate
 *.tfstate.backup
 .terraform/
-
-# Application secrets
 secrets.yaml
 .env
 *.key
 proxmox.pkrvars.sh
+
+# SOPS-encrypted counterparts ARE safe to commit — un-ignore them
+!*.env.sops
 ```
+
+> The rule: the **plaintext** name is gitignored; the **`.sops`-encrypted** name is committed
+> (encrypted values are safe). This is why `.env` is ignored but `.env.sops` is un-ignored.
+> When the Ansible/TF path is wired up, its encrypted files get un-ignored the same way.
 
 > [!DANGER]
 > **If a plaintext secret touches Git history, assume it is compromised.**

@@ -1,6 +1,10 @@
 # SOPS + age: Docker Secrets Management
 
-Complete reference for managing Docker service secrets with SOPS and age encryption.
+Complete reference for managing **Docker** service secrets (`apps/docker/**/.env.sops`) with SOPS
+and age — the **live** SOPS scope (it's the only rule in `.sops.yaml`). For the Ansible/Terraform
+scope see [Secrets_SOPS.md](Secrets_SOPS.md); for the GitOps overview + Kubernetes Sealed Secrets
+see [index.md](index.md). The age key setup, multi-machine, rotation, and recovery flows below
+apply to *all* scopes.
 
 ---
 
