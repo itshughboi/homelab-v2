@@ -79,5 +79,5 @@
 | k3s-longhorn-3 | 10.10.30.53 |
 | MetalLB range start | 10.10.30.60 |
 | traefik-vip | 10.10.30.65 |
-| pihole-vip | 10.10.30.69 |
+| pihole-vip | 10.10.30.69 | *(test/reference only — not in active use; AdGuard is the DNS filter, see [DNS.md](../Networks/DNS.md))* |
 | MetalLB range end | 10.10.30.99 |

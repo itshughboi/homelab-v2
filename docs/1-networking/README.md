@@ -5,7 +5,7 @@
 | File | Contents |
 | --- | --- |
 | [Overview.md](Unifi/Overview.md) | Controller access, bootstrap order of operations |
-| [Networks/](Unifi/Networks/README.md) | VLAN table, DNS, WiFi, VPN, PXE, LACP, mDNS, QoS |
+| [Networks/](Unifi/Networks/README.md) | VLAN table, DNS, WiFi, VPN, switching (jumbo/STP/LACP), mDNS, QoS |
 | [Firewall/](Unifi/Firewall/README.md) | Zone-based firewall rules, setup, reference, recovery |
 | [Security/](Unifi/Security/README.md) | IPS, region blocking, honeypot, logging, hardening |
 | [Assignments/](Unifi/Assignments/MAC%20Reservations.md) | MAC reservations, switch ports, network assignments |

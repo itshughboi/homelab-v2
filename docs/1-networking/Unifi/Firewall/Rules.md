@@ -78,15 +78,20 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 ## Storage (10.10.40.0/24)
 
-*Has gateway for outbound updates only. Jumbo frames (MTU 9000). Accepts connections from Management and k3s only.*
+*No gateway — internal only. Jumbo frames (MTU 9000). Accepts connections from Management and k3s only.*
 
 | Source | Destination | Services | Intent |
 | --- | --- | --- | --- |
 | STORAGE | STORAGE | ANY | Intra-VLAN — PBS → TrueNAS backups |
 | MGMT | STORAGE | SSH, WEB | Admin access to TrueNAS + PBS web UIs |
 | K3S | STORAGE | NFS 2049, rpcbind 111, iSCSI 3260, node_exporter 9100, Longhorn 9500 | Volume access + Prometheus scraping |
-| STORAGE | WAN | CORE, WEB | Updates only |
 | ANY | STORAGE | DENY | Default deny inbound |
+
+> [!NOTE] No `STORAGE → WAN` rule — and that's intentional
+> VLAN 40 has **no gateway configured on any storage NIC**. TrueNAS and PBS are dual-homed;
+> all outbound (package updates, etc.) egresses via their **VLAN 10 management interface**,
+> not VLAN 40. So storage never routes out on 40 — no WAN rule is needed or wanted here.
+> (UniFi may still show a gateway field for the network; it's just unused.)
 
 > [!DANGER] MTU must be 9000 end-to-end — switch ports, NICs, Proxmox bridges, and VMs. Partial MTU causes silent packet loss.
 

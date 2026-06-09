@@ -34,6 +34,6 @@
 | MetalLB Services | 10.10.30.60 |
 | .                |             |
 | traefik-vip      | 10.10.30.65 |
-| pihole-vip       | 10.10.30.69 |
+| pihole-vip       | 10.10.30.69 | *(test only — not in active use; DNS filtering is AdGuard)* |
 | .                |             |
 | End MetalLB      | 10.10.30.99 

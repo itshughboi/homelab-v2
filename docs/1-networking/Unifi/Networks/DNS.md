@@ -39,6 +39,34 @@ Networks with DHCP disabled (k3s, Storage): DNS is not distributed by UniFi — 
 - AdGuard passes unblocked queries to Unbound, which does full recursion via Quad9
 - If AdGuard is unreachable, Bind9 falls back to `9.9.9.9` (Quad9) directly
 
+> [!WARNING] DHCP DNS is NOT primary/failover — it's queried in parallel
+> Clients do **not** use the listed resolvers in strict order with failover. The OS queries
+> them in parallel / round-robin and caches whichever answers first. Consequences of mixing
+> different resolvers in one list:
+> - Listing **`9.9.9.9`** alongside internal resolvers means clients **intermittently bypass
+>   both local resolution (Bind9) and ad-filtering (AdGuard)** — `*.hughboi.cc` randomly fails
+>   and ad-blocking silently leaks. `9.9.9.9` should only be Bind9's *own* upstream fallback,
+>   never in the client-facing list.
+> - Listing **AdGuard (`.10`) as a peer of Bind9** only works if AdGuard forwards
+>   `*.hughboi.cc` to Bind9 — otherwise local names fail whenever a client happens to pick
+>   `.10` first.
+>
+> **Rule of thumb:** every resolver handed to a given client must resolve the *same* things.
+> Don't mix a full resolver with a partial one as "primary/secondary."
+
+> [!TIP] Target design (recommended)
+> Assign DNS **per network**, one consistent resolver per client population — not a mixed list:
+>
+> | Population | Resolver(s) | Notes |
+> | --- | --- | --- |
+> | Trusted (Mgmt, k3s, VPN, Storage) | Bind9 primary (`.8`) **+ Bind9 secondary** | Two *identical* Bind9 instances (zone-transfer/AXFR). Safe to list both — parallel querying is consistent. Fixes the single-point-of-failure. |
+> | WiFi / IoT / TV + Guest | AdGuard only (k3s MetalLB VIP) | AdGuard forwards `*.hughboi.cc` → Bind9 so these devices still resolve local names; everything else it filters + recurses. |
+>
+> Drop `9.9.9.9` from all client-facing lists (keep it only as Bind9's upstream). AdGuard is
+> the dedicated resolver for the WiFi/guest population — **not** a "secondary" to Bind9.
+> Bind9 HA = a second Bind9, not Bind9 + a different resolver.
+> *(Not yet implemented — current per-network table below still reflects the live config.)*
+
 ### UniFi Content Filter
 
 Guest and IoT use gateway DNS, not internal resolvers — so Bind9/AdGuard ad blocking doesn't apply to them. Use UniFi's built-in content filter instead:

@@ -26,7 +26,13 @@ Settings → VPN → VPN Server → Create → WireGuard
 1. Set listen port: **UDP 51820**
 2. Set VPN subnet: **10.10.81.0/24**
 3. Generate client configs from the UI — download QR code or `.conf` file
-4. Add firewall rule: `WAN → WireGuard UDP 51820` (allows inbound tunnel establishment)
+4. Add firewall rule: `External (WAN) → Gateway, UDP 51820` (allows inbound tunnel establishment)
+
+> [!NOTE] Destination is **Gateway**, not the Wireguard zone
+> The WireGuard server runs **on the UXG Max itself**, so inbound handshake traffic is
+> destined to the *Gateway* zone. The **Wireguard** zone is the client subnet
+> (`10.10.81.0/24`) — that's post-tunnel traffic heading inward, a different set of rules.
+> Source is **External** (your WAN). See [Firewall/Rules.md](../Firewall/Rules.md#vpn--wireguard-101081024).
 
 Client devices connect and receive an IP from `10.10.81.0/24`. They resolve internal hostnames via Bind9 (`10.10.10.8`) — set in [Networks/DNS.md](Networks/DNS.md).
 
