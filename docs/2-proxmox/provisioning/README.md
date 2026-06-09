@@ -222,6 +222,12 @@ terraform apply  # wait 60-90s after for cloud-init to finish
 
 ### VM Spec Table
 
+> This table is the source of truth for **resource sizing** (vCPU/RAM/disk), mirroring the
+> Terraform definitions. The source of truth for **addressing** (IPs, MACs, VLAN, placement
+> across all hosts/VMs/VIPs) is the network inventory:
+> [MAC Reservations.md](../../1-networking/Unifi/Assignments/MAC%20Reservations.md). If the IP
+> columns ever disagree, the inventory wins.
+
 | VM | VLAN | IP | vCPU | RAM | Disk | Node |
 | --- | --- | --- | --- | --- | --- | --- |
 | athena | 10 | 10.10.10.8 | 4 | 8 GB | 50 GB | pve-srv-1 |

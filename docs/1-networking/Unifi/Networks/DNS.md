@@ -54,18 +54,75 @@ Networks with DHCP disabled (k3s, Storage): DNS is not distributed by UniFi — 
 > **Rule of thumb:** every resolver handed to a given client must resolve the *same* things.
 > Don't mix a full resolver with a partial one as "primary/secondary."
 
-> [!TIP] Target design (recommended)
-> Assign DNS **per network**, one consistent resolver per client population — not a mixed list:
->
-> | Population | Resolver(s) | Notes |
-> | --- | --- | --- |
-> | Trusted (Mgmt, k3s, VPN, Storage) | Bind9 primary (`.8`) **+ Bind9 secondary** | Two *identical* Bind9 instances (zone-transfer/AXFR). Safe to list both — parallel querying is consistent. Fixes the single-point-of-failure. |
-> | WiFi / IoT / TV + Guest | AdGuard only (k3s MetalLB VIP) | AdGuard forwards `*.hughboi.cc` → Bind9 so these devices still resolve local names; everything else it filters + recurses. |
->
-> Drop `9.9.9.9` from all client-facing lists (keep it only as Bind9's upstream). AdGuard is
-> the dedicated resolver for the WiFi/guest population — **not** a "secondary" to Bind9.
-> Bind9 HA = a second Bind9, not Bind9 + a different resolver.
-> *(Not yet implemented — current per-network table below still reflects the live config.)*
+---
+
+## Target DNS Design (planned — not yet implemented)
+
+> The per-network table below still reflects the **current/live** config. This section is
+> the agreed target. Two principles drive it: (1) every resolver handed to a given client
+> must answer the *same* things (no mixing full + partial resolvers), and (2) DNS must
+> survive any single host failure.
+
+### Resolver per population
+
+Assign DNS **per network** — one consistent resolver per client population, never a mixed list:
+
+| Population | Resolver(s) | Why |
+| --- | --- | --- |
+| **Trusted** — Mgmt, k3s, VPN, Storage | Bind9 primary (`.8`) **+ Bind9 secondary** | Two *identical* Bind9 instances (zone-transfer). Safe to list both — parallel querying stays consistent. This is the HA. |
+| **Filtered** — WiFi, IoT, TV, Guest | AdGuard only (k3s MetalLB VIP) | Ad/tracker blocking for the devices that want it. Conditional-forwards local zones to Bind9. |
+
+Drop `9.9.9.9` from every **client-facing** list — it stays only as Bind9's own upstream.
+
+### Placement — spread across failure domains
+
+The current problem: Bind9 (Athena VM) and AdGuard (Docker VM) **both run on pve-srv-1**, so
+one host dying kills all DNS. Target spreads them:
+
+| Service | Runs on | Serves |
+| --- | --- | --- |
+| Bind9 **primary** | Athena VM (pve-srv-1) | Trusted nets (authoritative for `*.hughboi.cc` / `*.hughboi.vip`) |
+| Bind9 **secondary** | k3s (pve-srv-2/3/4), MetalLB VIP | Trusted nets — AXFR/IXFR zone transfer from primary |
+| **AdGuard** | k3s (pve-srv-2/3/4), MetalLB VIP | WiFi/IoT/TV/Guest only |
+
+No single Proxmox host failure can take out trusted DNS (primary on srv-1, secondary on
+srv-2/3/4). AdGuard and Bind9 serve different populations, so they were never redundant for
+each other — **Bind9 HA = a second Bind9, not Bind9 + AdGuard.**
+
+> [!NOTE] No circular dependency
+> k3s nodes themselves resolve via Bind9 *primary* on Athena (.8), not via the k3s-hosted
+> resolvers — so k3s can cold-boot without needing its own pods for DNS. The k3s-hosted
+> Bind9 secondary and AdGuard are downstream of that.
+
+### AdGuard: conditional-forward, do NOT rewrite
+
+So AdGuard returns Bind9's authoritative answers (not a flattened single IP), set **Upstream
+DNS servers** in AdGuard to conditionally forward the local zones:
+
+```
+[/hughboi.cc/]10.10.10.8
+[/hughboi.vip/]10.10.10.8
+```
+
+Everything else uses AdGuard's filtered/recursive upstreams. **Don't** use a DNS rewrite of
+`*.hughboi.cc → 10.10.10.10` — that would resolve *every* local name to the Traefik IP,
+diverging from Bind9 (e.g. `athena.hughboi.cc` would wrongly point at .10).
+
+### Bind9 secondary (zone transfer)
+
+The secondary is a real Bind9 configured as a `secondary`/`slave` that pulls zones from the
+primary via AXFR/IXFR — so it's an *identical* resolver, not a separate config to maintain:
+
+- **Primary** (`also-notify` + `allow-transfer { <secondary-ip>; }`) pushes zone updates.
+- **Secondary** (`type secondary; primaries { 10.10.10.8; };` per zone) auto-syncs.
+- Both forward non-local queries the same way (→ AdGuard/Unbound → Quad9), so trusted clients
+  get the same answer regardless of which they hit.
+
+> Once AdGuard serves Guest/IoT directly, the UniFi Content Filter (below) becomes a redundant
+> second layer for those networks rather than the primary ad-block — keep it or drop it, your
+> call, but it's no longer load-bearing.
+
+---
 
 ### UniFi Content Filter
 

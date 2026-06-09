@@ -73,6 +73,14 @@ VLAN 20 exists at the Proxmox host level only — no VMs attach to it.
 
 **NO GATEWAY** — internal routing only.
 
+> [!NOTE] Single Corosync ring today
+> Corosync currently runs a single link on this VLAN, which shares the one physical 2.5 GbE
+> trunk. The ring design (virtual ring1 as an interim, dedicated NIC as the end goal) and the
+> no-QDevice decision are documented in
+> [2-proxmox/pve/Corosync.md](../../../2-proxmox/pve/Corosync.md). Note: **pve-srv-1's trunk
+> does not yet carry VLAN 20** ([Switch ports](../Assignments/Switch_Port_Assignments.md)) —
+> add it before pve-srv-1 can use a VLAN-20 ring.
+
 Settings:
 - **IGMP Snooping enabled** — prevents Corosync multicast from flooding all switch ports
 - **QoS:** Tag traffic on UDP 5404–5405 with DSCP 46 (Expedited Forwarding)
@@ -160,20 +168,11 @@ for VLAN 40 — no VLAN config changes needed, just move vmbr1.40 to the new int
 
 #### VM Overview
 
-| VM        | Host      | VLAN  | RAM  | CPU | Notes                                                       |
-| --------- | --------- | ----- | ---- | --- | ----------------------------------------------------------- |
-| athena    | pve-srv-1 | 10    | 6GB  | 4   | Ansible, OpenTofu, Bind9, Gitea, Semaphore                  |
-| docker    | pve-srv-1 | 10    | 32GB | 8   | Docker + Traefik + application workloads.  Unifi Controller |
-| truenas   | pve-srv-1 | 10/40 | 32GB | 4   | Dual-homed, drives passed through                           |
-| pbs       | pve-srv-1 | 10/40 | 8GB  | 2   | Dual-homed, NFS datastore on TrueNAS                        |
-| tailscale | pve-srv-1 | 80    | 2GB  | 1   | Subnet router only                                          |
-| master-1  | pve-srv-2 | 30    | 4GB  | 2   | Control plane, tainted NoSchedule                           |
-| worker-1  | pve-srv-2 | 30/40 | 24GB | 6   | Workloads + Longhorn, 500GB SSD                             |
-| master-2  | pve-srv-3 | 30    | 4GB  | 2   | Control plane, tainted NoSchedule                           |
-| worker-2  | pve-srv-3 | 30/40 | 24GB | 6   | Workloads + Longhorn, 500GB SSD                             |
-| master-3  | pve-srv-4 | 30    | 4GB  | 2   | Control plane, tainted NoSchedule                           |
-| worker-3  | pve-srv-4 | 30/40 | 24GB | 6   | Workloads + Longhorn, 500GB SSD                             |
-| netboot   | dedicated | 99    | —    | —   | Libre Potato — **unused** (netboot abandoned, see post-mortem) |
+> The full host/VM/VIP list with IPs, node placement, and roles is the authoritative
+> inventory: **[MAC Reservations.md](../Assignments/MAC%20Reservations.md)**. VM resource
+> sizing (vCPU/RAM/disk) is in the Terraform spec:
+> [provisioning/README.md](../../../2-proxmox/provisioning/README.md#vm-spec-table).
+> Not duplicated here to avoid drift.
 
 > [!NOTE] Athena — Why everything lives here
 > Athena is the management plane. Gitea and Semaphore live here rather than
