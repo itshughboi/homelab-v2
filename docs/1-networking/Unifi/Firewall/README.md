@@ -70,7 +70,7 @@ Zone-based firewall rules for the UXG Max. This setup uses **zone-based firewall
 
 4. **Set Security Posture to Block** in Settings → Networks → Default Security Posture.
    Makes `Block All Traffic` the effective default deny. Without it, an `Allow All Traffic` system rule overrides your explicit denies and leaves inter-VLAN paths open regardless.
-   After enabling, verify WAN access for each zone that needs it: `MGMT → WAN`, `K3S → WAN`, `TORRENT → WAN`, `PROVISIONING → WAN`.
+   After enabling, verify WAN access for each zone that needs it: `MGMT → WAN`, `K3S → WAN`, `TORRENT → WAN`. (The former `PROVISIONING → WAN` is sunsetted — netboot abandoned, see [Rules.md](Rules.md#provisioning-101099024--sunsetted).)
 
    > [!NOTE] **The rule list will still show many "Allow All Traffic" system rules after switching to Block — this is normal.**
    > Those rules apply to UniFi's built-in zones (Internal, Gateway, VPN, Hotspot, DMZ), not your custom zones.
@@ -91,7 +91,7 @@ same VLAN cannot reach each other once Block is enabled.
 | `Storage → Storage ANY` ALLOW | PBS → TrueNAS backups |
 
 Cluster (VLAN 20) is exempt — no gateway, purely switched, never reaches the zone firewall.
-IoT, Guest, Torrent, and Provisioning do not need intra-VLAN rules.
+IoT, Guest, and Torrent do not need intra-VLAN rules. (Provisioning/VLAN 99 is sunsetted — netboot abandoned.)
 
 > See [Security/](../Security/README.md) for IPS, region blocking, honeypot, NetFlow, and logging settings.
 > See [Networks/README.md](../Networks/README.md) for DNS and per-VLAN configuration.

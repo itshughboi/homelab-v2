@@ -29,7 +29,7 @@ Zone names, trust levels, and port groups to use when writing rules.
 | **Guest**        |
 | **k3s**          |
 | **Storage**      |
-| **Provisioning** |
+| ~~**Provisioning**~~ — sunsetted (netboot abandoned), zone can be deleted |
 
 ---
 
@@ -44,7 +44,7 @@ Zone names, trust levels, and port groups to use when writing rules.
 | Edge / Risk Zone | Torrent (49) | Untrusted | Torrent |
 | Access Plane | Tailscale VPN (80) | Conditionally trusted | Tailscale |
 | Access Plane | WireGuard VPN (81) | Conditionally trusted | Wireguard |
-| Lifecycle | Provisioning (99) | Zero-trust / Disposable | — (verify) |
+| ~~Lifecycle~~ | ~~Provisioning (99)~~ | ~~Zero-trust / Disposable~~ | Sunsetted — netboot abandoned, [Ventoy](../../../2-proxmox/provisioning/Ventoy.md) now |
 
 ---
 
@@ -57,7 +57,7 @@ Conceptual groups used in the rule tables in [Rules.md](Rules.md). See **UniFi N
 | SSH | 22 TCP |
 | CORE | DNS 53 TCP/UDP, DHCP 67/68 UDP, NTP 123 UDP |
 | WEB | HTTP 80 TCP, HTTPS 443 TCP, Proxmox 8006 TCP, PBS 8007 TCP |
-| BOOT | TFTP 69 UDP, HTTP/HTTPS (PXE) |
+| ~~BOOT~~ | ~~TFTP 69 UDP, HTTP/HTTPS (PXE)~~ — sunsetted (was for netboot; no longer used) |
 | STORAGE | NFS 2049, rpcbind 111, SMB 445, iSCSI 3260 |
 | COROSYNC | 5404–5405 UDP, 2224 TCP |
 | K3S | 6443 TCP, 8472 UDP |

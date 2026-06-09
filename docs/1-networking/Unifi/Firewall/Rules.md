@@ -31,7 +31,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | 3        | MGMT                | STORAGE (10.10.40.0/24)      | SSH, WEB  | Admin access to TrueNAS + PBS web UIs only       |
 | 4        | MGMT                | TORRENT (172.16.20.0/24)     | SSH       | Admin access only                                |
 | 5        | MGMT                | VPN (10.10.80.0/24)          | SSH       | Admin access                                     |
-| 6        | MGMT                | PROVISIONING (10.10.99.0/24) | SSH       | PXE control                                      |
+| ~~6~~    | ~~MGMT~~            | ~~PROVISIONING (10.10.99.0/24)~~ | ~~SSH~~ | **Sunsetted** — netboot abandoned, remove (see Provisioning section) |
 | 7        | MGMT                | WAN                          | CORE, WEB | Updates, DNS, NTP                                |
 | 8        | VPN (10.10.80.0/24) | MGMT                         | SSH, WEB  | Remote admin                                     |
 | last     | ANY                 | MGMT                         | DENY      | No inbound initiation from other zones           |
@@ -195,20 +195,31 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 ---
 
-## Provisioning (10.10.99.0/24)
+## Provisioning (10.10.99.0/24) — SUNSETTED
 
-*Temporary VLAN. Nodes live here only during Proxmox install, then move to Management.*
+> [!WARNING] Sunsetted — no longer in use
+> This VLAN existed for PXE/netboot provisioning, which has been **abandoned**. Nodes now
+> install via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) directly onto
+> Management (VLAN 10), so the provisioning zone serves no purpose. See the
+> [netboot post-mortem](../../Netboot/README.md).
+>
+> **Action:** these rules can be removed from UniFi along with the VLAN 99 network and its
+> DHCP boot options. The rules below are retained only as a record of what was in place.
 
-| Source | Destination | Services | Intent |
-| --- | --- | --- | --- |
-| MGMT | PROVISIONING | SSH | PXE control |
-| PROVISIONING | WAN | CORE, WEB, BOOT | Install dependencies |
-| PROVISIONING | INTERNAL | DENY | No lateral movement |
-| ANY | PROVISIONING | DENY | Fully disposable |
+*Former purpose: temporary VLAN — nodes lived here during Proxmox install, then moved to Management.*
+
+| Source | Destination | Services | Intent | Status |
+| --- | --- | --- | --- | --- |
+| MGMT | PROVISIONING | SSH | PXE control | Remove |
+| PROVISIONING | WAN | CORE, WEB, BOOT | Install dependencies | Remove |
+| PROVISIONING | INTERNAL | DENY | No lateral movement | Remove |
+| ANY | PROVISIONING | DENY | Fully disposable | Remove |
 
 > [!NOTE]
-> PXE serving between the Libre Potato and provisioning nodes is entirely intra-VLAN.
-> The firewall never sees it — no rules needed for TFTP/HTTP between netboot and booting nodes.
+> When PXE was active, serving between the Libre Potato and booting nodes was entirely
+> intra-VLAN, so the firewall never saw it — no rules were ever needed for TFTP/HTTP. With
+> Ventoy, the installer needs no network access at all (answer file is baked into the ISO),
+> so no provisioning firewall rules are required going forward.
 
 ---
 
