@@ -1,4 +1,8 @@
 ---
+# DEPRECATED — no longer active. Netboot/PXE was abandoned in favour of Ventoy USB.
+# See docs/1-networking/Netboot/README.md (post-mortem) and
+# docs/2-proxmox/provisioning/Ventoy.md. Kept for reference only; do not run.
+
 - name: Configure Le Potato for netboot.xyz
   hosts: lepotato
   become: true

@@ -1,5 +1,16 @@
 # Bootstrap
 
+> [!WARNING] Netboot/PXE is deprecated — kept for reference
+> Bare-metal provisioning moved to **Ventoy USB**
+> ([docs](../docs/2-proxmox/provisioning/Ventoy.md)); the netboot.xyz PXE setup below is no
+> longer active. See the [post-mortem](../docs/1-networking/Netboot/README.md) for why. These
+> files are retained as a useful record, not deleted.
+>
+> **Still active:** the per-node answer files in
+> [`netbootxyz/assets/proxmox/`](netbootxyz/assets/proxmox/) (`pve-srv-*.toml`) are **not**
+> netboot-specific — they're Proxmox auto-install answer files that Ventoy bakes into the
+> install ISO via `proxmox-auto-install-assistant`. Keep editing those per node.
+
 One-time tooling for provisioning bare-metal hardware from zero — before Terraform or Ansible can take over. Run these tools once per piece of hardware, then shut them down.
 
 ---
