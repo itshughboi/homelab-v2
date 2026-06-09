@@ -1,74 +1,52 @@
-# Ansible
+# Ansible & Semaphore (on Athena)
+
+How configuration management runs in this homelab. **What** each playbook does is catalogued in
+[index.md → Ansible Playbook Reference](index.md#ansible-playbook-reference); this page is the
+operating model + where the config it applies is documented.
 
 ---
 
-## Prerequisites
+## Operating model
 
-1. **Local admin account in UniFi** — create one specifically for Ansible.
-   Cloud accounts will not work.
-
-2. **Install the UniFi collection** on the Ansible machine:
-```sh
-ansible-galaxy collection install community.general
+```
+Day 0   Laptop runs `setup-athena` against a fresh Athena VM
+Day 1+  Semaphore (on Athena) runs every playbook from then on — laptop retired
 ```
 
-3. Management network must have DHCP option pointing to the netbootxyz machine to load iPXE.
-   See `bootstrap/README.md` in the homelab repo for details.
+- Source of truth: **Gitea** (`gitea.hughboi.cc`), mirrored to GitHub.
+- Runner: **Semaphore** at `https://semaphore.hughboi.cc` (setup steps in [index.md](index.md#semaphore-setup)).
+- Secrets: **SOPS + Age**, decrypted at runtime on Athena — see [8-gitops/Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md).
+- Playbooks are idempotent — re-running skips anything already correct, so UI changes and
+  Ansible runs coexist safely.
 
 ---
 
-## What Ansible Configures
+## What Ansible manages (and where it's documented)
 
-### Networks (can all be done via Ansible after initial manual bootstrap)
+Ansible applies config that's specified *elsewhere* — it doesn't re-define it. Pointers so this
+page doesn't duplicate (and drift from) the network/host docs:
 
-| Name | VLAN | CIDR | Notes |
-| --- | --- | --- | --- |
-| Management | 10 | 10.10.10.0/24 | SSH, Web UI, Unifi, Bind9 |
-| Cluster | 20 | 10.10.20.0/24 | Corosync |
-| k3s | 30 | 10.10.30.0/24 | |
-| Storage | 40 | 10.10.40.0/24 | TrueNAS, PBS, Longhorn |
-| VPN | 80 | 10.10.80.0/24 | Tailscale |
-| Torrent | 49 | 172.16.20.0/24 | Airgapped from internal |
-| Provisioning | 99 | 10.10.99.0/24 | Netboot |
+| Area | Playbook(s) | Spec lives in |
+| --- | --- | --- |
+| Proxmox bridges + VLAN sub-interfaces (`.20`/`.40`, MTU 9000) | `proxmox/network-setup` | [pve/Virtual Interfaces.md](../2-proxmox/pve/Virtual%20Interfaces.md) |
+| Proxmox cluster node config | `proxmox/proxmox-node-setup` | [provisioning/README.md → Cluster](../2-proxmox/provisioning/README.md#proxmox-cluster) |
+| Proxmox repos + updates | `proxmox/cluster-update` | [pve/README.md](../2-proxmox/pve/README.md) |
+| New VM hardening/bootstrap | `ubuntu/new-host-bootstrap` | — |
+| Athena management stack | `ubuntu/setup-athena` | [index.md](index.md) |
+| k3s | `kubernetes/k3s/...` | [7-k3s/](../7-k3s/index.md) |
 
-### Proxmox Nodes (each node needs)
-
-- 3 virtual interfaces (vmbr1.10, vmbr1.20, vmbr1.40)
-- pve-srv-1 needs 2+ physical NICs
-- QoS applied to VLAN 20 to prioritize Corosync traffic
-- Jumbo Frames enabled on VLAN 40 (MTU 9000)
-
-### Athena (management VM)
-- Docker
-- Traefik
-- Gitea
-- Semaphore (Ansible UI / scheduler)
-- Bind9
+> VLAN definitions, IP plan, firewall, and QoS are **not** Ansible-managed here — UniFi is
+> configured manually (see [1-networking/Unifi/Ansible.md](../1-networking/Unifi/Ansible.md) for
+> why the UniFi-via-Ansible approach was shelved). The authoritative network tables live under
+> [1-networking/](../1-networking/README.md).
 
 ---
 
-## Ansible Flow
+## Bootstrap flow
 
-1. Configure UniFi manually — create Management (VLAN 10) and Provisioning (VLAN 99)
-   with netboot options. This is the bootstrap minimum.
-2. Provision Athena (via Terraform cloning the Cloud-Init template).
-3. Run Ansible from laptop against Athena to install the management stack.
-4. From this point, Athena runs Ansible via Semaphore. Laptop is retired.
-5. Ansible handles all remaining network creation, IP assignments, service config.
-   Changes in either the UI or Ansible are fine — Ansible skips anything already correct.
-
----
-
-## Key Notes
-
-**VLAN 20 (Corosync):** Very sensitive to latency. Flooding a NIC with backups or storage
-traffic can cause jitter and trigger a Fencing event (hard reboot). Ansible applies QoS
-tagging (UDP 5404–5405, DSCP 46) automatically. No gateway — internal routing only.
-
-**VLAN 40 (Storage):** PBS or Longhorn can saturate the management NIC. Ansible enables
-Jumbo Frames (MTU 9000). Gateway `10.10.40.254` exists for outbound package updates only — firewall blocks all other outbound.
-
-> [!DANGER] Jumbo Frames
-> Every device on VLAN 40 (Proxmox, TrueNAS, PBS) MUST support and be configured for
-> MTU 9000, or packets will drop. Jumbo packets cannot traverse the internet — this VLAN
-> is internal-only by design.
+1. Manually configure UniFi (VLANs + firewall) — the minimum so Athena is reachable. See
+   [1-networking/](../1-networking/README.md).
+2. Provision the Athena VM (Terraform clones the template) — see
+   [provisioning/README.md](../2-proxmox/provisioning/README.md).
+3. From the laptop, run `setup-athena` to install Docker + the management stack.
+4. Set up Semaphore ([index.md](index.md#semaphore-setup)); from here all Ansible runs there.

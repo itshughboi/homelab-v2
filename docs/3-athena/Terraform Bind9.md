@@ -56,8 +56,8 @@ Restart the container to apply.
 ## Terraform Setup
 
 ```sh
-git clone https://github.com/itshughboi/iac.git
-cd /iac/terraform/bind9
+# from a clone of the repo (gitea.hughboi.cc/hughboi/homelab, mirrored to GitHub)
+cd terraform/bind9
 
 terraform init
 terraform plan
@@ -113,4 +113,4 @@ The `.tf` files for Bind9 contain the TSIG key reference. Store securely — a l
 TSIG key allows DNS spoofing against your zone.
 
 Encrypt with SOPS before pushing to Gitea.
-See [`04_Infrastructure_as_Code/03_Secrets_SOPS.md`](Secrets_SOPS.md).
+See [Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md).
