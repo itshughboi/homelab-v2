@@ -13,20 +13,9 @@ Subnets must stay distinct — both create routes and overlapping them causes ro
 
 ## Tailscale (VLAN 80)
 
-Tailscale runs as a subnet router on a VM in VLAN 80, advertising internal RFC1918 routes to remote devices. No port forwarding required — Tailscale punches through NAT via its coordination server.
+Tailscale runs as a subnet router on a dedicated VM in VLAN 80, advertising internal RFC1918 routes to remote devices. No port forwarding required — Tailscale punches through NAT via its coordination server.
 
-Advertise all homelab subnets from the Tailscale VM:
-```sh
-tailscale up --advertise-routes=10.10.10.0/24,10.10.20.0/24,10.10.30.0/24,10.10.40.0/24,10.10.50.0/24,10.10.80.0/24,10.10.99.0/24,172.16.20.0/24 --accept-routes
-```
-
-**UniFi static route required** — without this, the tunnel works but inter-VLAN → Tailscale peer routing fails:
-- Settings → Routing → Create New Route
-- Destination: `100.64.0.0/10`
-- Type: Next Hop
-- Next Hop: Tailscale VM IP (`10.10.80.x`)
-
-See `docs/5-security/Tailscale.md` for full setup.
+VLAN 80 is pre-configured here so the network exists when the Tailscale VM is provisioned later. The VM itself, Tailscale installation, and route advertisement are set up after Proxmox is running — see `docs/5-security/Tailscale.md`.
 
 ---
 

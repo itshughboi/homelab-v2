@@ -26,6 +26,6 @@
 
 > **Current setup:** Single 2.5 GbE NIC (`enp42s0`) trunking all VLANs via 802.1Q on `vmbr1`.
 > The 4-port card (`enp43s0f0–f3`) is available for future LACP bonding or dedicated storage NIC.
-> See [[LACP - MLAG]] for when that becomes viable.
+> See [[Switching]] for when that becomes viable.
 
 

@@ -202,4 +202,4 @@ pve-srv-1 needs 2+ physical NICs (one for management/workloads, one for dedicate
 
 pve-srv-1 currently uses a single 2.5 GbE NIC. LACP bonding is documented for when an enterprise-tier UniFi switch is available (MLAG requires enterprise tier).
 
-See [`Unifi/Networks/LACP - MLAG.md`](Unifi/Networks/LACP%20-%20MLAG.md) for details.
+See [`Unifi/Networks/LACP - MLAG.md`](Switching.md) for details.

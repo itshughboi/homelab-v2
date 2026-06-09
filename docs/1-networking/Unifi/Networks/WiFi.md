@@ -8,7 +8,7 @@ Settings → WiFi → Radio Manager → Channel AI
 
 ## WiFiman Support
 
-Settings → System → WiFiman
+Settings → WiFi → WiFiman
 
 **Enable it.** Allows the WiFiman app (iOS/Android) to discover this network for:
 - WAN speed tests from the gateway
@@ -21,7 +21,7 @@ Zero overhead. No reason to leave it off.
 
 ## Guest Network — Speed Limit
 
-Settings → WiFi → `hughboi-guest` → Advanced → Client Rate Limiting
+Settings → WiFi → `hughboi-guest` → Advanced → WiFi Speed Limit (Create or select new `guest` profile and cap UPLOAD)
 
 **Enable per-client rate limiting.** Without it a single guest can saturate your WAN uplink.
 

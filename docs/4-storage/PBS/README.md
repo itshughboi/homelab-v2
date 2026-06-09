@@ -62,9 +62,15 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/Proxmo
 
 ### Add PBS to Proxmox VE
 Datacenter -> Storage -> Add -> Proxmox Backup Server
+
+> [!NOTE]
+> Use the **management IP** (`10.10.10.X`) as the server address. Proxmox backup jobs originate from the hypervisor host, which only has a VLAN 10 IP — it cannot reach the VLAN 40 interface on PBS. Backup data flows over VLAN 10 at MTU 1500.
+>
+> The VLAN 40 NIC on PBS exists for east-west storage traffic only: PBS → TrueNAS replication and NFS datastore reads/writes. Those connections are VM-to-VM on the same host and use MTU 9000 over the internal bridge.
+
 ```
 ID: pbs
-Server: 10.10.10.6
+Server: 10.10.10.X   ← management IP
 Username: changeme@pam
 Datastore: Same name as datastore in PBS
 Fingerprint: Snag this from PBS on Datastore -> Summary -> Show Connect Info
@@ -121,6 +127,12 @@ Finally after verification that we can connect to this share, add a new datastor
 
 
 ### Backup to Synology
+
+Synology stays on VLAN 10 (Management) — it's temporary and going offsite. Don't move it to VLAN 40.
+
+Synology has a native Tailscale package (Package Center → Tailscale). Install it before it goes offsite and connect it to the tailnet. PBS targets the Synology's Tailscale IP (`100.x.x.x`) so backup jobs keep running unchanged regardless of where the Synology physically is.
+
+Do the initial full backup while Synology is still onsite — replication over someone's internet uplink for a first full backup will be very slow.
 
 
 

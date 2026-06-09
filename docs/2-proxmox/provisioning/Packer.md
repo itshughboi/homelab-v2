@@ -6,7 +6,7 @@ VM template builds for Proxmox. Templates are the base images Terraform clones t
 
 | Directory | OS | VM ID | Purpose |
 |-----------|----|-------|---------|
-| [proxmox-iso-ubuntu/](proxmox-iso-ubuntu/) | Ubuntu 24.04 LTS | 9999 | Golden image for all k3s and Docker host VMs |
+| [proxmox-iso-ubuntu/](../../../packer/proxmox-iso-ubuntu/) | Ubuntu 24.04 LTS | 9999 | Golden image for all k3s and Docker host VMs |
 
 ## Build flow
 
@@ -34,7 +34,7 @@ $EDITOR proxmox.pkrvars.sh
 ./build.sh
 ```
 
-See [proxmox-iso-ubuntu/README.md](proxmox-iso-ubuntu/README.md) for full setup instructions.
+See [packer/proxmox-iso-ubuntu/README.md](../../../packer/proxmox-iso-ubuntu/README.md) for full setup instructions.
 
 ## Rebuild cadence
 

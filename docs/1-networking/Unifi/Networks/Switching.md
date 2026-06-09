@@ -1,3 +1,50 @@
+## Jumbo Frames
+
+Required for VLAN 40 (Storage) — MTU 9000 fits ~6x more data per packet than standard MTU 1500, reducing per-packet overhead and directly increasing NFS/backup throughput between Proxmox, TrueNAS, and PBS.
+
+**MTU must be 9000 end-to-end.** Partial support causes silent packet loss — no errors, just degraded throughput.
+
+MTU 9000 checklist — every item must be set:
+- [ ] UniFi: Settings → Switching → Jumbo Frames → **Enabled** globally (no per-network config needed)
+- [ ] Proxmox slave port (e.g. `enp42s0` on pve-srv-1) → MTU 9000
+- [ ] Proxmox parent bridge (`vmbr1` on pve-srv-1, `vmbr0` on pve-srv-2/3/4) → MTU 9000 — see [Virtual Interfaces.md](../../../2-proxmox/pve/Virtual%20Interfaces.md)
+- [ ] Proxmox VLAN sub-interface (`.40`) → MTU 9000
+- [ ] TrueNAS NIC on VLAN 40 → MTU 9000
+- [ ] PBS NIC on VLAN 40 → MTU 9000
+
+**Verify end-to-end** after any infrastructure change (only testable once TrueNAS or PBS has a `10.10.40.x` IP):
+
+```sh
+# -M do = prohibit fragmentation, -s 8972 = 9000 MTU minus 28-byte IP+ICMP headers
+ping -M do -s 8972 10.10.40.x
+
+# If it fails, step down to find the ceiling:
+ping -M do -s 4000 10.10.40.x
+ping -M do -s 1472 10.10.40.x   # standard 1500 MTU ceiling — if this fails, MTU is broken everywhere
+```
+
+> [!DANGER]
+> Jumbo frames cannot traverse the internet — VLAN 40 is internal-only by design. If any device in the path is left at MTU 1500, oversized frames are silently dropped.
+
+---
+
+## Spanning Tree
+
+Settings → Overview (Scroll to Bottom) -> Global Switch Settings
+
+Use **RSTP** (Rapid Spanning Tree Protocol).
+
+| Protocol | Reconvergence | Use case |
+| --- | --- | --- |
+| STP (802.1D) | 30–50 seconds | Legacy, avoid |
+| **RSTP (802.1w)** | **1–2 seconds** | **Use this** |
+| MSTP (802.1s) | 1–2 seconds | Multi-instance, overkill for this topology |
+
+RSTP reconverges in 1–2 seconds vs 30–50 for classic STP — critical if a link flaps. MSTP adds per-VLAN spanning tree instances which aren't needed here. UniFi may auto-select RSTP but verify it's set explicitly.
+
+---
+
+## LACP + MLAG
 
 > [!NOTE] Future Consideration
 > LACP bonding is not currently implemented due to switch hardware limitations.
