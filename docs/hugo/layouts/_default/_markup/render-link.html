@@ -1,0 +1,30 @@
+{{- /* Resolve relative .md links (written against the docs/ tree) to Hugo pages.
+       sync.sh slugifies filenames: lower → replace [^a-z0-9]+ with "-" → trim "-".
+       We slugify each link segment identically (after decoding %20), resolve the relative
+       path to an ABSOLUTE logical path via path.Join (GetPage doesn't handle ".."), and look
+       it up. README.md / index.md map to their section. */ -}}
+{{- $u := urls.Parse .Destination -}}
+{{- $resolved := "" -}}
+{{- if and (eq $u.Scheme "") (not (hasPrefix .Destination "#")) (strings.HasSuffix $u.Path ".md") -}}
+  {{- $p := replace $u.Path "%20" " " -}}
+  {{- $p = strings.TrimSuffix ".md" $p -}}
+  {{- $p = strings.TrimSuffix "/README" $p -}}
+  {{- $p = strings.TrimSuffix "/index" $p -}}
+  {{- if or (eq $p "README") (eq $p "index") -}}{{- $p = "." -}}{{- end -}}
+  {{- $segs := slice -}}
+  {{- range (split $p "/") -}}
+    {{- if eq . ".." -}}{{- $segs = $segs | append ".." -}}
+    {{- else if or (eq . ".") (eq . "") -}}{{- /* skip */ -}}
+    {{- else -}}{{- $segs = $segs | append (. | lower | replaceRE "[^a-z0-9]+" "-" | replaceRE "(^-+|-+$)" "") -}}{{- end -}}
+  {{- end -}}
+  {{- /* base dir of the current page: its own path for sections/home, parent dir for leaf pages */ -}}
+  {{- $base := .Page.Path -}}
+  {{- if eq .Page.Kind "page" -}}{{- $base = path.Dir .Page.Path -}}{{- end -}}
+  {{- $abs := path.Join $base (delimit $segs "/") -}}
+  {{- with .Page.GetPage $abs -}}
+    {{- $resolved = .RelPermalink -}}
+    {{- if $u.Fragment -}}{{- $resolved = printf "%s#%s" $resolved (urlize $u.Fragment) -}}{{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $href := cond (ne $resolved "") $resolved .Destination -}}
+<a href="{{ $href | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>

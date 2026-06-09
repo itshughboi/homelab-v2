@@ -34,7 +34,7 @@ Settings → VPN → VPN Server → Create → WireGuard
 > (`10.10.81.0/24`) — that's post-tunnel traffic heading inward, a different set of rules.
 > Source is **External** (your WAN). See [Firewall/Rules.md](../Firewall/Rules.md#vpn--wireguard-101081024).
 
-Client devices connect and receive an IP from `10.10.81.0/24`. They resolve internal hostnames via Bind9 (`10.10.10.8`) — set in [Networks/DNS.md](Networks/DNS.md).
+Client devices connect and receive an IP from `10.10.81.0/24`. They resolve internal hostnames via Bind9 (`10.10.10.8`) — set in [DNS.md](DNS.md).
 
 > [!NOTE]
 > The `WAN → UDP 51820` firewall rule is required. Without it the UXG Max blocks all inbound connections on that port and no client can establish the tunnel.

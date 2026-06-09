@@ -1,4 +1,8 @@
+# 1. Networking
 
+The network foundation — UniFi (VLANs, firewall, DNS, WiFi, VPN, switching, security), the
+authoritative IP/MAC inventory, and archived/alternative methods. Build the network first;
+everything else sits on top of it.
 
 ## UniFi
 

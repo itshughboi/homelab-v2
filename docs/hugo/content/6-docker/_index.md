@@ -1,10 +1,9 @@
 ---
-title: "7. Docker"
-weight: 70
-bookCollapseSection: true
+title: "6. Docker"
+weight: 60
 ---
 
-# 7. Docker
+# 6. Docker
 
 Docker services split across two hosts: **Athena** (management stack) and **dock-prod** (production services). Both are VMs on Proxmox, both provisioned from Template 9999 via Terraform.
 
@@ -14,10 +13,13 @@ Docker services split across two hosts: **Athena** (management stack) and **dock
 
 | Host | IP | Purpose |
 | --- | --- | --- |
-| Athena | 10.10.10.8 | Management: Gitea, Semaphore, Traefik, Bind9 |
-| dock-prod | 10.10.10.10 | Production: everything user-facing |
+| Athena | 10.10.10.8 | Management: **Gitea, Semaphore, Bind9** |
+| dock-prod | 10.10.10.10 | Production: **Traefik** + everything user-facing (AdGuard, CrowdSec, Vaultwarden, ntfy, Mailrise, apps) |
 
 Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.
+
+> Traefik (the reverse proxy for `*.hughboi.cc`) runs **only on dock-prod** — it fronts the
+> Athena-hosted services (Gitea, Semaphore) over the network. Athena itself does not run Traefik.
 
 ---
 
@@ -40,35 +42,16 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 
 ## Athena — Management Stack
 
-Start in this order:
+Athena runs **Bind9, Gitea, and Semaphore** (no Traefik — that's on dock-prod). Start in order:
 
 ```sh
-# 1. DNS + reverse proxy (everything depends on these)
+# 1. DNS — everything resolves through this
 cd apps/docker/bind9 && docker compose up -d
-cd apps/docker/adguard && docker compose up -d
 
-# Traefik: fill in Cloudflare token before starting
-echo "your-cloudflare-token" > /home/hughboi/code/traefik/cf_api_token.txt
-chmod 600 /home/hughboi/code/traefik/cf_api_token.txt
-cd apps/docker/traefik && docker compose up -d
-
-# 2. Security middleware
-cd apps/docker/crowdsec && docker compose up -d
-docker exec crowdsec cscli bouncers add traefik-bouncer
-# Copy the API key → add to traefik/.env as CROWDSEC_BOUNCER_API_KEY
-docker restart traefik
-
-# 3. Notifications (so all subsequent playbooks can alert you)
-cd apps/docker/ntfy && docker compose up -d
-cd apps/docker/mailrise && docker compose up -d
-
-# 4. Password manager (need this early for secrets)
-cd apps/docker/vaultwarden && docker compose up -d
-
-# 5. Git server + runner
+# 2. Git server + runner
 cd apps/docker/gitea && docker compose up -d
 
-# 6. Ansible UI (from here, retire the laptop)
+# 3. Ansible UI (from here, retire the laptop)
 cd apps/docker/semaphore && docker compose up -d
 # Set up in Semaphore UI: SSH key, Gitea repo, inventory path
 ```
@@ -77,35 +60,57 @@ cd apps/docker/semaphore && docker compose up -d
 
 ## dock-prod — Production Services
 
-Start in this order (DNS and Traefik from Athena must be up first):
+Bind9 (DNS, on Athena) must be up first. Traefik comes up first here, since everything
+user-facing is fronted by it.
 
 ```sh
-# Monitoring (up before you need to debug anything)
+# 1. Reverse proxy + TLS — fill in the Cloudflare token first
+echo "your-cloudflare-token" > ${CODE_ROOT}/traefik/cf_api_token.txt
+chmod 600 ${CODE_ROOT}/traefik/cf_api_token.txt
+cd apps/docker/traefik && docker compose up -d
+
+# 2. DNS filtering (LAN ad-block for WiFi/guest)
+cd apps/docker/adguard && docker compose up -d
+
+# 3. Security middleware
+cd apps/docker/crowdsec && docker compose up -d
+docker exec crowdsec cscli bouncers add traefik-bouncer
+# Copy the API key → traefik/.env as CROWDSEC_BOUNCER_API_KEY, then:
+docker restart traefik
+
+# 4. Notifications (so subsequent playbooks can alert you)
+cd apps/docker/ntfy && docker compose up -d
+cd apps/docker/mailrise && docker compose up -d
+
+# 5. Password manager
+cd apps/docker/vaultwarden && docker compose up -d
+
+# 6. Monitoring (up before you need to debug anything)
 cd apps/docker/promgraftail && docker compose up -d
 
-# Security
+# 7. Security SIEM
 cd apps/docker/wazuh && docker compose up -d   # takes 2-3 min to start
 
-# Identity / SSO
+# 8. Identity / SSO
 cd apps/docker/pocket-id && docker compose up -d
 
-# Automation
+# 9. Automation
 cd apps/docker/n8n && docker compose up -d
 
-# Media (NFS mounts must be present first)
+# 10. Media (NFS mounts must be present first)
 sudo mount -a && mount | grep nfs   # verify before starting
 cd apps/docker/jellyfin && docker compose up -d
 cd apps/docker/immich/home && docker compose up -d
 cd apps/docker/immich/eros && docker compose up -d   # GPU transcoding instance
 
-# NFS-dependent services
+# 11. NFS-dependent services
 cd apps/docker/tube-archivist && docker compose up -d
 cd apps/docker/restic && docker compose up -d
 
-# Everything else
+# 12. Everything else
 for svc in paperless-ngx romm mealie freshrss hoarder homepage \
            gatus change-detection searxng home-assistant \
-           netbootxyz diun syncthing file-browser \
+           diun syncthing file-browser \
            fasten-health ezbookkeeping unifi; do
   cd apps/docker/$svc && docker compose up -d && cd -
 done
@@ -117,18 +122,17 @@ done
 
 | Service | Host | URL | Purpose |
 | --- | --- | --- | --- |
-| Traefik | Athena | https://traefik.hughboi.cc | Reverse proxy + TLS for `*.hughboi.cc` |
 | Gitea | Athena | https://gitea.hughboi.cc | Self-hosted Git |
 | Semaphore | Athena | https://semaphore.hughboi.cc | Ansible Web UI + scheduler |
 | Bind9 | Athena | 10.10.10.8:53 | Authoritative LAN DNS |
+| Traefik | dock-prod | https://traefik.hughboi.cc | Reverse proxy + TLS for `*.hughboi.cc` (fronts all services, incl. Athena's) |
 | AdGuard (LAN) | dock-prod | https://adguard.hughboi.cc | DNS resolver + ad blocker for LAN |
 | Vaultwarden | dock-prod | https://vault.hughboi.cc | Self-hosted Bitwarden |
 | CrowdSec | dock-prod | — | Intrusion detection |
-| Traefik | dock-prod | https://traefik.hughboi.cc | Handles dock-prod services |
 | Portainer | dock-prod | https://portainer.hughboi.cc | Container management UI |
 | Wazuh | dock-prod | https://wazuh.hughboi.cc | SIEM / security monitoring |
 | n8n | dock-prod | https://n8n.hughboi.cc | Automation workflows |
-| Pocket ID | dock-prod | https://id.hughboi.cc | OIDC provider (SSO) |
+| Pocket ID | dock-prod | https://pocket.hughboi.cc | OIDC provider (SSO) |
 | Jellyfin | dock-prod | https://jellyfin.hughboi.cc | Media server |
 | Immich | dock-prod | https://immich.hughboi.cc | Photo management |
 | Tube Archivist | dock-prod | https://tube.hughboi.cc | YouTube archiver |
@@ -146,7 +150,6 @@ done
 | Syncthing | dock-prod | https://sync.hughboi.cc | File sync |
 | File Browser | dock-prod | https://files.hughboi.cc | Web file manager |
 | UniFi Controller | dock-prod | https://unifi.hughboi.cc | Network controller |
-| netbootxyz | dock-prod | https://netboot.hughboi.cc | Netboot Web UI |
 | Diun | dock-prod | — | Docker image update notifier |
 | Fasten Health | dock-prod | https://health.hughboi.cc | Health records |
 | EzBookkeeping | dock-prod | https://money.hughboi.cc | Finance tracker |

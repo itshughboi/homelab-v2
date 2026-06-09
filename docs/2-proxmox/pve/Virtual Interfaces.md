@@ -55,7 +55,7 @@ Each Proxmox node needs virtual interfaces for each VLAN it participates in.
 > 1. In Proxmox: VM → Hardware → Add → Network Device → Bridge: `vmbr1`, VLAN Tag: `40`, MTU: `9000`
 > 2. Inside TrueNAS: configure the new NIC with static IP `10.10.40.5`, no gateway, DNS `9.9.9.9`
 > 3. Inside PBS: configure the new NIC with static IP `10.10.40.6`, no gateway, DNS `9.9.9.9`
-> 4. Add MAC reservations in UniFi for both new NICs (see [MAC Reservations.md](../Unifi/Assignments/MAC%20Reservations.md))
+> 4. Add MAC reservations in UniFi for both new NICs (see [MAC Reservations.md](../../1-networking/Unifi/Assignments/MAC%20Reservations.md))
 > 5. Update the `TORRENT → TrueNAS NFS` firewall rule destination from `10.10.10.5` → `10.10.40.5` (see Firewall/Rules.md)
 > 6. Verify jumbo frames end-to-end: `ping -M do -s 8972 10.10.40.5`
 

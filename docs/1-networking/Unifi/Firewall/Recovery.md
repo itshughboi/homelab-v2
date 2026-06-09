@@ -108,5 +108,5 @@ docker restart unifi_controller
       this was the missing rule that caused the June 2026 lockout. Zone-based
       firewall intercepts intra-VLAN traffic; without this, your own Mac on
       10.10.10.x cannot reach any other MGMT host.
-- [x] **`established/related` is rule #1 in LAN IN** — documented in [Setup.md](Setup.md).
+- [x] **`established/related` is rule #1 in LAN IN** — documented in [README.md](README.md#setup).
       Verify this in UniFi after any restore.

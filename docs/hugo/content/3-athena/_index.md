@@ -1,12 +1,11 @@
 ---
-title: "4. Athena"
-weight: 40
-bookCollapseSection: true
+title: "3. Athena"
+weight: 30
 ---
 
-# 4. Athena
+# 3. Athena
 
-Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.
+Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. The Git server, Ansible UI, and DNS run here. (The reverse proxy / Traefik and the password manager run on **dock-prod**, not Athena.)
 
 ---
 
@@ -14,8 +13,7 @@ Athena (10.10.10.8) is the management plane — the VM that replaces your laptop
 
 | Service | Purpose | URL |
 | --- | --- | --- |
-| Docker | Container runtime for all management services | — |
-| Traefik | Reverse proxy — bound to `10.10.10.8`, handles `*.hughboi.cc` for mgmt | https://traefik.hughboi.cc |
+| Docker | Container runtime for the management services | — |
 | Gitea | Self-hosted Git — source of truth for all IaC; GitHub is a push mirror | https://gitea.hughboi.cc |
 | Semaphore | Ansible Web UI + scheduler — runs all playbooks from here | https://semaphore.hughboi.cc |
 | Bind9 | Authoritative LAN DNS — `network_mode: host`, resolves `*.hughboi.cc` internally | 10.10.10.8:53 |
@@ -43,89 +41,47 @@ Secret changes → SOPS encrypted, pushed to Gitea
 Run from your laptop (before Semaphore exists):
 
 ```sh
-cd ansible/playbooks/ubuntu/
-ansible-playbook bootstrap-athena.yml -i inventory.yaml
+ansible-playbook ansible/playbooks/ubuntu/setup-athena/main.yaml \
+  -i ansible/playbooks/ubuntu/setup-athena/inventory.yaml
 ```
 
-This installs Docker and all management services on Athena. After it completes, Semaphore is the operator.
+This installs Docker, OpenTofu, SOPS, age, and all management services on Athena. After it completes, Semaphore is the operator.
 
 ---
 
 ## SOPS + Age (Secrets Before Anything Else)
 
-Set this up before pushing any secrets to Git.
+The full SOPS + Age workflow (`.sops.yaml`, encrypt/decrypt, what gets encrypted) is documented
+once in [8-gitops/Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md). The **Athena-specific** points:
 
-**Why SOPS + Age instead of Vault:** no additional service to maintain, Age is modern and simple, private key never leaves Athena. Vault is overkill for one operator.
+> [!IMPORTANT]
+> **Run `age-setup.sh` on Athena, not your laptop.** The private key must live on the machine
+> that decrypts secrets at runtime — Athena, since Semaphore runs all playbooks there. Running
+> it on your laptop means Semaphore can't decrypt anything. The `setup-athena` playbook installs
+> `age` for you.
 
-```sh
-# On Athena
-apt install age sops
-
-# Generate keypair — private key NEVER leaves Athena
-age-keygen -o ~/.config/sops/age/keys.txt
-# Output includes: Public key: age1...
-```
-
-Run the setup script (populates `.sops.yaml` in repo root):
-```sh
-./scripts/age-setup.sh
-```
-
-Or manually update `.sops.yaml`:
-```yaml
-creation_rules:
-  - path_regex: secrets\.yaml$
-    age: "<your-age-public-key>"
-  - path_regex: terraform\.tfvars$
-    age: "<your-age-public-key>"
-```
-
-**Encrypt / decrypt:**
-```sh
-sops --encrypt --in-place secrets.yaml   # encrypt file in place
-sops secrets.yaml                         # open decrypted in $EDITOR
-```
+SSH into Athena after `setup-athena` completes, then run `./scripts/age-setup.sh` from the repo
+clone. It generates the keypair (`~/.config/sops/age/keys.txt`), patches `.sops.yaml`, and tells
+you to commit the **public** key.
 
 > [!DANGER]
-> If a plaintext secret ever touches Git history, assume it is compromised.
-> Rotation is required — even if you delete the file immediately.
-> This applies to all secrets: API tokens, passwords, private keys.
+> **Back up the private key off-box immediately** — losing it makes every encrypted secret
+> permanently unreadable. (You keep it printed + in a cloud password vault — good.)
+> And if a plaintext secret ever touches Git history, assume it's compromised → rotate it.
 
 ---
 
 ## Bind9 DNS — Terraform Integration
 
-Terraform auto-creates DNS records for each provisioned VM via TSIG authentication. This means every VM gets a DNS record automatically when `terraform apply` runs.
+Terraform can auto-create a DNS record for each provisioned VM via TSIG, so DNS is declarative
+and rebuildable. Full setup (TSIG keygen, `update-policy`, `rndc sync`, the Terraform run) is in
+[Terraform Bind9.md](Terraform%20Bind9.md).
+
+Handy Athena-side check — query Bind9 directly, bypassing AdGuard (useful when DNS seems broken):
 
 ```sh
-# Inside Bind9 container — generate TSIG key
-docker exec -it bind9 tsig-keygen -a hmac-sha256
+dig @10.10.10.8 proxmox.hughboi.cc
 ```
-
-Save output to `/etc/bind/named.conf.key`. Add `update-policy` to zone:
-
-```bind
-zone "hughboi.cc" {
-    type master;
-    file "/etc/bind/zones/db.hughboi.cc";
-    update-policy { grant tsig-key zonesub any; };
-};
-```
-
-Apply DNS records via Terraform:
-```sh
-cd terraform/bind9
-terraform init && terraform apply
-dig proxmox.hughboi.cc @10.10.10.8   # should resolve to 10.10.10.1
-```
-
-Sync Bind9 journal to zone file (run after Terraform updates):
-```sh
-docker exec -it bind9 rndc sync
-```
-
-> [!DANGER]
-> The TSIG key allows DNS record updates to your zone. Encrypt with SOPS before committing anywhere near Git.
 
 ---
 
@@ -156,17 +112,18 @@ From here, all Ansible runs through Semaphore. The laptop never needs to SSH any
 
 ## Ansible Playbook Reference
 
-See [`Ansible.md`](docs/3-athena/Ansible.md) for full playbook documentation. Key playbooks:
+See [`Ansible.md`](Ansible.md) for the operating model. Key playbooks (paths under
+`ansible/playbooks/`):
 
 | Playbook | Path | Purpose |
 | --- | --- | --- |
-| bootstrap-athena | `ubuntu/bootstrap-athena` | Initial Athena setup |
+| setup-athena | `ubuntu/setup-athena` | Initial Athena setup (run from laptop, Day 0) |
 | new-host-bootstrap | `ubuntu/new-host-bootstrap` | Harden and configure any new VM |
 | cluster-update | `proxmox/cluster-update` | Update Proxmox cluster config |
+| network-setup | `proxmox/network-setup` | Configure VLAN bridge interfaces (vmbrX.20/.40) |
+| proxmox-node-setup | `proxmox/proxmox-node-setup` | Add/configure a node in the Proxmox cluster |
 | vm-template-refresh | `proxmox/vm-template-refresh` | Rebuild Template 9999 |
-| k3s-install | `kubernetes/k3s/new` | Install/reinstall k3s cluster |
-| join-cluster | `proxmox/join-cluster` | Add node to Proxmox cluster |
-| virtual-interfaces | `proxmox/virtual-interfaces` | Configure VLAN bridge interfaces |
+| k3s (new) | `kubernetes/k3s/new` | Install/reinstall k3s cluster |
 
 ---
 
@@ -174,13 +131,13 @@ See [`Ansible.md`](docs/3-athena/Ansible.md) for full playbook documentation. Ke
 
 Pocket ID is a lightweight OIDC provider that enables SSO across Proxmox, Gitea, Semaphore, and other services — one login for everything.
 
-Set up after Athena is running. See [`Terraform Bind9.md`](Terraform%20Bind9.md) and [`../6-docker/Pocket ID - Proxmox.md`](../6-docker/Pocket%20ID%20-%20Proxmox.md) for configuration.
+Set up after Athena is running. See [`../6-docker/Pocket ID - Proxmox.md`](../6-docker/Pocket%20ID%20-%20Proxmox.md) for configuration.
 
 ---
 
 ## Security Notes
 
-- Traefik is explicitly bound to `10.10.10.8` — not `0.0.0.0`. This prevents Docker from publishing ports to the wrong interface.
+- Traefik runs on **dock-prod** (bound to `10.10.10.10`, not `0.0.0.0`) and reverse-proxies to Athena's services over the network — Athena does not run Traefik. See [6-docker/index.md](../6-docker/index.md).
 - `DOCKER-USER` iptables chain is used for host-level firewall rules that Docker can't bypass.
 - Never run Docker services with `--network=host` unless strictly necessary (Bind9 is the deliberate exception).
 - Web UIs are only reachable from VLAN 10 (Management) — never exposed to WAN.

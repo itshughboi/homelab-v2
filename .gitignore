@@ -63,3 +63,7 @@ wazuh/wazuh_integrations
 .git
 *.claude
 .obsidian
+# Hugo build output (regenerate with: cd docs/hugo && ./sync.sh && hugo build)
+docs/hugo/public/
+docs/hugo/.hugo_build.lock
+docs/hugo/resources/
