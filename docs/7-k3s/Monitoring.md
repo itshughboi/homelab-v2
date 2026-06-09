@@ -135,6 +135,50 @@ Custom alert rules: `apps/kubernetes/k3s/monitoring/alertmanager-rules/`
 
 ---
 
+## Dead-man's switch
+
+The gap normal alerting can't cover: **if Prometheus/Alertmanager themselves die, no alert fires
+— you just get silence.** A dead-man's switch inverts that: something *outside* the stack expects
+a steady heartbeat and alerts you when it **stops**.
+
+> [!IMPORTANT] It's PUSH, not pull — so "nothing is publicly accessible" doesn't matter
+> The homelab pushes an *outbound* heartbeat to the external service every few minutes. If the
+> heartbeat stops (monitoring/cluster/power dead), the external service notices the silence and
+> emails/texts you. Nothing inbound, no public exposure — just outbound HTTPS, which you have.
+
+**How (kube-prometheus-stack makes this trivial):** it ships a `Watchdog` alert that is *always
+firing* by design. Route that one alert to a **[healthchecks.io](https://healthchecks.io)** ping
+URL via an Alertmanager webhook receiver:
+
+```yaml
+# alertmanager config (values.yaml) — sketch
+route:
+  routes:
+    - matchers: [ 'alertname="Watchdog"' ]
+      receiver: deadmanswitch
+      group_wait: 0s
+      group_interval: 1m
+      repeat_interval: 50s          # ping well within the healthchecks.io period
+receivers:
+  - name: deadmanswitch
+    webhook_configs:
+      - url: https://hc-ping.com/<your-check-uuid>   # store via --set, not committed
+        send_resolved: false
+```
+
+Set the healthchecks.io check's **period** to ~2× the `repeat_interval` (e.g. 2 min) with a grace
+window. While the cluster is healthy, the Watchdog pings keep it green; if the cluster, Prometheus,
+Alertmanager, networking, or power dies, the pings stop → healthchecks.io alerts you **out of band**.
+
+> [!NOTE] Why external beats a self-hosted watcher
+> A gatus/uptime-kuma on Athena can watch *services*, but it's **not** a true dead-man for the
+> homelab — Athena and dock-prod are both on pve-srv-1, and any on-prem watcher dies with a
+> site-wide power/network loss. The external push survives total loss. If you want to avoid a SaaS
+> dependency, run the *receiver* on a cheap external VPS joined to your tailnet — but that's more
+> infra for the same outcome. **healthchecks.io free tier is the pragmatic choice.**
+
+---
+
 ## Dashboards
 
 Import from grafana.com after setup:

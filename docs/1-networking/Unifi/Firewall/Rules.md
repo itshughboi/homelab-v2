@@ -62,9 +62,17 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | K3S | K3S | ANY | Intra-VLAN — pod networking and node-to-node traffic |
 | MGMT | K3S | SSH, K3S | Admin/API access |
 | K3S | STORAGE | STORAGE | Persistent volumes |
+| K3S | Athena Gitea (`10.10.10.8`) | TCP 3000 | **ArgoCD pulls IaC from Gitea** — scoped exception to the K3S→MGMT deny (must be above it) |
+| K3S | DNS (`10.10.10.8`) | TCP/UDP 53 | Resolve `*.hughboi.cc` via Bind9 (for the Gitea hostname / images) |
 | K3S | WAN | CORE, WEB | Images, DNS, NTP |
-| K3S | MGMT | DENY | No lateral movement |
+| K3S | MGMT | DENY | No lateral movement (all other MGMT) |
 | ANY | K3S | DENY | Block inbound |
+
+> [!IMPORTANT] ArgoCD ↔ Gitea (the GitOps source)
+> ArgoCD runs in k3s but pulls from the **Athena** Gitea (`10.10.10.8:3000`) to avoid the
+> in-cluster bootstrap cycle. Since K3S→MGMT is deny-by-default, the scoped `K3S → 10.10.10.8:3000`
+> allow above is **required** or ArgoCD can't reach its source. Scope it to that IP+port only,
+> not all of MGMT. (DR break-glass: if Gitea is down, ArgoCD can be pointed at the GitHub mirror.)
 
 > [!IMPORTANT] Post-bootstrap
 > Once Bind9 is live on Athena, change the `K3S → WAN CORE` rule destination
