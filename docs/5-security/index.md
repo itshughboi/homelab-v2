@@ -159,6 +159,43 @@ Apps that need cross-namespace communication get their own `networkpolicy.yaml` 
 
 ---
 
+## Pod Security (securityContext + PSA)
+
+securityContext coverage is **partial** across the k3s apps (audit **A2-M1**). The fix is a
+standard baseline + a *non-breaking* rollout — not a blind mass-edit (`runAsNonRoot` /
+`readOnlyRootFilesystem` break root-running or filesystem-writing apps individually).
+
+**The container baseline** (add per deployment, in PRs — CI kubeconform-validates):
+
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false      # safe almost everywhere
+  capabilities: { drop: ["ALL"] }      # safe almost everywhere
+  seccompProfile: { type: RuntimeDefault }
+  # --- add per-app once tested (these break some images): ---
+  # runAsNonRoot: true
+  # runAsUser: 1000                     # check the image's expected UID first
+  # readOnlyRootFilesystem: true        # mount emptyDir/PVC for paths the app writes
+```
+
+**Cluster-wide guardrail without per-app edits — Pod Security Admission.** Label namespaces
+(start non-blocking, then enforce as each is validated):
+
+```yaml
+# namespace.yaml labels
+pod-security.kubernetes.io/enforce: baseline     # blocks privileged/hostNetwork/etc. — most apps pass
+pod-security.kubernetes.io/warn: restricted      # surfaces stricter violations (non-blocking)
+pod-security.kubernetes.io/audit: restricted
+```
+
+**Rollout order:** (1) add `warn/audit: restricted` everywhere → see violations harmlessly; (2)
+add the safe container baseline app-by-app via PRs, starting with stateless apps; (3) move
+namespaces to `enforce: baseline`; (4) pursue `restricted` per-app where feasible. **Known
+exceptions:** `home-assistant` (hostNetwork) and any host-metrics pod need scoped exemptions, not
+the strict profile.
+
+---
+
 ## CI Security Scanning
 
 Every PR runs two security scans automatically (`.gitea/workflows/ci.yaml`):
