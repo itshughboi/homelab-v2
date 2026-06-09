@@ -141,7 +141,15 @@ Two tools handle secrets, operating at different layers — not alternatives to 
 | **Sealed Secrets** | Kubernetes / ArgoCD | k8s `Secret` objects | In-cluster controller |
 | SOPS + Age | Ansible / Terraform | `.tfvars`, `secrets.yaml` for provisioning | Athena at runtime |
 
-### 1. Sealed Secrets (Primary — Automated, GitOps-native)
+> [!IMPORTANT] Current reality: apps use **imperative** secrets, not Sealed Secrets (yet)
+> The Sealed Secrets controller is installed (`infra/sealed-secrets/`), but **no app uses it
+> yet** — every app ships a comment-only `secret.yaml` that you must `kubectl create` by hand
+> before ArgoCD syncs it (the "Imperative Secrets" pattern below). **Migrating apps to Sealed
+> Secrets is the target** — until then, those secrets live only in Vaultwarden, not Git, which
+> is a DR gap (a rebuild requires re-entering them). Treat §1 below as the goal and §2 as
+> what's live today.
+
+### 1. Sealed Secrets (target — automated, GitOps-native; not yet adopted)
 
 Sealed Secrets encrypts a Kubernetes Secret so it can be safely committed to Git. The sealed-secrets controller running in-cluster holds the private key and decrypts `SealedSecret` objects back into real `Secret` objects automatically. ArgoCD treats them like any other manifest.
 
