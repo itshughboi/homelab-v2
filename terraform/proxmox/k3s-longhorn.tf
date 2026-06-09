@@ -17,12 +17,12 @@ resource "proxmox_virtual_environment_vm" "k3s_longhorn" {
   }
 
   cpu {
-    cores = 4
+    cores = 2
     type  = "host"
   }
 
   memory {
-    dedicated = 8192
+    dedicated = 6144
   }
 
   disk {

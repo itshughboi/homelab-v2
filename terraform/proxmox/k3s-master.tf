@@ -17,7 +17,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   cpu {
-    cores = 4
+    cores = 2
     type  = "host"
   }
 

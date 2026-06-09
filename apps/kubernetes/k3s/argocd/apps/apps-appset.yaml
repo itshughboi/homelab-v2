@@ -7,7 +7,9 @@ spec:
   goTemplate: true
   generators:
     - git:
-        repoURL: http://gitea.gitea.svc.cluster.local:3000/hughboi/homelab.git
+        # Athena-hosted Gitea (management plane) — avoids the in-cluster bootstrap cycle.
+        # Requires a firewall allow: k3s (VLAN 30) → 10.10.10.8:3000 (k3s→MGMT is deny by default).
+        repoURL: http://10.10.10.8:3000/hughboi/homelab.git
         revision: main
         directories:
           - path: apps/kubernetes/k3s/apps/*
@@ -19,7 +21,9 @@ spec:
     spec:
       project: default
       source:
-        repoURL: http://gitea.gitea.svc.cluster.local:3000/hughboi/homelab.git
+        # Athena-hosted Gitea (management plane) — avoids the in-cluster bootstrap cycle.
+        # Requires a firewall allow: k3s (VLAN 30) → 10.10.10.8:3000 (k3s→MGMT is deny by default).
+        repoURL: http://10.10.10.8:3000/hughboi/homelab.git
         targetRevision: main
         path: "{{.path.fullPath}}"
         directory:

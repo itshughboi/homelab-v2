@@ -8,7 +8,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: http://gitea.gitea.svc.cluster.local:3000/hughboi/homelab.git
+    # Athena-hosted Gitea — see apps-appset.yaml note (needs k3s→10.10.10.8:3000 firewall allow)
+    repoURL: http://10.10.10.8:3000/hughboi/homelab.git
     targetRevision: main
     path: apps/kubernetes/k3s/argocd/apps
   destination:

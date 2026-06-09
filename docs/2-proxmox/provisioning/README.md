@@ -238,19 +238,22 @@ terraform apply  # wait 60-90s after for cloud-init to finish
 > [MAC Reservations.md](../../1-networking/Unifi/Assignments/MAC%20Reservations.md). If the IP
 > columns ever disagree, the inventory wins.
 
+Per srv-2/3/4 (32 GB / 16-thread mini PCs), each hosts 1 master + 1 worker + 1 longhorn =
+10 vCPU / 26 GB committed, leaving ~6 GB for the Proxmox host.
+
 | VM | VLAN | IP | vCPU | RAM | Disk | Node |
 | --- | --- | --- | --- | --- | --- | --- |
 | athena | 10 | 10.10.10.8 | 4 | 8 GB | 50 GB | pve-srv-1 |
 | dock-prod | 10 | 10.10.10.10 | 8 | 16 GB | 50 GB | pve-srv-1 |
-| k3s-master-1 | 30 | 10.10.30.1 | 4 | 8 GB | 50 GB | pve-srv-2 |
-| k3s-master-2 | 30 | 10.10.30.2 | 4 | 8 GB | 50 GB | pve-srv-3 |
-| k3s-master-3 | 30 | 10.10.30.3 | 4 | 8 GB | 50 GB | pve-srv-4 |
-| k3s-worker-1 | 30 | 10.10.30.11 | 8 | 16 GB | 50 GB | pve-srv-2 |
-| k3s-worker-2 | 30 | 10.10.30.12 | 8 | 16 GB | 50 GB | pve-srv-3 |
-| k3s-worker-3 | 30 | 10.10.30.13 | 8 | 16 GB | 50 GB | pve-srv-4 |
-| k3s-longhorn-1 | 30 | 10.10.30.51 | 2 | 4 GB | 200 GB | pve-srv-2 |
-| k3s-longhorn-2 | 30 | 10.10.30.52 | 2 | 4 GB | 200 GB | pve-srv-3 |
-| k3s-longhorn-3 | 30 | 10.10.30.53 | 2 | 4 GB | 200 GB | pve-srv-4 |
+| k3s-master-1 | 30 | 10.10.30.1 | 2 | 4 GB | 50 GB | pve-srv-2 |
+| k3s-master-2 | 30 | 10.10.30.2 | 2 | 4 GB | 50 GB | pve-srv-3 |
+| k3s-master-3 | 30 | 10.10.30.3 | 2 | 4 GB | 50 GB | pve-srv-4 |
+| k3s-worker-1 | 30/40 | 10.10.30.11 | 6 | 16 GB | 50 GB | pve-srv-2 |
+| k3s-worker-2 | 30/40 | 10.10.30.12 | 6 | 16 GB | 50 GB | pve-srv-3 |
+| k3s-worker-3 | 30/40 | 10.10.30.13 | 6 | 16 GB | 50 GB | pve-srv-4 |
+| k3s-longhorn-1 | 30/40 | 10.10.30.51 | 2 | 6 GB | 300 GB | pve-srv-2 |
+| k3s-longhorn-2 | 30/40 | 10.10.30.52 | 2 | 6 GB | 300 GB | pve-srv-3 |
+| k3s-longhorn-3 | 30/40 | 10.10.30.53 | 2 | 6 GB | 300 GB | pve-srv-4 |
 
 ### State Backend
 
