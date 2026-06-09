@@ -157,3 +157,38 @@ jobs:
             echo "Scanning $df"
             trivy config --exit-code 0 --severity HIGH,CRITICAL "$df"
           done
+
+  docs-build:
+    name: Docs Build (Hugo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Hugo (extended)
+        run: |
+          HUGO_VERSION=0.161.1
+          curl -sSLo hugo.tar.gz \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          tar -xf hugo.tar.gz hugo
+          sudo mv hugo /usr/local/bin/
+          hugo version
+
+      - name: Regenerate content/ from docs/ and build
+        run: |
+          cd docs/hugo
+          ./sync.sh
+          hugo build --logLevel warn
+
+      - name: Fail on unresolved internal .md links
+        run: |
+          cd docs/hugo
+          bad=$(grep -rohE 'href="[^"]*\.md[^"]*"' public/ --include='*.html' \
+                | grep -vE 'https?://|bootstrap/|packer/|terraform/|ansible/|apps/' | sort -u || true)
+          if [ -n "$bad" ]; then
+            echo "Unresolved internal .md links (broken source links):"; echo "$bad"; exit 1
+          fi
+          echo "All internal doc links resolve."
