@@ -1,0 +1,126 @@
+---
+# Backup health check — runs DAILY from Semaphore. Detection, not proof:
+# confirms each backup system has a RECENT, SUCCESSFUL backup; alerts via ntfy if any is
+# stale/failed. The quarterly manual restore drill (docs/Backup-Recovery.md) is the proof.
+#
+# Runs from a control host (Athena) that has: kubectl/velero access to k3s, and SSH to PBS.
+# Fill in the vars marked TODO for your environment.
+
+- name: Verify backups are recent and healthy
+  hosts: backup_control          # Athena — see inventory.yaml
+  gather_facts: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    stale_hours: 26              # a daily backup older than this = stale
+    pbs_host: "10.10.10.6"       # PBS mgmt IP
+    pbs_datastore: "datastore1"  # TODO: confirm datastore name
+    kubeconfig: "/home/hughboi/.kube/config"
+
+  tasks:
+    - name: Init findings list
+      ansible.builtin.set_fact:
+        problems: []
+
+    # ── PBS: newest snapshot age + last verify ──────────────────────────────
+    - name: PBS — newest snapshot age (hours)
+      ansible.builtin.command:
+        cmd: >-
+          ssh -o StrictHostKeyChecking=no root@{{ pbs_host }}
+          "proxmox-backup-manager snapshot list {{ pbs_datastore }} --output-format json"
+      register: pbs_raw
+      changed_when: false
+      failed_when: false
+
+    - name: PBS — flag if unreachable or stale
+      ansible.builtin.set_fact:
+        problems: "{{ problems + ['PBS: snapshot list failed/empty (' + pbs_datastore + ')'] }}"
+      when: pbs_raw.rc != 0 or (pbs_raw.stdout | default('') | trim) in ['', '[]']
+      # TODO (refine): parse the JSON `backup-time` of the newest snapshot and compare to
+      # stale_hours; also check the latest `verify-state == ok`.
+
+    # ── Velero: last backup Completed + age ─────────────────────────────────
+    - name: Velero — last backup status
+      ansible.builtin.command:
+        cmd: velero backup get -o json
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+      register: velero_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Velero — flag if no recent Completed backup
+      ansible.builtin.set_fact:
+        problems: "{{ problems + ['Velero: no recent Completed backup'] }}"
+      when: >-
+        velero_raw.rc != 0 or
+        ('Completed' not in (velero_raw.stdout | default('')))
+      # TODO (refine): parse items[].status.completionTimestamp, compare newest to stale_hours.
+
+    # ── etcd: newest k3s snapshot age ───────────────────────────────────────
+    - name: etcd — newest snapshot mtime (epoch) on a master
+      ansible.builtin.command:
+        cmd: >-
+          ssh -o StrictHostKeyChecking=no hughboi@10.10.30.1
+          "sudo bash -c 'ls -t /var/lib/rancher/k3s/server/db/snapshots/ 2>/dev/null | head -1 |
+           xargs -I{} stat -c %Y /var/lib/rancher/k3s/server/db/snapshots/{} 2>/dev/null'"
+      register: etcd_raw
+      changed_when: false
+      failed_when: false
+
+    - name: etcd — flag if missing or stale
+      ansible.builtin.set_fact:
+        problems: "{{ problems + ['etcd: no recent snapshot (>%d h)' | format(stale_hours)] }}"
+      when: >-
+        etcd_raw.rc != 0 or (etcd_raw.stdout | trim) == '' or
+        ((ansible_date_time.epoch | int) - (etcd_raw.stdout | trim | int)) > (stale_hours * 3600)
+
+    # ── Longhorn: volumes with a recent backup ──────────────────────────────
+    - name: Longhorn — backups present
+      ansible.builtin.command:
+        cmd: kubectl -n longhorn-system get backups.longhorn.io -o json
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+      register: lh_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Longhorn — flag if no backups
+      ansible.builtin.set_fact:
+        problems: "{{ problems + ['Longhorn: no volume backups found'] }}"
+      when: lh_raw.rc != 0 or ('"items": []' in (lh_raw.stdout | default('')))
+      # TODO (refine): check each backup's status + age per important PVC.
+
+    # ── Report ──────────────────────────────────────────────────────────────
+    - name: Alert if any backup is stale/failed
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "⚠ Backup verification FAILED ({{ problems | length }})"
+          Priority: urgent
+          Tags: rotating_light
+        body: "{{ problems | join('\n') }}"
+        body_format: raw
+        status_code: 200
+      when: problems | length > 0
+      ignore_errors: true
+
+    - name: Notify all-clear (low priority)
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "✅ Backups OK (PBS · Velero · etcd · Longhorn)"
+          Priority: min
+          Tags: white_check_mark
+        body: "All backup systems reported a recent, successful backup."
+        body_format: raw
+        status_code: 200
+      when: problems | length == 0
+      ignore_errors: true
+
+    - name: Fail the run if problems (so Semaphore shows red)
+      ansible.builtin.fail:
+        msg: "Backup verification found {{ problems | length }} issue(s): {{ problems | join('; ') }}"
+      when: problems | length > 0

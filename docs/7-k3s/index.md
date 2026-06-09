@@ -224,6 +224,24 @@ Configure in AdGuard UI (`http://10.10.30.69`):
 
 ---
 
+## Platform Components
+
+Beyond the core infra/networking layers, these run in the cluster (each has a full README in
+`apps/kubernetes/k3s/`):
+
+| Component | Role | Source |
+| --- | --- | --- |
+| **Velero** | Cluster-level DR — backs up **k8s resources + PVC data** to S3 (MinIO/B2), for full-cluster reconstruction. Complements Longhorn (which does volume-level restores). | [`infra/velero/`](../../apps/kubernetes/k3s/infra/velero/) |
+| **system-upgrade-controller** | Automated k3s version upgrades via declarative `Plan`s — cordons/drains/upgrades/uncordons each node (servers first). No more SSH-per-node. | [`infra/system-upgrade-controller/`](../../apps/kubernetes/k3s/infra/system-upgrade-controller/) |
+| **tailscale-operator** | Exposes individual Services on the tailnet (`tailscale.com/expose: "true"`) for remote admin (Grafana/ArgoCD/Longhorn) **without** public Traefik or open ports. | [`infra/tailscale-operator/`](../../apps/kubernetes/k3s/infra/tailscale-operator/) |
+| **Authentik** | SSO / OIDC for k3s apps (forward-auth via Traefik). The k3s counterpart to Docker's Pocket ID — see [5-security identity](../5-security/index.md#identity--sso). | [`apps/authentik/`](../../apps/kubernetes/k3s/apps/authentik/) |
+
+> **DR note:** Velero is the cluster-rebuild backup; **its S3 target is a required dependency** —
+> stand up MinIO (TrueNAS) or B2 before relying on it, and include a Velero **restore** in the
+> backup-validation drill (see backup testing).
+
+---
+
 ## Observability
 
 ```sh

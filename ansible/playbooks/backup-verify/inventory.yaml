@@ -1,0 +1,9 @@
+---
+# Runs from Athena — the management host with kubectl/velero + SSH to PBS and k3s nodes.
+all:
+  children:
+    backup_control:
+      hosts:
+        athena:
+          ansible_host: 10.10.10.8
+          ansible_user: hughboi
