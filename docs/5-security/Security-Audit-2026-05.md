@@ -1,5 +1,11 @@
 # Security Audit — May 2026
 
+> [!NOTE] Point-in-time snapshot
+> This is the state **as of May 2026** — a record + remediation checklist, kept as-is. Cross-check
+> against current docs before acting: a few references have since changed (e.g. CrowdSec/Wazuh
+> are the **Docker stacks on dock-prod**, not k3s; `netbootxyz` is deprecated). The open
+> checklist items at the bottom are still valid to work through.
+
 Conducted after initial infrastructure build-out. Findings rated by impact and likelihood.
 Items marked ✅ are fixed in this repo. Items marked 📋 require manual action (UI, secrets, live hosts).
 

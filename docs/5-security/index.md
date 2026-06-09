@@ -1,4 +1,4 @@
-# 6. Security
+# 5. Security
 
 Security baseline configured before any production services go live. These settings apply across every VM, every container, and the k3s cluster. Do this after storage is mounted and before deploying Docker or k3s workloads.
 
@@ -64,53 +64,35 @@ ansible-playbook -i <inventory> main.yaml
 
 ## SOPS / Age (Secrets at Rest)
 
-Age key lives on Athena only. Never in Git.
-
-```sh
-# Initial setup — run once on Athena
-./scripts/age-setup.sh
-
-# Encrypt a file
-sops --encrypt --age $(cat ~/.config/sops/age/keys.txt | grep public | awk '{print $4}') \
-  secret.yaml > secret.enc.yaml
-
-# Decrypt
-sops --decrypt secret.enc.yaml
-```
-
-`.sops.yaml` in the repo root defines which files get encrypted and which Age public key to use. The private key never leaves Athena.
-
-→ Full GitOps workflow and Sealed Secrets integration: [8-gitops/Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md)
+Age private key lives on **Athena only**, never in Git; `.sops.yaml` (repo root) defines which
+files get encrypted. The full workflow (`age-setup.sh`, encrypt/decrypt, `.sops.yaml`, Sealed
+Secrets for k8s) is documented once in **[8-gitops/Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md)**.
 
 ---
 
 ## Tailscale VPN
 
-Tailscale provides zero-config mesh VPN — used for remote access to internal services without exposing ports publicly.
+Zero-config mesh VPN for remote access without exposing ports publicly. Runs as a **subnet
+router** (not an exit node) on a **dedicated VLAN-80 VM** (`vpn-gateway`, `10.10.80.254`) — *not*
+on Athena. Full rationale, the `tailscale up` flags, and the required UniFi static route are in
+**[Tailscale.md](Tailscale.md)**.
 
-**Install on a host:**
-```sh
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --authkey=<tskey-from-vaultwarden>
-```
-
-**Tailscale Operator in k3s** (`apps/kubernetes/k3s/infra/tailscale-operator/`) — exposes k8s Services directly on the Tailnet. No Traefik IngressRoute needed for internal-only services.
-
-**Key devices:**
-- Athena (10.10.10.8) — always-on exit node for remote admin
-- Your Mac — primary client
+> Optionally, the **Tailscale Operator in k3s** (`apps/kubernetes/k3s/infra/tailscale-operator/`)
+> can expose individual k8s Services on the tailnet without a Traefik IngressRoute.
 
 ---
 
 ## Wazuh (SIEM)
 
-Wazuh runs in k3s (`apps/kubernetes/k3s/apps/wazuh/`) and collects security events from agents installed on all hosts.
+Wazuh currently runs as the **Docker stack on dock-prod** (`apps/docker/wazuh/`), dashboard at
+`https://wazuh.hughboi.cc`, collecting events from agents on all hosts. (A k3s deployment is the
+future migration target — see [Wazuh-UniFi-Logs.md](Wazuh-UniFi-Logs.md).)
 
 Install agent on any Ubuntu host:
 ```sh
 # Get the agent package from the Wazuh manager API or UI
 curl -so wazuh-agent.deb https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.x.x_amd64.deb
-WAZUH_MANAGER="wazuh.hughboi.vip" dpkg -i wazuh-agent.deb
+WAZUH_MANAGER="wazuh.hughboi.cc" dpkg -i wazuh-agent.deb
 systemctl enable --now wazuh-agent
 ```
 
