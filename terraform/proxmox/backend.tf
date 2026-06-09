@@ -38,9 +38,9 @@
 #
 # terraform {
 #   backend "http" {
-#     address        = "https://gitea.hughboi.cc/api/packages/hughboi/terraform/state/proxmox"
-#     lock_address   = "https://gitea.hughboi.cc/api/packages/hughboi/terraform/state/proxmox/lock"
-#     unlock_address = "https://gitea.hughboi.cc/api/packages/hughboi/terraform/state/proxmox/lock"
+#     address        = "https://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox"
+#     lock_address   = "https://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox/lock"
+#     unlock_address = "https://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox/lock"
 #     username       = "hughboi"
 #     password       = "<gitea-api-token>"   # store in env: TF_HTTP_PASSWORD
 #     lock_method    = "POST"

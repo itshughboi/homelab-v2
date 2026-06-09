@@ -4,6 +4,32 @@ Docker services split across two hosts: **Athena** (management stack) and **dock
 
 ---
 
+## Hardening TODO (from the per-app audit)
+
+`apps/docker/` is live production — apply these in code, then `docker compose up -d <svc>`. The
+overall stack is strong (100% pinned images, `no-new-privileges` everywhere, Loki logging).
+
+**Quick wins**
+- [ ] **traefik** — DNS `10.10.10.9` → `10.10.10.8` (Bind9; `.9` is a bogus host). *(fixed in git — needs redeploy)*
+- [ ] **bind9** — move off the `_beta` image tag (foundational DNS shouldn't run a beta).
+
+**Medium**
+- [ ] **mem_limit** on the memory-heavy apps — `jellyfin`, `immich`, `home-assistant` (prevent one OOM from taking neighbors on the shared host). Only 6/35 services set limits today.
+- [ ] **glances** + **promgraftail** run **`privileged: true`** — scope down (Glances API mode; Telegraf with specific caps instead of full privileged).
+- [ ] **gitea runner** mounts `docker.sock` **RW** = root on dock-prod (audit **C3**) — restrict the runner to this repo + require PR approval for first-time contributors.
+- [ ] **vaultwarden** is publicly reachable and holds everything (audit **H4**) — front with Authentik forward-auth + IP-restrict `/admin`; set `SIGNUPS_ALLOWED=false`.
+- [ ] **paths** — 20/35 compose files hardcode `/home/hughboi/...`; standardize on `${CODE_ROOT}`/`${DATA_ROOT}` (adguard already does it) so a rebuild on a different path is one var change.
+
+**Low**
+- [ ] **glances** lacks `no-new-privileges` (it's also privileged) — review whether it needs host access at all.
+- [ ] **vaultwarden** `apparmor:unconfined` — confirm it's actually required.
+
+> Not on this list because they're already correct: image pinning (100%), Loki logging,
+> `no-new-privileges` (all but glances), gitea Postgres healthcheck + `pids_limit`, CrowdSec
+> bouncer, file-based secrets (traefik CF token). netbootxyz was relocated to `sunset/`.
+
+---
+
 ## The Two Docker Hosts
 
 | Host | IP | Purpose |

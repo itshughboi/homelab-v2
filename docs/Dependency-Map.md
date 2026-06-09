@@ -85,6 +85,38 @@ Red = single point of failure with wide blast radius. Blue = critical service.
 
 ---
 
+## Failure modes — "if X is down, what breaks?"
+
+Scenario analysis for the GitOps + ingress chain — the part most likely to surprise you. Key
+design choice: **ArgoCD and the Terraform state backend both pull Gitea by direct IP
+(`10.10.10.8:3000`), not `gitea.hughboi.cc`.** That deliberately bypasses Traefik *and* DNS, so
+those two paths survive a Traefik or Bind9 outage.
+
+| Down | Still works | Breaks |
+| --- | --- | --- |
+| **Traefik (dock-prod)** | **ArgoCD pulls** (direct IP) · all internal IP traffic · k3s `*.hughboi.vip` (separate k3s Traefik) | Every `*.hughboi.cc` web UI by hostname · Let's Encrypt renewals via this Traefik |
+| **Bind9 (Athena)** | **ArgoCD pulls** (IP, not hostname) · IP-addressed traffic | Hostname resolution fleet-wide → web UIs, image pulls by name, anything using FQDNs |
+| **Gitea (Athena)** | Running apps keep running (ArgoCD only needs Gitea to *sync changes*) | New ArgoCD syncs · Terraform state ops · **break-glass: repoint ArgoCD/TF at the GitHub mirror** |
+| **dock-prod VM** | **ArgoCD pulls** (Athena) · k3s cluster + its apps | Traefik, AdGuard, Vaultwarden, UniFi controller, all Docker apps |
+| **Athena VM** | k3s apps already running | Bind9 (DNS!), Gitea (ArgoCD source), Semaphore — major. GitHub mirror is the only ArgoCD escape |
+| **pve-srv-1** | k3s (on srv-2/3/4) | Athena **and** dock-prod **and** TrueNAS **and** PBS at once — the mega-SPOF |
+
+**Takeaways for your Gitea concern:**
+- Because ArgoCD uses the **direct Athena IP**, dock-prod/Traefik being down does **not** stop
+  ArgoCD from pulling — your worry is already designed around. ✅
+- The remaining hard dependency is **Athena itself** (Gitea + Bind9 live there). The mitigations
+  are: the **GitHub push-mirror** (point ArgoCD/TF there in a pinch) and a **Bind9 secondary**
+  (planned — [DNS design](1-networking/Unifi/Networks/DNS.md)).
+- The **end-state caveat**: when dock-prod retires, Gitea must stay reachable on Athena by IP for
+  k3s. Keep the `K3S → 10.10.10.8:3000` firewall allow ([Rules](1-networking/Unifi/Firewall/Rules.md))
+  and don't route ArgoCD through any Traefik.
+
+> Whether the cluster is even *healthy enough to alert you* is the dead-man's switch —
+> [Monitoring → Dead-man's switch](7-k3s/Monitoring.md#dead-mans-switch). It's the one alert that
+> fires (via an external push) when everything above is too dead to send anything.
+
+---
+
 ## Cold-start order (full power-on / DR)
 
 Bring things up in dependency order — skipping ahead causes resolution/scheduling failures:
