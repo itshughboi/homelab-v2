@@ -39,12 +39,12 @@ Auto-generated from `docs/` by `sync.sh` — edit the source under `docs/`, neve
 Pick a section from the sidebar: networking, proxmox, athena, storage, security, docker, k3s, gitops.
 EOF
 
-# sources to mirror: the 8 numbered areas + extras + future + two top-level pages
+# sources to mirror: the 8 numbered areas + extras + future + every top-level .md
 mapfile -t FILES < <(
   cd "$SRC"
   find 1-networking 2-proxmox 3-athena 4-storage 5-security 6-docker 7-k3s 8-gitops extras future \
        -type f -name '*.md' 2>/dev/null
-  ls QUICKSTART.md Dependency-Map.md 2>/dev/null
+  ls *.md 2>/dev/null          # BUILD.md, QUICKSTART.md, Dependency-Map.md, Backup-Recovery.md, …
 )
 
 for rel in "${FILES[@]}"; do

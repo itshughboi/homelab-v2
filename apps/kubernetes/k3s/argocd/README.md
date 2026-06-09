@@ -2,6 +2,22 @@
 
 GitOps continuous delivery for the k3s cluster. ArgoCD watches your Gitea repo and automatically syncs changes to the cluster — push to `main` and ArgoCD applies it.
 
+> [!IMPORTANT] Why the repo URL is a direct IP, not `gitea.hughboi.cc`
+> The `Application`/`ApplicationSet` manifests pull from **`http://10.10.10.8:3000`** (the Athena
+> Gitea by **direct IP**), *not* the `gitea.hughboi.cc` hostname. This is deliberate:
+> - **Traefik-independent:** if dock-prod's Traefik is down, ArgoCD still pulls. (`gitea.hughboi.cc`
+>   routes through that Traefik — using it would couple GitOps to dock-prod being up.)
+> - **DNS-independent:** an IP needs no Bind9 lookup, so a DNS outage doesn't block syncs either.
+> - The only remaining hard dependency is **Athena itself** (where Gitea lives). Break-glass: point
+>   the repo URL at the **GitHub mirror**.
+>
+> Requires a firewall allow `K3S → 10.10.10.8:3000` (k3s→MGMT is deny-by-default) — see
+> [Firewall Rules](../../../../docs/1-networking/Unifi/Firewall/Rules.md#k3s-10103024). Full
+> failure-mode analysis: [Dependency-Map](../../../../docs/Dependency-Map.md#failure-modes--if-x-is-down).
+>
+> ⚠️ Gitea currently runs on **dock-prod**; this URL assumes the planned move to **Athena**. Until
+> then, use `10.10.10.10:3000` or move Gitea first.
+
 ## Overview
 
 | | |
