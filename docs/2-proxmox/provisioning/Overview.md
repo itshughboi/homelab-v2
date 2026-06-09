@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | **Ventoy USB** ✅ | USB → Proxmox ISO (answer baked in) → automated install | **In use** |
 | Classic PXE / Netboot | DHCP → iPXE → installer | Abandoned — see [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md) |
-| MAAS | DHCP → MAAS PXE → image to disk | Evaluated — needs IPMI + heavy infra, [details](MAAS.md) |
+| MAAS | DHCP → MAAS PXE → image to disk | Evaluated — needs IPMI + heavy infra, [details](sunset/MAAS.md) |
 | BMC / IPMI / Redfish | API → mount ISO → autoinstall | N/A — consumer mini PCs have no BMC |
 
 The short version: netboot.xyz is an interactive menu tool, not a provisioning pipeline,

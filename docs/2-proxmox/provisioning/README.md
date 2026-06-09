@@ -116,18 +116,28 @@ pveum user token add packer@pve packer --privsep=0
 
 ### Proxmox Best Practices
 
-- Monthly ZFS scrubs: `zpool scrub <pool>`
-- SMART monitoring: `apt install smartmontools`
-- Use Proxmox HA groups so VMs prefer specific nodes
-- Snapshot before major changes — fast, cheap, lifesaving
-- Set datacenter-level PBS backup schedules for every production VM
-- Pin VMs to preferred nodes with resource mapping rather than random placement
+Host setup + operational best practices live in one place:
+[pve/README.md → Host Best Practices](../pve/README.md#host-best-practices).
 
 ---
 
 ## VM Template (ID 9999) {#vm-template}
 
 All VMs in this homelab clone from Template 9999 on pve-srv-1. ID 9999 puts it at the bottom of the Proxmox UI list so it never clutters the VM view.
+
+### VM defaults (any VM, hand-built or templated)
+
+Hypervisor knobs to set on every VM — documented here so VM creation lives in one place:
+
+- **Machine type:** `i440fx` normally; **`q35`** if the VM needs PCI/IOMMU passthrough.
+- **Disk:** enable **SSD emulation** (enables TRIM/discard so freed space is reclaimed).
+- **CPU type:** `host` (exposes the full CPU feature set to the guest).
+- **Memory:** ballooning **off** — avoids over-allocating host RAM across many VMs.
+- **NIC:** VirtIO model, and **set MTU explicitly** (1500 for mgmt/k3s, 9000 for storage) —
+  VMs inherit the bridge MTU otherwise; see [pve/Virtual Interfaces.md](../pve/Virtual%20Interfaces.md).
+- **QEMU guest agent:** enabled.
+
+There are three ways to produce the template:
 
 ### Option A — Ansible Playbook (Recommended)
 

@@ -1,96 +1,90 @@
-## Notification Endpoint
-email: alerts@hughboi.cc
+# Proxmox Host Operations
 
+Day-to-day operation of the Proxmox hypervisor hosts. For **provisioning** (node install, VM
+template, cluster formation, Terraform) see [provisioning/](../provisioning/README.md).
+Per-node hardware (NICs / MACs) lives in the network inventory:
+[Inventory/](../../1-networking/Unifi/Assignments/Inventory/) — not duplicated here.
+
+| Doc | Contents |
+| --- | --- |
+| [Virtual Interfaces.md](Virtual%20Interfaces.md) | Bridges + VLAN sub-interfaces, MTU/jumbo frames per node |
+| [Corosync.md](Corosync.md) | Cluster links/rings, quorum, no-QDevice decision |
+| [cloud-init/](cloud-init/README.md) | Manual cloud-init template build + SSH setup |
+| [gpu-passthrough/](gpu-passthrough/README.md) | IOMMU + PCI passthrough |
+| [vm-disk-expansion/](vm-disk-expansion/README.md) | Grow a VM disk + filesystem |
+
+---
+
+## Notifications
+
+- **Primary — ntfy** (`https://ntfy.hughboi.cc/homelab`): used by the Ansible playbooks and the
+  PVE notification targets.
+- **Email** (`alerts@hughboi.cc`): fallback only, for cases where ntfy isn't supported.
+
+Datacenter → Notifications → add the ntfy (or SMTP) target, then update the default notification
+matcher to include it.
+
+---
 
 ## Updates
-Datacenter -> Updates -> Refresh to update and then click Upgrade to upgrade. Must be root for this.
-Can also login to shell and run apt update && apt dist-upgrade
-Reboot if there is a kernel update
 
+Datacenter → Updates → **Refresh**, then **Upgrade** (must be root). Or via shell:
 
-
-## VM Creation Default Values
-**Machine Type**: Typically I can do i440fx, but if I need to do any hardware passthrough, a **q35** machine will be needed/recommended (IOMMU)
-**Disks**: 
-- SSD emulation (checked). Enables TRIM. Once something is marked for deletion, it can go back and reclaim that space
-
-**CPU**:
-- Type: Host. This grants it the full features of the CPU in this emulated setup
-
-**Memory**:
-- Ballooning Device: Unchecked. This will carve out a portion of your total RAM to this machine. If ballooning is on, it will dynamically allocate more RAM up to the theorteical max, but the reserve it takes from is shared through the host. Can run into issues if too many things have ballooning on and RAM gets overallocated.
-
-
-
-## NIC's
-#### **pve-srv-1** <br>
-Intel 82575EB Gigabit Network Connection - 1C:86:0B:20:06:B8 <br>
-Intel 82575EB Gigabit Network Connection - 1C:86:0B:20:06:B9 <br>
-
-Intel Ethernet I350-T4 - 98:B7:85:1E:A0:22 - rightmost <br>
-Intel Ethernet I350-T4 - 98:B7:85:1E:A0:23 - second to the right <br>
-Intel Ethernet I350-T4 - 98:B7:85:1E:A0:24 - second to the left <br>
-Intel Ethernet I350-T4 - 98:B7:85:1E:A0:25 - leftmost of the four <br>
-
-
-
-
-## Cluster Setup
-1. Manually boot first proxmox node from Ventoy. Enable SSH, and get to where the Web UI is accessible at https://IP:8006
-2. Bootstrap a template Ubuntu machine via **cloud-init**.
-   - Add SSH key
-   - Set Network
-4. Full clone the cloud-init template and install Ansible
-5. Manually boot the rest of the proxmox nodes. Enable SSH, and get to where the Web UI is accessible at https://IP:8006
-6. SSH into ansible machine + git pull ansible playbooks
-7. Run the ansible proxmox-node-setup script
-
-There should now be a working proxmox cluster with best security practices.
-
-
-
-
-<br>
-<br>
-***
-
-## Best Practices
-1. Setup No-Subscription repository and run updates and upgrades
-2. Setup attended-upgrades to happen and then setup automation to reboot every 2 weeks
-3. Setup notifications
-- Datacenter -> Notification Target -> Add -> Gotify (or SMTP <- can then send to apprise>)
-- Change default Notification matcher to include the new Notification Target I just created
-4. Issue TLS certificate
-- I haven't got this to work. You need to go to Datacenter -> ACME and register and then apply it under Certificates to the nodes, but doesn't show for me for some reason
-5. Add proxmox backup server backup and setup jobs.
--  Change notification mode to be: Notification system so it uses Gotify when it backups
-- Retention: I believe retention should be done on proxmox backup server itself. If I'm worried, just match them
-7. Enable PCI Passthrough
-- Enable IOMMU in BIOS and within Proxmox
-- VM has to be q35... NOT i440
-8. New VM Setup
-- If i am virtualizing windows, make sure VM type is set to windows and the correct version. You then will need to upload the VirtIO drivers. ALSO add TPM
-- Qemu Agent: CHECKED
-- Graphics card: VirtIO GPU << better performance in vm. Better in windows VM too >>
-- Network Model: VirtIO
-9. Create VM Templates
-10. Setup Wake on LAN
-- ethtool eth0 | grep "Wake-on" << make sure there is a letter 'g' >>
-- enable WoL
-```
-ethtool -s enp4s0 wol g
-```
-- Make it persistent: sudo nano /etc/network/interfaces and add following:
-```
-post-up /usr/sbin/etholol -s enp4s0 wol g
-```
-- Find MAC from ``` ip a ```
-- Create magic packet
-```
-brew install wakeonlan
-wakeonlan ${MACADDRESS}
+```sh
+apt update && apt dist-upgrade
 ```
 
-- Magic Packet Routing:
-    - Magic packet on broadcast won't pass between networks
-    - Use a machine that is connected to the destination network # << essentially subnet routing here >>
+Reboot on a kernel update. Repo setup + fleet updates are automated:
+`ansible/playbooks/proxmox/cluster-update/`.
+
+---
+
+## Cluster
+
+Cluster formation (Ventoy install → join → Ansible) is documented once, authoritatively, in
+[provisioning/README.md → Proxmox Cluster](../provisioning/README.md#proxmox-cluster). Corosync
+link/ring design and quorum live in [Corosync.md](Corosync.md).
+
+---
+
+## VM creation defaults
+
+Full VM template/creation flow:
+[provisioning/README.md → VM Template](../provisioning/README.md#vm-template). The host-level
+hypervisor defaults that apply to any VM are documented there too, so they live in one place.
+
+---
+
+## Host Best Practices
+
+1. **Repos:** set up the no-subscription repo, run updates/upgrades.
+2. **Patching:** enable `unattended-upgrades`; automate a reboot cadence (e.g. every 2 weeks).
+3. **Notifications:** configure ntfy (see above).
+4. **TLS cert:** Datacenter → ACME → register account → apply per node.
+   *(Note: not yet working reliably — cert doesn't always appear under Certificates; revisit.)*
+5. **Backups:** add the PBS storage + backup jobs; set notification mode to "notification
+   system" so jobs report via ntfy. Retention is managed on PBS itself.
+6. **PCI passthrough:** enable IOMMU in BIOS **and** Proxmox; the VM must be **q35** (not
+   i440fx). Full steps: [gpu-passthrough/](gpu-passthrough/README.md).
+7. **Windows VMs:** set the correct OS type/version, upload the VirtIO drivers, add a TPM.
+8. **Templates:** maintain the golden template (ID 9999) — see provisioning VM Template.
+9. **Wake-on-LAN:**
+   ```sh
+   ethtool enp4s0 | grep "Wake-on"     # confirm a 'g' is present
+   ethtool -s enp4s0 wol g
+   ```
+   Persist in `/etc/network/interfaces`:
+   ```
+   post-up /usr/sbin/ethtool -s enp4s0 wol g
+   ```
+   Send the magic packet with `wakeonlan <MAC>` (`brew install wakeonlan`). Magic packets don't
+   cross subnets — send from a host on the target network (or via subnet routing).
+
+### Operational hygiene
+
+- **ZFS scrubs:** monthly — `zpool scrub <pool>` (schedule it).
+- **SMART monitoring:** `apt install smartmontools`; alert on failures (see [Dependency-Map](../../Dependency-Map.md) / monitoring).
+- **Snapshot before major changes** — fast, cheap, and a lifesaver.
+- **PBS backup schedules** at the datacenter level for every production VM.
+- **Node placement:** pin VMs to preferred nodes via resource mapping / HA groups rather than
+  random placement, so you control where workloads land after a failover.

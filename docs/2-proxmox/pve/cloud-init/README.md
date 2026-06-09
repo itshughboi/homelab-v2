@@ -4,7 +4,7 @@ https://cloud-images.ubuntu.com/
 
 #### Shell
 ```
-qm create 5003 --memory 8192 --core 4 --name ubnt-cloud-noble --net0 virtio,bridge=vmbr0
+qm create 9999 --memory 8192 --core 4 --name ubnt-cloud-noble --net0 virtio,bridge=vmbr0
 ```
 
 ##### Verify iso exists
@@ -15,23 +15,23 @@ ls
 
 ##### Add iso to that machine
 ```
-qm importdisk 5003 noble-server-cloudimg-amd64.img local-lvm
-qm set 5003 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-5003-disk-0
+qm importdisk 9999 noble-server-cloudimg-amd64.img local-lvm
+qm set 9999 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9999-disk-0
 ```
 
 ##### Expand Hard drive
 ```
-qm disk resize 5003 scsi0 50G
+qm disk resize 9999 scsi0 50G
 ```
 
 ##### Attaching dvd drive essentially
 ```
-qm set 5003 --ide2 local-lvm:cloudinit
+qm set 9999 --ide2 local-lvm:cloudinit
 ```
 
 ```
-qm set 5003 --boot c --bootdisk scsi0
-qm set 5003 --serial0 socket --vga serial0
+qm set 9999 --boot c --bootdisk scsi0
+qm set 9999 --serial0 socket --vga serial0
 ```
 
 ##### Proxmox GUI

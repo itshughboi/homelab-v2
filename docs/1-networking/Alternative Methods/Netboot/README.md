@@ -60,7 +60,7 @@ Two blockers at this scale:
   The Libre Potato (2 GB, SD card) can't host it; it'd have to run as a VM on pve-srv-1.
   That's a lot of infrastructure to install three more nodes that rarely get reimaged.
 
-See [provisioning/MAAS.md](../../../2-proxmox/provisioning/MAAS.md) for the full evaluation.
+See [provisioning/MAAS.md](../../../2-proxmox/provisioning/sunset/MAAS.md) for the full evaluation.
 
 ---
 

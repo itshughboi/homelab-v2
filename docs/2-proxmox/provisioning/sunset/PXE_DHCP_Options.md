@@ -1,8 +1,8 @@
 # [ARCHIVED] PXE / DHCP Options
 
 > [!WARNING] Not in use
-> Provisioning moved to [Ventoy USB](Ventoy.md); netboot/PXE is
-> [abandoned](../../1-networking/Alternative%20Methods/Netboot/README.md). The DHCP boot options below
+> Provisioning moved to [Ventoy USB](../Ventoy.md); netboot/PXE is
+> [abandoned](../../../1-networking/Alternative%20Methods/Netboot/README.md). The DHCP boot options below
 > (66/67 on VLAN 99) are **no longer needed** and can be removed from UniFi. Kept for
 > reference only.
 
@@ -43,4 +43,4 @@ For Microtik specifically:
 - Next Server: IP of netboot server (10.10.99.99)
 - Boot File Name: `netboot.xyz.efi`
 
-→ Console cable instructions if needed: [`10_Tooling/01_Console_Cable.md`](01_Console_Cable.md)
+→ Console cable instructions if needed: [Using Console Cable.md](../../../1-networking/Alternative%20Methods/Using%20Console%20Cable.md)

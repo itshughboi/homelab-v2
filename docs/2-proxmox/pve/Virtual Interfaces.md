@@ -9,7 +9,7 @@ Each Proxmox node needs virtual interfaces for each VLAN it participates in.
 
 | Virtual Interface | Target VLAN | Gateway | MTU | Notes |
 | --- | --- | --- | --- | --- |
-| vmbr1.10 | 10 | 10.10.10.254 | 1500 | Management — DHCP next-server: 10.10.99.99 |
+| vmbr1.10 | 10 | 10.10.10.254 | 1500 | Management |
 | vmbr1.20 | 20 | None | 1500 | Cluster / Corosync — no gateway, QoS enabled |
 | vmbr1.40 | 40 | None | 9000 | Storage — Jumbo Frames, no gateway |
 
@@ -46,8 +46,6 @@ Each Proxmox node needs virtual interfaces for each VLAN it participates in.
 | vmbr1    | Linux Bridge (trunk) | enp42s0      | 10.10.10.1/24 | 10.10.10.254 | 9000 | VLAN-aware — management IP lives on bridge directly |
 | vmbr1.20 | VLAN                 | vmbr1        | —             | —            | 1500 | Cluster / Corosync — create if not present         |
 | vmbr1.40 | VLAN                 | vmbr1        | —             | —            | 9000 | Storage — Jumbo Frames — create if not present     |
-
-![[Screenshot 2026-06-08 at 2.55.54 PM.png]]
 
 > [!WARNING] **TODO — TrueNAS and PBS not yet on VLAN 40**
 > Both VMs are currently on Management (VLAN 10) only. Each needs a **second NIC** added for VLAN 40 storage traffic.
