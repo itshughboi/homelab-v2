@@ -1,6 +1,6 @@
 # 3. Athena
 
-Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. Everything runs here: the Git server, Ansible UI, DNS, reverse proxy, and the password manager.
+Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. The Git server, Ansible UI, and DNS run here. (The reverse proxy / Traefik and the password manager run on **dock-prod**, not Athena.)
 
 ---
 
@@ -8,8 +8,7 @@ Athena (10.10.10.8) is the management plane — the VM that replaces your laptop
 
 | Service | Purpose | URL |
 | --- | --- | --- |
-| Docker | Container runtime for all management services | — |
-| Traefik | Reverse proxy — bound to `10.10.10.8`, handles `*.hughboi.cc` for mgmt | https://traefik.hughboi.cc |
+| Docker | Container runtime for the management services | — |
 | Gitea | Self-hosted Git — source of truth for all IaC; GitHub is a push mirror | https://gitea.hughboi.cc |
 | Semaphore | Ansible Web UI + scheduler — runs all playbooks from here | https://semaphore.hughboi.cc |
 | Bind9 | Authoritative LAN DNS — `network_mode: host`, resolves `*.hughboi.cc` internally | 10.10.10.8:53 |
@@ -133,7 +132,7 @@ Set up after Athena is running. See [`../6-docker/Pocket ID - Proxmox.md`](../6-
 
 ## Security Notes
 
-- Traefik is explicitly bound to `10.10.10.8` — not `0.0.0.0`. This prevents Docker from publishing ports to the wrong interface.
+- Traefik runs on **dock-prod** (bound to `10.10.10.10`, not `0.0.0.0`) and reverse-proxies to Athena's services over the network — Athena does not run Traefik. See [6-docker/index.md](../6-docker/index.md).
 - `DOCKER-USER` iptables chain is used for host-level firewall rules that Docker can't bypass.
 - Never run Docker services with `--network=host` unless strictly necessary (Bind9 is the deliberate exception).
 - Web UIs are only reachable from VLAN 10 (Management) — never exposed to WAN.

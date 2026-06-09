@@ -75,7 +75,7 @@ Red = single point of failure with wide blast radius. Blue = critical service.
 | pve-srv-2/3/4 | — | Lose k3s capacity; cluster tolerates **1** node (quorum 3, no QDevice) | partial | k3s reschedules; Longhorn replicas ≥2 |
 | **Bind9** | Athena | Internal name resolution fails fleet-wide → cascading failures | ✅ | **Bind9 secondary** (planned, on k3s, different host) |
 | Gitea / Semaphore | Athena | Can't run Ansible / no git SoT locally | — | GitHub push-mirror is the offsite copy |
-| Traefik | dock-prod (+Athena?) | All web services unreachable by hostname | ✅ | Multi-replica once on k3s + MetalLB |
+| Traefik | dock-prod | All web services unreachable by hostname | ✅ | Multi-replica once on k3s + MetalLB |
 | AdGuard | dock-prod | WiFi/guest lose filtered DNS + local resolution | — | Move to k3s; low criticality (infra uses Bind9) |
 | UniFi controller | dock-prod | Can't *change* network config; data plane keeps running | — | Not in data path; config auto-backed-up |
 | TrueNAS | pve-srv-1 | k3s NFS PVs + backup target gone | ✅ | Drives passed-through = pinned to srv-1; snapshots+replication |

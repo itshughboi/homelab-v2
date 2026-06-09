@@ -1,3 +1,8 @@
+# Docker Host Setup
+
+Installing Docker + the portable path env vars used by the compose files. Service catalog and
+startup order: [index.md](index.md).
+
 ### Docker Installation
 1. Set up Docker's apt repository
 ```sh

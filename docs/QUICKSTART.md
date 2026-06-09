@@ -85,7 +85,7 @@ cd ansible/playbooks/ubuntu/bootstrap-athena/
 ansible-playbook main.yaml -i inventory.yaml
 ```
 
-Athena (`10.10.10.8`) runs Traefik, Gitea, Semaphore, Bind9. All remaining Ansible runs from Semaphore after this.
+Athena (`10.10.10.8`) runs Gitea, Semaphore, Bind9 (Traefik is on dock-prod). All remaining Ansible runs from Semaphore after this.
 
 ---
 
@@ -105,7 +105,7 @@ kubectl get nodes
 | Service | URL |
 | --- | --- |
 | Proxmox | `https://10.10.10.1:8006` |
-| Athena / Traefik | `https://athena.hughboi.cc` |
+| Gitea / Semaphore (Athena) | `https://gitea.hughboi.cc` |
 | Semaphore | `https://semaphore.hughboi.cc` |
 | UniFi | `https://10.10.10.10:8443` |
 | k3s dashboard | via kubectl or Traefik ingress |

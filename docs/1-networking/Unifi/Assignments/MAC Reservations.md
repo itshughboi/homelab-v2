@@ -32,7 +32,7 @@ Hardware detail per node: [Inventory/](Inventory/).
 | --------- | ----------- | --------- | ---- |
 | truenas   | 10.10.10.5  | pve-srv-1 | NAS — management NIC (web UI, SSH); also on VLAN 40 |
 | pbs       | 10.10.10.6  | pve-srv-1 | Proxmox Backup Server — management NIC; also on VLAN 40 |
-| athena    | 10.10.10.8  | pve-srv-1 | Bind9 DNS (primary), Ansible, Terraform, Gitea, Semaphore, Traefik |
+| athena    | 10.10.10.8  | pve-srv-1 | Bind9 DNS (primary), Ansible, Terraform, Gitea, Semaphore |
 | dock-prod | 10.10.10.10 | pve-srv-1 | Docker host — UniFi controller, AdGuard, app workloads |
 
 Gateway for all: `10.10.10.254`.
