@@ -36,9 +36,9 @@ resource "proxmox_virtual_environment_vm" "pbs" {
   }
 
   # NIC 1 — VLAN 40 storage east-west.
-  # NOTE: likely vestigial. PBS now uses a LOCAL ZFS datastore (passed-through disks) and
-  # backs up OFFSITE to the Synology (VLAN 10 / Tailscale) — there is no PBS↔TrueNAS NFS
-  # datastore anymore. This NIC can probably be removed. Kept until confirmed.
+  # Not used by the current datastore (PBS owns local ZFS; offsite goes to the Synology over
+  # VLAN 10 / Tailscale). Kept intentionally for future TrueNAS ↔ PBS storage traffic.
+  # MTU 9000 — must match the switch + TrueNAS NIC when that's wired up.
   network_device {
     bridge  = "vmbr1"
     vlan_id = 40
