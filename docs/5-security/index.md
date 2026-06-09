@@ -120,18 +120,27 @@ Wazuh provides:
 - CVE vulnerability assessment per host
 - Active response (can ban IPs based on rules)
 
+→ Ingesting the UniFi gateway's syslog into Wazuh: [Wazuh-UniFi-Logs.md](Wazuh-UniFi-Logs.md)
+
 ---
 
-## CrowdSec (k3s Ingress)
+## CrowdSec
 
-CrowdSec runs as a Traefik bouncer in k3s, blocking known bad IPs at the ingress layer. Configuration in `apps/kubernetes/k3s/networking/traefik/`.
+CrowdSec blocks known-bad IPs. It currently runs as the Docker stack on dock-prod
+(`apps/docker/crowdsec/`) with the **Traefik bouncer** (app-layer blocking at the reverse
+proxy), parsing Traefik access logs and Linux/SSH auth.
 
-Metrics flow to Prometheus automatically (scrape job in `kube-prometheus-stack/values.yaml`).
+> [!NOTE]
+> This index also references a k3s deployment (`apps/kubernetes/k3s/networking/traefik/`)
+> from the migration plan. The **live** CrowdSec is the Docker stack above — that's what the
+> bouncer docs are written against.
 
 Check ban list:
 ```sh
-kubectl exec -n crowdsec deploy/crowdsec -- cscli decisions list
+docker exec crowdsec cscli decisions list
 ```
+
+→ Adding network-layer auto-block at the UniFi firewall: [CrowdSec-UniFi-Bouncer.md](CrowdSec-UniFi-Bouncer.md)
 
 ---
 

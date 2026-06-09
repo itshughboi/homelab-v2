@@ -86,7 +86,7 @@ Settings → CyberSecure -> Traffic Logging → Activity Logging
 
 **Send UniFi syslog to Wazuh.**
 
-- **Wazuh** is a SIEM — aggregates logs from many sources, runs correlation rules, and alerts. It has built-in decoders for UniFi/firewall syslog. It can correlate a firewall block on an IP with a failed SSH attempt on the same IP across your other hosts. This is the right target for network appliance logs.
+- **Wazuh** is a SIEM — aggregates logs from many sources, runs correlation rules, and alerts. It ships generic firewall/syslog decoders (but **no UniFi-specific decoder** — clean field extraction needs a custom one, see [Wazuh-UniFi-Logs.md](../../../5-security/Wazuh-UniFi-Logs.md)). It can correlate a firewall block on an IP with a failed SSH attempt on the same IP across your other hosts. This is the right target for network appliance logs.
 - **CrowdSec** is a collaborative IPS — parses application-layer logs (nginx, traefik, SSH auth) to detect attack patterns. Better suited to individual servers, not the gateway syslog directly.
 
 ### Wazuh does NOT auto-block on its own
@@ -97,7 +97,10 @@ It does have **Active Response** — a feature that runs a shell script on the W
 
 ### The piece that actually auto-blocks in UniFi: CrowdSec UniFi Bouncer
 
-CrowdSec has a first-party bouncer that reads its decision list and pushes block rules directly into UniFi's firewall automatically. This is the closing link in the chain.
+A CrowdSec bouncer reads its decision list and pushes block rules directly into UniFi's
+firewall automatically — the closing link in the chain. (There's no *official* UniFi
+bouncer; this uses a community one. Full setup:
+[CrowdSec-UniFi-Bouncer.md](../../../5-security/CrowdSec-UniFi-Bouncer.md).)
 
 ```mermaid
 flowchart TD
@@ -155,10 +158,14 @@ Debug only temporarily on the one category you're actively troubleshooting, then
 
 ### Syslog forwarding config
 
-Settings → System → Logging → Remote Logging:
+Settings → CyberSecure → Traffic Logging → Activity Logging (Syslog):
 - Protocol: UDP (standard) or TCP (more reliable, use if Wazuh supports it)
 - Port: 514 (syslog default) or your Wazuh syslog listener port
 - Destination: Wazuh manager IP
+
+> The **receiving** side (Wazuh syslog remote block, decoders, verification) is documented
+> separately: [5-security/Wazuh-UniFi-Logs.md](../../../5-security/Wazuh-UniFi-Logs.md).
+> Note Wazuh isn't listening for syslog out of the box — the `<remote>` block has to be added.
 
 ### Netconsole — leave OFF
 
