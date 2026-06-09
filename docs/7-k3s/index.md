@@ -1,4 +1,4 @@
-# 8. k3s
+# 7. k3s
 
 HA k3s cluster across 9 nodes on pve-srv-2, 3, 4. ArgoCD watches Gitea and applies everything declaratively — no manual `kubectl apply` for ongoing operations.
 
@@ -13,14 +13,17 @@ HA k3s cluster across 9 nodes on pve-srv-2, 3, 4. ArgoCD watches Gitea and appli
 | k3s-master-1 | pve-srv-2 | 30 | 10.10.30.1 | Control plane |
 | k3s-master-2 | pve-srv-3 | 30 | 10.10.30.2 | Control plane |
 | k3s-master-3 | pve-srv-4 | 30 | 10.10.30.3 | Control plane |
-| k3s-worker-1 | pve-srv-2 | 30/40 | 10.10.30.11 | Workloads + Longhorn |
-| k3s-worker-2 | pve-srv-3 | 30/40 | 10.10.30.12 | Workloads + Longhorn |
-| k3s-worker-3 | pve-srv-4 | 30/40 | 10.10.30.13 | Workloads + Longhorn |
-| k3s-longhorn-1 | pve-srv-2 | 30/40 | 10.10.30.51 | Dedicated Longhorn |
-| k3s-longhorn-2 | pve-srv-3 | 30/40 | 10.10.30.52 | Dedicated Longhorn |
-| k3s-longhorn-3 | pve-srv-4 | 30/40 | 10.10.30.53 | Dedicated Longhorn |
+| k3s-worker-1 | pve-srv-2 | 30/40 | 10.10.30.11 | Workloads |
+| k3s-worker-2 | pve-srv-3 | 30/40 | 10.10.30.12 | Workloads |
+| k3s-worker-3 | pve-srv-4 | 30/40 | 10.10.30.13 | Workloads |
+| k3s-longhorn-1 | pve-srv-2 | 30/40 | 10.10.30.51 | Dedicated Longhorn storage |
+| k3s-longhorn-2 | pve-srv-3 | 30/40 | 10.10.30.52 | Dedicated Longhorn storage |
+| k3s-longhorn-3 | pve-srv-4 | 30/40 | 10.10.30.53 | Dedicated Longhorn storage |
 
-Workers and Longhorn nodes are dual-homed (VLAN 30 + VLAN 40) so Longhorn replica sync uses the storage VLAN, not the workload VLAN.
+Workers and Longhorn nodes are dual-homed (VLAN 30 + VLAN 40) so storage traffic — replica sync
+between Longhorn nodes and volume access from workers — uses the storage VLAN, not the workload
+VLAN. VM sizing (workers 50 GB, Longhorn nodes 200 GB) is in the
+[Terraform spec](../2-proxmox/provisioning/README.md#vm-spec-table).
 
 ### Virtual IPs (MetalLB)
 
@@ -105,7 +108,7 @@ kubectl apply -f apps/kubernetes/k3s/infra/metallb/l2-advertisement.yaml
 
 ### Longhorn (Distributed Block Storage)
 
-Turns the local 500 GB SSD on each worker/Longhorn node into replicated block storage. Every PVC is replicated across nodes — a node failure doesn't lose data.
+Turns the dedicated 200 GB disk on each Longhorn node into replicated block storage. Every PVC is replicated across nodes — a node failure doesn't lose data.
 
 Verify prerequisites first:
 ```sh
@@ -213,6 +216,11 @@ Configure in AdGuard UI (`http://10.10.30.69`):
 - `*.hughboi.cc` → Docker Traefik (dock-prod) — LAN DNS
 - `*.hughboi.vip` → k3s Traefik — cluster internal
 - Separate resolvers so k3s failure doesn't break LAN DNS
+
+> This AdGuard-on-k3s instance is the target of the broader
+> [DNS design](../1-networking/Unifi/Networks/DNS.md#target-dns-design-planned--not-yet-implemented)
+> (AdGuard for WiFi/IoT/guest, forwarding local zones to Bind9). Its MetalLB VIP `10.10.30.69`
+> is the `adguard-vip`.
 
 ---
 

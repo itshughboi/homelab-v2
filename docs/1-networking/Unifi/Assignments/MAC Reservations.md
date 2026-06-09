@@ -79,7 +79,7 @@ VIPs are MetalLB / control-plane virtual IPs, not pinned to a node.
 | k3s-api-vip      | 10.10.30.30 | —         | Control-plane VIP |
 | k3s-longhorn-vip | 10.10.30.50 | —         | Longhorn VIP |
 | traefik-vip      | 10.10.30.65 | —         | MetalLB — ingress |
-| pihole-vip       | 10.10.30.69 | —         | *test/reference only — not in active use; AdGuard is the DNS filter ([DNS.md](../Networks/DNS.md))* |
+| adguard-vip      | 10.10.30.69 | —         | AdGuard on k3s (planned) — DNS filter for WiFi/IoT/guest; see [DNS.md](../Networks/DNS.md) + [7-k3s](../../../7-k3s/index.md) |
 
 **MetalLB pool:** `10.10.30.60`–`10.10.30.99`.
 
