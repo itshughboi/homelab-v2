@@ -1,0 +1,48 @@
+---
+# Proxmox nodes — add each node here before running network-setup.
+# Connect via root initially (freshly installed Proxmox has root SSH).
+# After bootstrap (new-host-bootstrap), switch ansible_user to hughboi.
+
+all:
+  vars:
+    ansible_user: root
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+    # Corosync VLAN 20 IPs — populate before cluster creation
+    # Leave blank to skip (Corosync uses management IP by default)
+    pve_corosync_ip: ""
+
+  children:
+    proxmox:
+      hosts:
+
+        pve-srv-1:
+          ansible_host: 10.10.10.1
+          pve_mgmt_nic: enp42s0          # 2.5 GbE on-board NIC
+          pve_mgmt_bridge: vmbr1
+          pve_mgmt_ip: 10.10.10.1
+          pve_has_storage_vlan: true      # adds vmbr1.40 with MTU 9000
+          # pve_corosync_ip: 10.10.20.1  # uncomment when creating cluster
+
+        # pve-srv-2:
+        #   ansible_host: 10.10.10.2
+        #   pve_mgmt_nic: enp4s0         # confirmed on pve-srv-2; verify on 3/4 before running
+        #   pve_mgmt_bridge: vmbr0
+        #   pve_mgmt_ip: 10.10.10.2
+        #   pve_has_storage_vlan: false
+        #   # pve_corosync_ip: 10.10.20.2
+
+        # pve-srv-3:
+        #   ansible_host: 10.10.10.3
+        #   pve_mgmt_nic: enp4s0         # same model as pve-srv-2; verify before running
+        #   pve_mgmt_bridge: vmbr0
+        #   pve_mgmt_ip: 10.10.10.3
+        #   pve_has_storage_vlan: false
+        #   # pve_corosync_ip: 10.10.20.3
+
+        # pve-srv-4:
+        #   ansible_host: 10.10.10.4
+        #   pve_mgmt_nic: enp4s0         # same model as pve-srv-2; verify before running
+        #   pve_mgmt_bridge: vmbr0
+        #   pve_mgmt_ip: 10.10.10.4
+        #   pve_has_storage_vlan: false
+        #   # pve_corosync_ip: 10.10.20.4

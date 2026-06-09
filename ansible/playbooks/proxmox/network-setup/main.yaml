@@ -1,0 +1,130 @@
+---
+# Proxmox network setup — configures /etc/network/interfaces on a freshly installed
+# Proxmox node before joining the cluster.
+#
+# What it does:
+#   1. Backs up the existing /etc/network/interfaces
+#   2. Writes the correct bridge + VLAN config from a template
+#   3. Applies changes with ifreload -a (graceful — keeps SSH alive)
+#   4. Verifies gateway is reachable after reload
+#
+# Node profiles (set via inventory host_vars):
+#   pve-srv-1  — vmbr1 on enp42s0, VLAN 20 (Corosync), VLAN 40 (Storage, MTU 9000)
+#   pve-srv-2/3/4 (future) — vmbr0 on their NIC, VLAN 20 only
+#
+# Run BEFORE proxmox-node-setup (cluster join). Network must be correct first.
+#
+# WARNING: Run from Proxmox console or accept that SSH may briefly drop on ifreload.
+# ifreload -a from ifupdown2 is graceful but an existing session CAN survive on
+# unchanged interfaces. In practice the management IP stays up since vmbr1 already
+# exists with the same address.
+
+- name: Configure Proxmox network interfaces
+  hosts: proxmox
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Configure network interfaces
+      block:
+        - name: Check ifupdown2 is installed (required for ifreload)
+          ansible.builtin.apt:
+            name: ifupdown2
+            state: present
+            update_cache: true
+
+        - name: Backup existing /etc/network/interfaces
+          ansible.builtin.copy:
+            src: /etc/network/interfaces
+            dest: "/etc/network/interfaces.bak.{{ ansible_date_time.epoch | default('backup') }}"
+            remote_src: true
+            mode: "0644"
+
+        - name: Write /etc/network/interfaces from template
+          ansible.builtin.template:
+            src: templates/interfaces.j2
+            dest: /etc/network/interfaces
+            owner: root
+            group: root
+            mode: "0644"
+          notify: Apply network config
+
+        - name: Flush handlers (apply network config before verifying)
+          ansible.builtin.meta: flush_handlers
+
+        - name: Verify gateway is reachable
+          ansible.builtin.command:
+            cmd: ping -c 3 -W 2 10.10.10.254
+          register: ping_result
+          changed_when: false
+          retries: 3
+          delay: 5
+          until: ping_result.rc == 0
+
+        - name: Verify management bridge is up
+          ansible.builtin.command:
+            cmd: ip link show {{ pve_mgmt_bridge }}
+          register: bridge_status
+          changed_when: false
+          failed_when: "'UP' not in bridge_status.stdout"
+
+        - name: Send completion notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Network setup complete: {{ inventory_hostname }}"
+              Priority: low
+              Tags: white_check_mark
+            body: |
+              Network configured on {{ inventory_hostname }}
+              Bridge: {{ pve_mgmt_bridge }} / {{ pve_mgmt_ip }}
+              Storage VLAN: {{ pve_has_storage_vlan | default(false) | string }}
+              Time: {{ ansible_date_time.iso8601 | default('unknown') }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Restore backup on failure
+          ansible.builtin.copy:
+            src: "/etc/network/interfaces.bak.{{ ansible_date_time.epoch | default('backup') }}"
+            dest: /etc/network/interfaces
+            remote_src: true
+            mode: "0644"
+          ignore_errors: true
+
+        - name: Attempt to reload original config
+          ansible.builtin.command:
+            cmd: ifreload -a
+          ignore_errors: true
+
+        - name: Send failure alert
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Network setup FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Network setup failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+              Original config restored. Check node console.
+              Time: {{ ansible_date_time.iso8601 | default('unknown') }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise
+          ansible.builtin.fail:
+            msg: "Network setup failed on {{ inventory_hostname }}. Original config restored."
+
+  handlers:
+    - name: Apply network config
+      ansible.builtin.command:
+        cmd: ifreload -a
+      changed_when: true

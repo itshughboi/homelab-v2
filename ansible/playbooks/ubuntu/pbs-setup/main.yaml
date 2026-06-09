@@ -1,0 +1,164 @@
+---
+# PBS setup — runs on an Ubuntu 24.04 VM after terraform apply + drive passthrough.
+#
+# What it does:
+#   1. Add Proxmox no-subscription apt repo (Debian bookworm packages on Ubuntu 24.04)
+#   2. Install proxmox-backup-server
+#   3. Start/enable PBS services
+#   4. Open UFW port 8007 (PBS web UI + Proxmox VE backup client)
+#   5. Create a dedicated backup user (not root) for Proxmox VE storage config
+#   6. Optional: mount TrueNAS NFS share for datastore backing path
+#
+# Prerequisites:
+#   - VM is already bootstrapped (new-host-bootstrap ran)
+#   - Drives are passed through (qm set 106 --virtioN /dev/disk/by-id/...)
+#   - VLAN 40 NIC is up with 10.10.40.6/24 (cloud-init handles this via Terraform ip_config)
+#
+# Idempotent — safe to re-run.
+
+- name: Configure Proxmox Backup Server
+  hosts: pbs
+  gather_facts: true
+  become: true
+
+  vars:
+    ansible_user_name: hughboi
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+    # PBS backup user — Proxmox VE nodes authenticate as this user, not root
+    pbs_backup_username: "backup"
+    pbs_backup_realm: "pam"    # use pam realm, not pve realm
+
+    # TrueNAS NFS — set truenas_storage_ip to enable NFS mount (VLAN 40 IP of TrueNAS)
+    # Leave empty to skip NFS setup (do it manually or after TrueNAS is configured)
+    truenas_storage_ip: ""
+    truenas_nfs_share: "/mnt/truenas-pbs"      # local mount point on PBS
+    truenas_nfs_export: "/volume1/PBS-Replica" # NFS export path on TrueNAS
+
+  tasks:
+    - name: Configure PBS
+      block:
+        # ── Proxmox apt repo ─────────────────────────────────────────────────
+        - name: Add Proxmox apt key
+          ansible.builtin.get_url:
+            url: https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg
+            dest: /etc/apt/keyrings/proxmox-release-bookworm.gpg
+            mode: "0644"
+
+        - name: Add Proxmox no-subscription repo
+          ansible.builtin.copy:
+            content: |
+              deb [signed-by=/etc/apt/keyrings/proxmox-release-bookworm.gpg] http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription
+            dest: /etc/apt/sources.list.d/pbs-no-subscription.list
+            mode: "0644"
+
+        - name: Update apt cache
+          ansible.builtin.apt:
+            update_cache: true
+
+        # ── Install PBS ───────────────────────────────────────────────────────
+        - name: Install proxmox-backup-server
+          ansible.builtin.apt:
+            name: proxmox-backup-server
+            state: present
+            # Ubuntu 24.04 packages may conflict with Debian deps — allow downgrades if needed
+            allow_downgrade: true
+
+        - name: Enable and start PBS services
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            enabled: true
+            state: started
+            daemon_reload: true
+          loop:
+            - proxmox-backup.service
+            - proxmox-backup-proxy.service
+
+        # ── Firewall ─────────────────────────────────────────────────────────
+        - name: Allow PBS port 8007 (web UI + PVE backup client)
+          community.general.ufw:
+            rule: allow
+            port: "8007"
+            proto: tcp
+
+        # ── PBS backup user ───────────────────────────────────────────────────
+        # Proxmox VE storage config should not use root — create a scoped user
+        - name: Create PBS backup user
+          ansible.builtin.command:
+            cmd: >
+              proxmox-backup-manager user create
+              {{ pbs_backup_username }}@{{ pbs_backup_realm }}
+              --enable 1
+              --comment "Proxmox VE backup user"
+          register: pbs_user_create
+          failed_when:
+            - pbs_user_create.rc != 0
+            - "'already exists' not in pbs_user_create.stderr"
+          changed_when: pbs_user_create.rc == 0
+
+        # ── NFS mount (TrueNAS backing datastore) ─────────────────────────────
+        - name: Configure NFS mount for TrueNAS datastore
+          when: truenas_storage_ip | length > 0
+          block:
+            - name: Install nfs-common
+              ansible.builtin.apt:
+                name: nfs-common
+                state: present
+
+            - name: Create NFS mount point
+              ansible.builtin.file:
+                path: "{{ truenas_nfs_share }}"
+                state: directory
+                mode: "0755"
+
+            - name: Mount TrueNAS NFS share
+              ansible.posix.mount:
+                path: "{{ truenas_nfs_share }}"
+                src: "{{ truenas_storage_ip }}:{{ truenas_nfs_export }}"
+                fstype: nfs
+                opts: "vers=3,nouser,atime,auto,retrans=2,rw,dev,exec"
+                state: mounted
+
+        - name: Send completion notification
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "PBS setup complete: {{ inventory_hostname }}"
+              Priority: low
+              Tags: floppy_disk
+            body: |
+              PBS installed on {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})
+              Version: {{ ansible_distribution }} {{ ansible_distribution_version }}
+              NFS mount: {{ truenas_storage_ip | length > 0 | string }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+      rescue:
+        - name: Alert on failure
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "PBS setup FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              PBS setup failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name }}
+              Time: {{ ansible_date_time.iso8601 }}
+            body_format: raw
+            status_code: 200
+          ignore_errors: true
+
+        - name: Re-raise
+          ansible.builtin.fail:
+            msg: "PBS setup failed: {{ ansible_failed_task.name }}"
+
+  handlers:
+    - name: Restart PBS proxy
+      ansible.builtin.systemd:
+        name: proxmox-backup-proxy.service
+        state: restarted

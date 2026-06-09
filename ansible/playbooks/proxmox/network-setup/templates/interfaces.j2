@@ -1,0 +1,45 @@
+auto lo
+iface lo inet loopback
+
+{% if pve_has_storage_vlan | default(false) %}
+# Physical NIC — MTU 9000 required so jumbo frames on VLAN 40 can pass through
+iface {{ pve_mgmt_nic }} inet manual
+	mtu 9000
+
+{% else %}
+iface {{ pve_mgmt_nic }} inet manual
+
+{% endif %}
+# Management bridge — VLAN-aware trunk, carries all VLANs to VMs
+auto {{ pve_mgmt_bridge }}
+iface {{ pve_mgmt_bridge }} inet static
+	address {{ pve_mgmt_ip }}/24
+	gateway 10.10.10.254
+	bridge-ports {{ pve_mgmt_nic }}
+	bridge-stp off
+	bridge-fd 0
+	bridge-vlan-aware yes
+	bridge-vids 2-4094
+{% if pve_has_storage_vlan | default(false) %}
+	mtu 9000
+{% endif %}
+
+# Corosync heartbeat — host-level VLAN 20, no VMs attach here
+# Assign pve_corosync_ip (10.10.20.x) when creating the cluster
+auto {{ pve_mgmt_bridge }}.20
+{% if pve_corosync_ip | default('') | length > 0 %}
+iface {{ pve_mgmt_bridge }}.20 inet static
+	address {{ pve_corosync_ip }}/24
+{% else %}
+iface {{ pve_mgmt_bridge }}.20 inet manual
+{% endif %}
+	vlan-raw-device {{ pve_mgmt_bridge }}
+{% if pve_has_storage_vlan | default(false) %}
+
+# Storage VLAN — no host IP, VMs (PBS, TrueNAS, Longhorn workers) get their own IPs
+# MTU 9000 for PBS↔TrueNAS NFS and Longhorn replica sync
+auto {{ pve_mgmt_bridge }}.40
+iface {{ pve_mgmt_bridge }}.40 inet manual
+	vlan-raw-device {{ pve_mgmt_bridge }}
+	mtu 9000
+{% endif %}
