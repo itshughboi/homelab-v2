@@ -77,9 +77,8 @@ VLAN 20 exists at the Proxmox host level only — no VMs attach to it.
 > Corosync currently runs a single link on this VLAN, which shares the one physical 2.5 GbE
 > trunk. The ring design (virtual ring1 as an interim, dedicated NIC as the end goal) and the
 > no-QDevice decision are documented in
-> [2-proxmox/pve/Corosync.md](../../../2-proxmox/pve/Corosync.md). Note: **pve-srv-1's trunk
-> does not yet carry VLAN 20** ([Switch ports](../Assignments/Switch_Port_Assignments.md)) —
-> add it before pve-srv-1 can use a VLAN-20 ring.
+> [2-proxmox/pve/Corosync.md](../../../2-proxmox/pve/Corosync.md). (Switch trunks allow all
+> VLANs; the remaining task is host-side `vmbr1.20` interfaces.)
 
 Settings:
 - **IGMP Snooping enabled** — prevents Corosync multicast from flooding all switch ports

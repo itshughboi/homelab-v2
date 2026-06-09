@@ -24,7 +24,7 @@
 
 | Port | Mode | Device | VLANs | IP | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Trunk | pve-srv-1 | 10, 40 | 10.10.10.1 | Storage on VLAN 40 |
+| 1 | Trunk | pve-srv-1 | All (10,20,30,40) | 10.10.10.1 | Trunk allows all VLANs |
 | 2 | Trunk | pve-srv-2 | 10, 20, 30, 40 | 10.10.10.2 | |
 | 3 | Trunk | pve-srv-3 | 10, 20, 30, 40 | 10.10.10.3 | |
 | 4 | Trunk | pve-srv-4 | 10, 20, 30, 40 | 10.10.10.4 | |

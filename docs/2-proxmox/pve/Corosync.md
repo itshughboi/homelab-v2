@@ -48,11 +48,10 @@ actual fix is physical separation (next section). If you add it, know exactly wh
 
 Each cluster node needs an IP on **both** VLAN 20 and VLAN 10:
 
-- pve-srv-2/3/4 trunk VLANs 10/20/30/40 already.
-- **pve-srv-1 currently trunks only VLAN 10 + 40** (see
-  [Switch_Port_Assignments.md](../../1-networking/Unifi/Assignments/Switch_Port_Assignments.md))
-  — it has **no VLAN 20**. Before pve-srv-1 can use a VLAN-20 ring, add VLAN 20 to its trunk
-  port and create `vmbr1.20` with a `10.10.20.1/24` address on it.
+- All node switch ports trunk every VLAN (10/20/30/40), so VLAN 20 frames reach every node.
+- **The remaining task is host-side:** pve-srv-1 needs a `vmbr1.20` sub-interface with a
+  `10.10.20.1/24` address before it can use a VLAN-20 ring (the switch trunk already allows
+  it). Confirm pve-srv-2/3/4 likewise have their `.20` interfaces.
 
 ### Config
 
