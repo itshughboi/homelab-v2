@@ -1,0 +1,15 @@
+{
+  "//": "Place at the root of the Ventoy USB partition. Auto-boots a default ISO after a",
+  "//timeout": "timeout — most useful when reimaging ONE node repeatedly (set its ISO as default).",
+  "//note": "Confirm key names against the Ventoy Plugson / control-plugin docs for your version.",
+  "control": [
+    { "VTOY_DEFAULT_IMAGE": "/pve-srv-4-auto.iso" },
+    { "VTOY_DEFAULT_MENU_MODE": "0" }
+  ],
+  "menu_alias": [
+    { "image": "/pve-srv-1-auto.iso", "alias": "Install pve-srv-1" },
+    { "image": "/pve-srv-2-auto.iso", "alias": "Install pve-srv-2" },
+    { "image": "/pve-srv-3-auto.iso", "alias": "Install pve-srv-3" },
+    { "image": "/pve-srv-4-auto.iso", "alias": "Install pve-srv-4" }
+  ]
+}

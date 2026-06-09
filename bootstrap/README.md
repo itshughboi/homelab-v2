@@ -19,7 +19,9 @@ One-time tooling for provisioning bare-metal hardware from zero — before Terra
 
 | Directory | Purpose |
 |-----------|---------|
-| [netbootxyz/](netbootxyz/) | PXE boot server — automated network install of Proxmox on bare metal |
+| [proxmox-answer-server/](proxmox-answer-server/) | **Current** — serves per-node Proxmox auto-install answers by MAC over HTTP (one generic Ventoy ISO for all nodes) |
+| [ventoy/](ventoy/) | Per-node baked-ISO builder (`make-isos.sh`) + `ventoy.json` — the no-infra alternative |
+| [netbootxyz/](netbootxyz/) | **Deprecated** — old PXE boot server (kept for reference); still holds the per-node answer TOMLs in `assets/proxmox/` |
 
 ---
 

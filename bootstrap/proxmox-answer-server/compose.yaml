@@ -1,0 +1,18 @@
+services:
+  answer-server:
+    image: python:3.12-slim
+    container_name: proxmox-answer-server
+    command: python /app/answer_server.py
+    environment:
+      ANSWERS_DIR: /answers
+      LISTEN_PORT: "8000"
+    volumes:
+      - ./answer_server.py:/app/answer_server.py:ro
+      # per-node answer TOMLs, served read-only straight from the repo
+      - ../netbootxyz/assets/proxmox:/answers:ro
+    # Bind to the management interface only (adjust host IP to wherever this runs).
+    # MGMT→MGMT is already allowed, so nodes installing on VLAN 10 can reach it.
+    ports:
+      - "10.10.10.10:8000:8000"
+    # Only needed during a provisioning session — start before, stop after.
+    restart: "no"

@@ -5,21 +5,23 @@
 > ISO as real install media, which sidesteps the entire class of failures that sank the
 > PXE approach.
 
-Two flavors — pick per situation:
+All three modes USB-boot the Proxmox installer; they differ only in how the *answer file*
+reaches it. Per-node config lives in git as `bootstrap/netbootxyz/assets/proxmox/pve-srv-X.toml`.
 
-| Flavor | What happens | When |
-| --- | --- | --- |
-| **Automated** (recommended) | Per-node ISO with the answer file baked in → boot, walk away, comes back installed | Normal node provisioning |
-| **Manual** | Stock ISO → click through the Proxmox installer by hand | No tooling handy, or a one-off |
+| Rung | How the answer is delivered | Touch per install | Infra | Best for |
+| --- | --- | --- | --- | --- |
+| **B — Answer server** ✅ *(in use)* | One generic ISO; installer fetches its answer by MAC over HTTP | Boot, pick the one ISO | A small service (during installs) | Frequent reimaging / testing — edit a TOML in git, no ISO rebuild. [Runbook](../../../bootstrap/proxmox-answer-server/README.md) |
+| **A — Per-node baked ISO** | Answer baked into a per-node ISO | Boot, pick the node's ISO | None | Few static nodes; zero infra. [Runbook](../../../bootstrap/ventoy/README.md) |
+| **Manual** | None — type it in | Click through the installer | None | No tooling handy, or a one-off (below) |
 
-Both keep the same end state. The automated flavor keeps your per-node config in git
-(`bootstrap/netbootxyz/assets/proxmox/pve-srv-X.toml`) — those TOMLs drop straight in.
+B and A end in the same place; B just avoids rebuilding ISOs when a node's config changes.
 
 > [!TIP] No provisioning VLAN, no cable move
-> Because the answer files use `source = "from-answer"` with a **static** management IP,
-> you plug the node straight into its **permanent trunk port** (VLAN 10) and it installs
-> directly onto `10.10.10.X`. There is no VLAN 99 step and no "move the cable afterward"
-> dance anymore — that was a netboot-era constraint.
+> The answer files use `source = "from-answer"` with a **static** management IP, so you plug the
+> node straight into its **permanent trunk port** (VLAN 10) and it installs directly onto
+> `10.10.10.X`. No VLAN 99 step, no cable move — those were netboot-era constraints. (Rung B's
+> installer DHCPs a temp IP on VLAN 10 just long enough to fetch its answer, then applies the
+> static IP.)
 
 ---
 
@@ -30,52 +32,29 @@ Both keep the same end state. The automated flavor keeps your per-node config in
 
 ---
 
-## Flavor A — Automated (baked answer file)
+## Rung B — Answer server (current)
 
-`proxmox-auto-install-assistant` is an **amd64 Proxmox tool**. Your Mac and the Libre
-Potato are ARM and can't run it — but **pve-srv-1 already has it** (ships with PVE 8.2+).
-Prepare the ISOs there.
+One generic ISO for every node; the installer POSTs its MACs to an HTTP service that returns
+the matching `pve-srv-X.toml` straight from git. Change a node = edit its TOML, no ISO rebuild.
 
-### 1. On pve-srv-1: prepare a per-node ISO
+Full setup (build the one ISO, run the service, verify the payload schema, test, security,
+first-boot hook): **[bootstrap/proxmox-answer-server/README.md](../../../bootstrap/proxmox-answer-server/README.md)**.
 
-```sh
-# Confirm the tool + exact flags (do this once)
-proxmox-auto-install-assistant prepare-iso --help
+## Rung A — Per-node baked ISO (no infra)
 
-# Download the stock ISO
-wget https://enterprise.proxmox.com/iso/proxmox-ve_9.1-1.iso
+`make-isos.sh` loops your TOMLs through `proxmox-auto-install-assistant prepare-iso
+--fetch-from iso`, producing one `pve-srv-X-auto.iso` per node to drop on the Ventoy USB. Boot,
+pick the node's ISO, walk away. Rebuild a node's ISO when its TOML changes.
 
-# Validate the answer file before baking it in
-proxmox-auto-install-assistant validate-answer pve-srv-4.toml
+Full setup + the `ventoy.json` auto-boot option:
+**[bootstrap/ventoy/README.md](../../../bootstrap/ventoy/README.md)**.
 
-# Bake the answer file into a new ISO (--fetch-from iso = no network needed at install)
-proxmox-auto-install-assistant prepare-iso \
-  proxmox-ve_9.1-1.iso \
-  --fetch-from iso \
-  --answer-file pve-srv-4.toml \
-  --output pve-srv-4-auto.iso
-```
-
-Repeat for each node (`pve-srv-2`, `pve-srv-3`, …) with its own TOML. The TOMLs live in
-the repo at `bootstrap/netbootxyz/assets/proxmox/` — pull them with `git clone` so you
-don't recreate them.
-
-### 2. Copy the prepared ISO(s) onto the Ventoy USB
-
-Drop `pve-srv-4-auto.iso` (and the others) into the Ventoy partition. One stick can hold
-all of them.
-
-### 3. Boot the node
-
-1. Plug node into its **permanent trunk port** (USW Flex Mini, VLAN 10)
-2. Boot from the Ventoy USB → pick that node's `pve-srv-X-auto.iso`
-3. Select **Automated Installation** at the Proxmox boot menu (or it proceeds on its own)
-4. Walk away — installs unattended, reboots onto `10.10.10.X`
-5. Verify: `https://10.10.10.X:8006` and `ssh root@10.10.10.X`
+> Both rungs use `proxmox-auto-install-assistant`, which is **amd64-only** — run it on
+> **pve-srv-1** (ships with PVE 8.2+), not your ARM Mac/Libre Potato.
 
 ---
 
-## Flavor B — Manual (stock ISO, click through)
+## Manual (stock ISO, click through)
 
 No prep tooling needed. Use when you just want a node up.
 
