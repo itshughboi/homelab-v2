@@ -1,6 +1,14 @@
-# 5. Storage
+# 4. Storage
 
-TrueNAS for primary NAS + NFS, Proxmox Backup Server (PBS) for VM backups. Both run on pve-srv-1 — TrueNAS as a VM with HBA passthrough, PBS as a lightweight Debian LXC.
+TrueNAS for primary NAS + NFS, Proxmox Backup Server (PBS) for VM backups. Both run on
+pve-srv-1 — TrueNAS as a VM with disk passthrough, **PBS as a VM that owns its own disks**.
+
+| Doc | Contents |
+| --- | --- |
+| [TrueNAS/README.md](TrueNAS/README.md) | TrueNAS setup, disk passthrough, NFS exports |
+| [TrueNAS/ZFS.md](TrueNAS/ZFS.md) | ZFS concepts, VDEV types, pool layout, maintenance |
+| [TrueNAS/Networking.md](TrueNAS/Networking.md) | Bridge interface (`br0`) — the swap-friendly NIC setup |
+| [PBS/README.md](PBS/README.md) | PBS VM: passthrough → local ZFS datastore → offsite to Synology |
 
 ---
 
@@ -9,133 +17,85 @@ TrueNAS for primary NAS + NFS, Proxmox Backup Server (PBS) for VM backups. Both 
 ```
 pve-srv-1 (physical)
     │
-    ├── TrueNAS VM (HBA passthrough — direct disk access)
-    │       ZFS pools: ssd-pool (4TB SSDs) + rust-pool (8TB HDDs)
-    │       NFS exports → all VMs and Docker services
-    │       iSCSI (future) → k3s block storage
+    ├── TrueNAS VM (disk passthrough — direct disk access)
+    │       ZFS pool on 2× Samsung 870 EVO 4TB SSD
+    │       NFS exports → VMs, Docker services, k3s PVs
     │
-    └── PBS LXC (Debian, lightweight)
-            Datastore on TrueNAS NFS
-            Proxmox backup target for all VMs
-            Retention: 7 daily / 4 weekly / 3 monthly
+    └── PBS VM (ID 106, Ubuntu)
+            2× 8TB HDD passed through → LOCAL ZFS datastore (PBS owns its disks)
+            Backup target for all VMs
+            Replicates offsite → Synology (Tailscale)
 ```
+
+> [!IMPORTANT] PBS is a VM, not an LXC, and does not use TrueNAS NFS
+> PBS owns its disks directly (passthrough → local ZFS) for integrity. Offsite resilience comes
+> from replicating finished backups to the Synology — not from a network datastore. Full
+> runbook: [PBS/README.md](PBS/README.md).
 
 ---
 
 ## TrueNAS
 
-### Why HBA Passthrough?
+### Why disk passthrough?
 
-If Proxmox manages the disks, TrueNAS can't see raw SMART data, can't run its own ZFS checksums end-to-end, and you lose data integrity guarantees. PCIe passthrough of the HBA controller gives TrueNAS bare-metal access to the drives — exactly the same as if it were installed on physical hardware.
+If Proxmox manages the disks, TrueNAS can't see raw SMART data or run its own end-to-end ZFS
+checksums — you lose the integrity guarantees. Passing the disks (or HBA) straight through gives
+TrueNAS bare-metal access, exactly as if it were on physical hardware. Setup +
+device IDs: [TrueNAS/README.md](TrueNAS/README.md).
 
-### Networking — Always Use a Bridge
+### Networking
 
-Inside TrueNAS: **System → Network → Interfaces → Add Bridge (`br0`)**, not a raw interface IP.
+Always assign IPs to a **bridge (`br0`)**, never the raw NIC — so you can swap the underlying
+interface later without reconfiguring every share. Steps: [TrueNAS/Networking.md](TrueNAS/Networking.md).
 
-Assigning IPs to `br0` instead of the physical NIC means you can replace the underlying NIC later (hardware failure, upgrade) without reconfiguring every NFS share, iSCSI target, and container attached to it.
+### Current pool
 
-### ZFS Pool Layout
-
-| Pool | Disks | VDEV Type | Purpose |
+| Pool | Disks | VDEV | Purpose |
 | --- | --- | --- | --- |
-| ssd-pool | 4× 4TB Samsung 870 QVO SSD | 2+2 Mirror VDEVs | VM disks, databases, fast storage |
-| rust-pool | 4× 8TB WD Red Plus HDD | 2+2 Mirror VDEVs | Media, bulk storage, backups |
+| (TrueNAS) | 2× Samsung 870 EVO 4TB SSD | mirror | VM/app data, NFS exports |
 
-**Why mirror VDEVs over RAIDZ?**
-- Mirror: best read performance (reads from either disk), fastest resilver on failure, simplest expansion
-- RAIDZ: more raw capacity, but: slower resilver (data risk window), no expansion after creation, worse random IOPS
-- For a homelab with valuable data, mirror's faster resilver is worth the capacity trade-off
+ZFS concepts, VDEV trade-offs (mirror vs RAIDZ), and maintenance: [TrueNAS/ZFS.md](TrueNAS/ZFS.md).
+The 2× 8TB HDDs are **not** TrueNAS — they're passed through to PBS (see PBS doc).
 
-| VDEV Type | Failures Tolerated | Ideal For |
+### NFS datasets & exports
+
+| Dataset | Used by | Permissions |
 | --- | --- | --- |
-| Mirror | 1 per VDEV | VM disks, databases, low latency |
-| RAIDZ1 | 1 total | General NAS, 3–6 drives |
-| RAIDZ2 | 2 total | Media, 6–10 drives |
-| RAIDZ3 | 3 total | Critical archive, 8–14 drives |
-
-### NFS Datasets and Exports
-
-| Dataset | NFS Path | Used by | Permissions |
-| --- | --- | --- | --- |
-| `YT-Audios` | `/mnt/The Archive/YT-Audios` | Tube Archivist | mapall user: root |
-| `Restic` | `/mnt/The Archive/Restic` | Restic backup | owner: `hughboi:hughboi` |
-| `k3s-backups` | `/mnt/.../k3s-backups` | k3s etcd backup playbook | owner: `hughboi:hughboi` |
-| `pbs-storage/datastore1` | Internal NFS | PBS backup datastore | UID 2147000035 |
-| `docker-volume-backups` | Local or NFS | Docker volume backup playbook | — |
+| `YT-Audios` | Tube Archivist | mapall user: root |
+| `Restic` | Restic backup | owner: `hughboi:hughboi` |
+| `k3s-backups` | k3s etcd backup playbook | owner: `hughboi:hughboi` |
+| `docker-volume-backups` | Docker volume backup playbook | — |
 
 ### Storage VLAN (VLAN 40)
 
 > [!DANGER]
-> MTU 9000 must match **end-to-end**: UniFi switch ports, Proxmox bridge interfaces, TrueNAS bridge, PBS LXC NIC, and any VM on VLAN 40.
-> **One device at default MTU 1500 causes silent packet loss.**
-> Symptoms: NFS mounts hang, backup jobs timeout, mysteriously slow transfer speeds.
-
-Test after configuring everything:
-```sh
-ping -M do -s 8972 10.10.40.X   # 8972 + 28 byte header = 9000 — must not fragment
-```
-
-### ZFS Maintenance
-
-```sh
-# Monthly scrub (catches silent bit rot before it becomes data loss)
-zpool scrub <pool>
-zpool status   # check scrub progress/results
-
-# SMART health on drives
-smartctl -a /dev/sdX   # check each drive periodically
-
-# Live I/O view
-zpool iostat -v 1   # per-VDEV I/O in real time
-
-# Cap ARC size (ZFS is greedy — prevent VM memory starvation)
-# Add to /etc/modprobe.d/zfs.conf:
-options zfs zfs_arc_max=17179869184   # 16 GB example — tune to ~50% of RAM
-```
+> MTU 9000 must match **end-to-end**: UniFi switch ports, Proxmox bridges, the TrueNAS bridge,
+> and any VM on VLAN 40. One device at default 1500 = silent packet loss (NFS hangs, slow
+> transfers). Test: `ping -M do -s 8972 10.10.40.X` (must not fragment).
 
 ---
 
 ## Proxmox Backup Server (PBS)
 
-Full setup walkthrough: [`Proxmox Backup Server.md`](Proxmox%20Backup%20Server.md)
+VM 106 with passed-through disks and a **local ZFS** datastore; backups replicate **offsite to
+the Synology**. Full setup (passthrough, ZFS datastore, user, schedule, jobs, Synology, homepage):
+**[PBS/README.md](PBS/README.md)**.
 
-### Why PBS over Plain NFS Backups?
+### Why PBS over plain NFS backups?
 
-PBS uses a deduplicating chunk store. 10 VMs that all share the same Ubuntu base image → PBS stores that base data once. Backup sizes are dramatically smaller, incremental backups are faster, and the retention policy runs automatically.
+PBS uses a deduplicating chunk store — 10 VMs sharing one Ubuntu base image store that base once.
+Smaller backups, faster incrementals, automatic retention.
 
-### Quick Setup Summary
+### Backup schedule
 
-1. Create TrueNAS dataset `pbs-storage/datastore1` (type: Generic)
-2. Set ACLs:
-   ```sh
-   chown -R 2147000035:2147000035 /mnt/tank/pbs-storage/datastore1
-   setfacl -m u:2147000035:rwx,d:u:2147000035:rwx datastore1
-   ```
-3. Create Debian 13 LXC on pve-srv-1
-4. Inside LXC: install PBS from `http://download.proxmox.com/debian/pbs`
-5. Access Web UI: `https://<lxc-ip>:8007` → root / Linux PAM
-6. Add PBS as a backup target in Proxmox: Datacenter → Storage → Add → Proxmox Backup Server
+Proxmox `Datacenter → Backup`: all VMs daily, **snapshot** mode (no downtime).
+**Retention is set on PBS, not in Proxmox VE.**
 
-Test ACL setup before configuring anything:
-```sh
-sudo -u backup touch /mnt/pbs/datastore1/testfile && rm /mnt/pbs/datastore1/testfile
-```
-
-### Backup Schedule
-
-Configure in Proxmox Datacenter → Backup:
-- All VMs: daily at 02:00
-- Mode: snapshot (no VM downtime)
-- Retention: 7 daily, 4 weekly, 3 monthly
-
-### Testing Restores (Do This Monthly)
+### Testing restores (monthly)
 
 > A backup you've never restored from is not a backup — it's a hope.
 
-1. Pick any non-critical VM
-2. Restore it to a new temporary VM from PBS
-3. Verify it boots and functions correctly
-4. Delete the test VM
+Restore a non-critical VM to a temporary VM ID, confirm it boots, delete it.
 
 ---
 
@@ -144,5 +104,5 @@ Configure in Proxmox Datacenter → Backup:
 | Copy | Location | Tool |
 | --- | --- | --- |
 | 1st | Longhorn replicas (3× across k3s workers) | Longhorn auto-replication |
-| 2nd | PBS datastore on TrueNAS NFS | PBS + Proxmox schedule |
-| 3rd | Offsite — TBD (Backblaze B2 or remote VPS rsync) | To be configured |
+| 2nd | PBS **local ZFS** datastore (2× 8TB HDD on pve-srv-1) | PBS + Proxmox schedule |
+| 3rd | Offsite — **Synology** via Tailscale | PBS sync job |

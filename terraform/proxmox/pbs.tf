@@ -35,8 +35,10 @@ resource "proxmox_virtual_environment_vm" "pbs" {
     mtu     = 1500
   }
 
-  # NIC 1 — VLAN 40 storage east-west
-  # PBS ↔ TrueNAS NFS datastore, replication. MTU 9000 — must match switch + TrueNAS NIC.
+  # NIC 1 — VLAN 40 storage east-west.
+  # NOTE: likely vestigial. PBS now uses a LOCAL ZFS datastore (passed-through disks) and
+  # backs up OFFSITE to the Synology (VLAN 10 / Tailscale) — there is no PBS↔TrueNAS NFS
+  # datastore anymore. This NIC can probably be removed. Kept until confirmed.
   network_device {
     bridge  = "vmbr1"
     vlan_id = 40
@@ -72,15 +74,22 @@ resource "proxmox_virtual_environment_vm" "pbs" {
   }
 }
 
-# ── Drive passthrough ──────────────────────────────────────────────────────────
-# Terraform's proxmox provider does not support raw device passthrough.
-# After `terraform apply`, run on the Proxmox host shell (pve-srv-1):
+# ── Drive passthrough — PBS datastore (2× 8 TB HDD) ─────────────────────────────
+# PBS owns its disks directly (no TrueNAS NFS). The two 8 TB HDDs are passed through
+# from pve-srv-1. Terraform's proxmox provider does not support raw device passthrough,
+# so after `terraform apply` run this on the Proxmox host shell (pve-srv-1):
 #
-#   ls -l /dev/disk/by-id/   # find your drive IDs
+#   ls -l /dev/disk/by-id/   # confirm the IDs still match before running
 #
-#   qm set 106 --virtio1 /dev/disk/by-id/<YOUR_DISK_ID_1>
-#   qm set 106 --virtio2 /dev/disk/by-id/<YOUR_DISK_ID_2>
+#   qm set 106 --virtio1 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15MQS4
+#   qm set 106 --virtio2 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15JMEQ
 #
-# Add as many drives as needed. Then boot the VM and create a ZFS pool inside PBS:
+# (Use by-id, never /dev/sdX — those names are not stable across reboots.)
+#
+# Then boot the VM and create the ZFS datastore *inside PBS*:
 #   Administration → Storage / Disks → ZFS → Create ZFS
-#   Check "Add as Data Store" and set Compression to LZ4.
+#   - select both virtio disks, RAID level "mirror"
+#   - check "Add as Datastore"
+#   - Compression: LZ4
+#
+# Full runbook: docs/4-storage/PBS/README.md

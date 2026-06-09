@@ -41,40 +41,31 @@ grouping data across multiple datasets and multiple VDEVs gives better performan
 
 ---
 
-## NAS Build (pve-srv-1 Current)
+## Current pool
 
-Planned ZFS pool layout:
+| Disks | VDEV | Purpose |
+| --- | --- | --- |
+| 2× Samsung 870 EVO 4TB SSD | mirror (1-disk fault tolerance) | TrueNAS VM/app data, NFS exports |
 
-- **4× 4TB Samsung 870 QVO SSD** → mirrored VDEVs (2+2 mirror)
-- **4× 8TB WD Red Plus 5400** → mirrored VDEVs (2+2 mirror)
-
-Hardware:
-- Case: Jonsbo N6
-- CPU: i5-13500
-- RAM: 96 GB → 128 GB DDR4
-- MB: MSI PRO B760-P
-- SATA Controller: Broadcom/LSI 9400-8i (8× SATA)
-
-> This hardware is replacing pve-srv-1. See [`01_Hardware/01_Inventory.md`](../01_Hardware/01_Inventory.md)
-> for current pve-srv-1 specs.
+Passed through to the TrueNAS VM from pve-srv-1 — device IDs + the passthrough steps are in
+[README.md](README.md). (The 2× 8TB HDDs on the host are **not** TrueNAS — they're passed to
+the PBS VM for its local datastore; see [../PBS/README.md](../PBS/README.md).)
 
 ---
 
-## TrueNAS Bridge Interface
+## Maintenance
 
-When setting up TrueNAS networking, use a bridge interface (br0) rather than assigning
-an IP directly to the physical NIC. This makes it easy to swap out the underlying interface
-without reconfiguring everything attached to it.
+```sh
+# Monthly scrub — catches silent bit rot before it becomes data loss
+zpool scrub <pool>
+zpool status                # scrub progress / results
 
-**System → Network → Interfaces:**
-1. Note the current interface name
-2. Click 3 dots → Edit → **Remove the IP** → hit **Save**
-   > Do NOT hit "Test Changes" — just Save
-3. Click **Add Interface**
-   - Type: **Bridge**
-   - Name: `br0`
-   - IP: same IP as before
-   - Bridge Members: original interface name
+smartctl -a /dev/sdX        # per-drive SMART health, periodically
+zpool iostat -v 1           # live per-VDEV I/O
 
-All containers and network shares attached to the bridge don't need to change when
-you swap the underlying physical interface later.
+# Cap ARC so ZFS doesn't starve VM memory — /etc/modprobe.d/zfs.conf:
+options zfs zfs_arc_max=17179869184   # 16 GB; tune to ~50% of RAM
+```
+
+Networking (always use a `br0` bridge) is documented once in
+[Networking.md](Networking.md).

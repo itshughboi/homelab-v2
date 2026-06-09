@@ -1,146 +1,123 @@
-### Download ISO
-- Go to download page, copy link URL of iso (right click -> copy link) , then back in Proxmox I can import the ISO via URL
-Link: https://www.proxmox.com/en/downloads/proxmox-backup-server/iso
+# Proxmox Backup Server (PBS)
 
-### Pass through hard disks
+PBS runs as a **VM** (ID 106) on pve-srv-1 — *not* an LXC. It **owns its disks directly**:
+two 8 TB HDDs are passed through from the host and PBS builds a **local ZFS** datastore on them
+(PBS prefers to own its storage rather than back onto NFS). Backups then go **offsite to the
+Synology**. There is no TrueNAS NFS datastore.
 
-1. Find the Disk ID
+- Provisioned by Terraform: [`terraform/proxmox/pbs.tf`](../../../terraform/proxmox/pbs.tf) — VM 106, dual-homed `10.10.10.6` (mgmt) / `10.10.40.6` (storage).
+- Configured by Ansible: `ansible/playbooks/ubuntu/pbs-setup/` — installs `proxmox-backup-server`, opens 8007, creates the `backup@pam` user.
+
+> [!NOTE] Why a VM with passed-through disks (not an LXC, not NFS)
+> PBS wants to own its datastore for integrity (its own checksums + chunk store). A VM with
+> raw-disk passthrough gives it that; an LXC or an NFS-backed datastore does not. Offsite
+> resilience comes from replicating finished backups to the Synology, not from where the
+> primary datastore lives.
+
+---
+
+## 1. Pass through the 2× 8 TB HDDs (on the Proxmox host)
+
+Terraform creates the VM + 32 GB OS disk; raw-disk passthrough is a manual `qm set` step:
+
+```sh
+ls -l /dev/disk/by-id/      # confirm IDs before running — use by-id, never /dev/sdX
+
+qm set 106 --virtio1 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15MQS4
+qm set 106 --virtio2 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15JMEQ
 ```
-ls -l /dev/disk/by-id/ #find the corresponding values to hard dsisks
-```
 
-ata-ST8000DM004-2U9188_ZR15MQS4 = sda
-ata-ST8000DM004-2U9188_ZR15JMEQ = sdb
+## 2. Create the local ZFS datastore (inside PBS)
 
-1. df
-```
-qm set 106 -virtio2 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15MQS4
-qm set 106 -virtio3 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15JMEQ
-```
+`Administration → Storage / Disks → ZFS → Create ZFS`:
+- select both virtio disks, RAID level **mirror** (1-disk fault tolerance)
+- check **Add as Datastore**
+- **Compression: LZ4**
 
-### TrueNAS Drives
+## 3. Repos + updates
 
-/dev/sdc = ata-Samsung_SSD_870_EVO_4TB_S6PJNJ0W401496L
-/dev/sdd = ata-Samsung_SSD_870_EVO_4TB_S6PJNJ0W401500P
+`Administration → Repositories` → disable enterprise, add **No-Subscription** →
+`Administration → Updates` → Refresh, then Upgrade. (Or it's handled by the `pbs-setup` playbook.)
 
-#### Config
-
-1. Repo + updates
-	1. Administration -> Repostiories
-		1. Disable enterprise and add 'No Subscription'.
-		2. Back on Administration -> Updates, hit 'Refresh' to run apt-update and then 'Upgrade' for apt-upgrade (will open a shell and have to confirm 'Y')
-2. Notifications
-	1. Configuration -> Notifications
-		1. Add SMTP
-			1. server: 10.10.10.10
-			2. Encryption: none
-			3. Port: 8025
-			4. From Address: pbs@hughboi.cc
-			5. Recipients: root@pam (email is notify@mailrise.xyz)
-			6. Additional: notify@mailrise.xyz choose this or ^^
-		2. Gotify
-			1. Server URL: https://gotify.hughboi.cc
-			2. API: taken from Gotify
-	2. Down below on **Notification Matchers** enable Mailrise + Gotify for the default rule
-
-
-### Scripts to run - Proxmox Helper Scripts (optional)
-https://community-scripts.github.io/ProxmoxVE/scripts?id=post-pbs-install
-Run this in PBS shell: *specifically to get rid of subscription nag*
-```
+Optional — remove the subscription nag (community helper script):
+```sh
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pbs-install.sh)"
 ```
 
+## 4. Notifications — ntfy
 
-### Datastore
-1. After disks have been passed through to the VM, create a new ZFS Pool under:
-		Administration -> Storage / Disks -> ZFS -> Create ZFS. 
-		Add as Data Store: Checked to auto create the datastore from this pool
-		**Compression**: LZ4
+`Configuration → Notifications` → add the **ntfy** target (`https://ntfy.hughboi.cc/homelab`),
+then enable it on the default notification matcher. Email (`alerts@hughboi.cc`) is the fallback
+only where ntfy isn't supported. *(Gotify is retired.)*
 
+## 5. Add PBS to Proxmox VE
 
-
-### Add PBS to Proxmox VE
-Datacenter -> Storage -> Add -> Proxmox Backup Server
-
-> [!NOTE]
-> Use the **management IP** (`10.10.10.X`) as the server address. Proxmox backup jobs originate from the hypervisor host, which only has a VLAN 10 IP — it cannot reach the VLAN 40 interface on PBS. Backup data flows over VLAN 10 at MTU 1500.
->
-> The VLAN 40 NIC on PBS exists for east-west storage traffic only: PBS → TrueNAS replication and NFS datastore reads/writes. Those connections are VM-to-VM on the same host and use MTU 9000 over the internal bridge.
+`Datacenter → Storage → Add → Proxmox Backup Server`:
 
 ```
-ID: pbs
-Server: 10.10.10.X   ← management IP
-Username: changeme@pam
-Datastore: Same name as datastore in PBS
-Fingerprint: Snag this from PBS on Datastore -> Summary -> Show Connect Info
+ID:          pbs
+Server:      10.10.10.6        ← management IP (see note)
+Username:    backup@pam        ← scoped user, NOT root
+Datastore:   <the ZFS datastore name>
+Fingerprint: PBS → Datastore → Summary → Show Connect Info
 ```
 
-> [!Warning] USER ACCOUNT
-> I've used root account in the past. This SHOULD be a new user on PBS that ONLY has access to datastores
+> [!NOTE] Use the management IP
+> Proxmox backup jobs originate from the hypervisor host, which only has a VLAN 10 IP — so the
+> server address must be `10.10.10.6` (mgmt). Backup data flows over VLAN 10 at MTU 1500.
 
-**Encryption**: This SHOULD be turned on. However, I've run into issues restoring vm's with this enabled. I'm working on getting this working, but it should be ON moving forward
+> [!IMPORTANT] User + encryption
+> Use a dedicated `backup@pam` user scoped to the datastore — not root. The `pbs-setup` playbook
+> creates it. Datastore encryption *should* be on; if you hit restore issues with it enabled,
+> that's a known wrinkle to work through before relying on it.
 
+## 6. Backup schedule + jobs
 
-#### Backup Schedules
-Datacenter -> Backup -> Add
+`Datacenter → Backup → Add`: all VMs, **snapshot** mode (no downtime), email/ntfy on completion.
+
+> **Retention is configured on PBS only — not in Proxmox VE.** Set it once on the datastore.
+
+Datastore jobs (on PBS):
+
+| Job | Schedule |
+| --- | --- |
+| Prune | daily 21:30 |
+| GC | daily 08:45 |
+| Verify | daily, skip already-verified, re-verify after 30 days (verify new snapshots: yes) |
+
+## 7. Offsite to Synology
+
+Backups replicate offsite to the Synology, which stays on VLAN 10 (Management) — it's temporary
+and going offsite, so **don't move it to VLAN 40**.
+
+- Install the **Tailscale** package on the Synology (Package Center) *before* it leaves, and join
+  the tailnet. PBS then targets the Synology's **Tailscale IP** (`100.x.x.x`), so jobs keep
+  working regardless of where it physically lives.
+- Do the **initial full sync while the Synology is still onsite** — a first full over a remote
+  uplink is painfully slow.
+
+Mount + datastore (on PBS):
+```sh
+mkdir /mnt/synology
+# /etc/fstab — Synology NFS export
+<synology-tailscale-ip>:/volume1/PBS-Replica /mnt/synology nfs vers=3,nouser,atime,auto,retrans=2,rw,dev,exec 0 0
 ```
-Storage: pbs
-Send email to: notify@mailrise.xyz
-Send email: Always
-Mode: Snapshot
-```
+Then add a datastore with **Backing Path** `/mnt/synology` (sync/replicate finished backups here).
 
-**Retention**: CONFIGURE ONLY ON PBS. DO NOT HANDLE RETENTION IN PROXMOX ITSELF
+## 8. Homepage widget
 
-
-
-### Jobs
-**Prune**: Daily @ 9:30 PM
-**GC**: Daily @ 8:45 AM
-**Verify**: Daily. Skip verified. Reverify after 30 days
-**Options**: Verify New Snapshots - YES
-
-
-
-### Backup to TrueNAS via NFS
-This is the preferred method of backing up data. Essentially PBS just acts as the middleman responsible for the deduplication, but then the actual data is going to be served over NFS to my TrueNAS so I get the full benefits of TrueNAS ZFS + PBS deduplication. 
-
-1. SSH or get into console of PBS
-2. Create a mount point
-```
-mkdir /mnt/truenas
-```
-3. 
-
-
-4. Add to fstab
-```
-nano /etc/fstab
-```
-```
-10.10.10.15:/volume1/PBS-Replica /mnt/truenas nfs vers=3,nouser,atime,auto,retrans=2,rw,dev,exec 0 0
-```
-##### Add Datastore Backing Path
-Finally after verification that we can connect to this share, add a new datastore.
-**Backing Path**: /mnt/truenas
-
-
-### Backup to Synology
-
-Synology stays on VLAN 10 (Management) — it's temporary and going offsite. Don't move it to VLAN 40.
-
-Synology has a native Tailscale package (Package Center → Tailscale). Install it before it goes offsite and connect it to the tailnet. PBS targets the Synology's Tailscale IP (`100.x.x.x`) so backup jobs keep running unchanged regardless of where the Synology physically is.
-
-Do the initial full backup while Synology is still onsite — replication over someone's internet uplink for a first full backup will be very slow.
-
-
-
-### Homepage integration
-https://gethomepage.dev/widgets/services/proxmoxbackupserver/
-USER NEEDS TO BE MADE IN PAM REALM NOT PVE!!!!!! << gave me lots of headaches
-- Login with root user and then in cli do this:
-```
+The widget user must be in the **PAM** realm (not PVE):
+```sh
 proxmox-backup-manager user create homepage@pam --enable 1
 ```
-- You will now see that user in UI
+Widget config: https://gethomepage.dev/widgets/services/proxmoxbackupserver/
+
+---
+
+## Testing restores (monthly)
+
+> A backup you've never restored from is not a backup — it's a hope.
+
+1. Restore a non-critical VM to a new temporary VM ID from PBS.
+2. Confirm it boots and works.
+3. Delete the test VM.

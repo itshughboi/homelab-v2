@@ -1,7 +1,13 @@
-### Credetials
-Default admin user: **truenas_admin**
+# TrueNAS
 
-### Disk Passthrough
+Default admin user: **truenas_admin**. Networking (bridge `br0`): [Networking.md](Networking.md).
+ZFS pool + maintenance: [ZFS.md](ZFS.md).
+
+> **Drive split on pve-srv-1:** the **2× Samsung 870 EVO 4TB SSD** are passed through to the
+> TrueNAS VM (ID 105, below). The **2× Seagate ST8000DM004 8TB HDD** are passed through to the
+> **PBS** VM, not TrueNAS — see [../PBS/README.md](../PBS/README.md).
+
+### Disk Passthrough (Samsung SSDs → TrueNAS VM 105)
 1. On server node shell, install lshw
 ``` 
 apt install lshw
