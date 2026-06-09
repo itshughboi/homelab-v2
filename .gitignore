@@ -44,6 +44,11 @@ data/
 volumes/
 secrets/
 
+# ── Netboot large binaries (download fresh via web UI, never commit) ───────────
+bootstrap/netbootxyz/assets/proxmox/vmlinuz
+bootstrap/netbootxyz/assets/proxmox/initrd.img
+bootstrap/netbootxyz/assets/asset-mirror/
+
 # ── App-specific ───────────────────────────────────────────────────────────────
 adguard/**/conf/*.yaml
 crowdsec/config/hub/

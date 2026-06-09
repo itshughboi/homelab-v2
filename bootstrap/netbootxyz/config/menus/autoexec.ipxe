@@ -1,2 +1,4 @@
 #!ipxe
-chain http://${next-server}:8080/proxmox/local.ipxe
+# Automated Proxmox installs are handled by per-node MAC files in this directory.
+# Create config/menus/MAC-<hexmac>.ipxe for each node to be provisioned.
+# Nodes without a MAC file fall through to the interactive netboot.xyz menu.

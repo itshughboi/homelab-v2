@@ -1,0 +1,8 @@
+#!ipxe
+# pve-srv-3 — MAC 1c:83:41:40:ff:0c
+set base http://${next-server}:8080
+imgfree
+kernel ${base}/proxmox/vmlinuz vga=791 video=vesafb:ywrap,mtrr ramdisk_size=16777216 rw quiet splash=silent proxmox-installer-opts=mode=auto,url=${base}/proxmox/pve-srv-3.toml initrd=initrd.magic
+initrd ${base}/proxmox/initrd.img
+initrd ${base}/asset-mirror/releases/download/9.1-1-1d6923a5/proxmox.iso /proxmox.iso
+boot
