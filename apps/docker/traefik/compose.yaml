@@ -55,7 +55,7 @@ services:
       - "traefik.http.services.traefik.loadBalancer.server.port=8080"
       - "diun.enable=true"
     dns:
-      - 10.10.10.9
+      - 10.10.10.8
       - 10.10.10.10
     networks:
       - proxy

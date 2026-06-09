@@ -1,4 +1,9 @@
-# netboot.xyz
+# netboot.xyz — SUNSET (reference only)
+
+> [!WARNING] Not deployed
+> Netboot/PXE was abandoned — nodes install via [Ventoy USB](../../../../../docs/2-proxmox/provisioning/Ventoy.md).
+> This manifest lives under `_sunset/` so the ArgoCD ApplicationSet (which globs
+> `apps/kubernetes/k3s/apps/*`) does **not** discover or deploy it. Kept as reference only.
 
 Network boot server for PXE booting operating systems over TFTP/HTTP.
 
