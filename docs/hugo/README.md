@@ -3,9 +3,10 @@
 Static documentation site built with [Hugo](https://gohugo.io) and the [Hugo Book](https://github.com/alex-shpak/hugo-book) theme.
 
 > [!IMPORTANT]
-> `content/` is **100% generated** from the docs source in `../` by [`sync.sh`](sync.sh). Never
-> edit `content/` by hand — it gets wiped on every sync. Edit the markdown in `docs/<area>/`,
-> then run `./sync.sh`.
+> `content/` is **100% generated** from the docs source in `../` by [`sync.sh`](sync.sh) and is
+> **gitignored** — never committed. Edit the markdown in `docs/<area>/`, then run `./sync.sh`.
+> A fresh clone has **no** `content/` until you sync, so every build (CI, Pages, local) must run
+> `./sync.sh` before `hugo`.
 
 ---
 
@@ -235,7 +236,7 @@ To generate a static site (HTML/CSS/JS) ready to deploy:
 
 ```sh
 cd docs/hugo
-hugo build
+./sync.sh && hugo build
 ```
 
 Output goes to `public/`. That folder contains the complete site — copy it anywhere (web server, S3, Cloudflare Pages, GitHub Pages, Gitea Pages).
@@ -243,7 +244,7 @@ Output goes to `public/`. That folder contains the complete site — copy it any
 ### Deploy to Gitea Pages
 
 ```sh
-hugo build
+./sync.sh && hugo build
 # Copy public/ to your Gitea Pages branch
 # Or configure CI to run hugo build and publish automatically
 ```
@@ -251,7 +252,7 @@ hugo build
 ### Deploy to Cloudflare Pages
 
 Connect the repo in the Cloudflare Pages dashboard:
-- Build command: `hugo`
+- Build command: `./sync.sh && hugo`   # content/ is gitignored — regenerate first
 - Build output directory: `public`
 - Root directory: `docs/hugo`
 

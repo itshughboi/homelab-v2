@@ -68,6 +68,8 @@ wazuh/wazuh_integrations
 .git
 *.claude
 .obsidian
+# Hugo content/ is 100% generated from docs/ by sync.sh — never commit (regenerate on build)
+docs/hugo/content/
 # Hugo build output (regenerate with: cd docs/hugo && ./sync.sh && hugo build)
 docs/hugo/public/
 docs/hugo/.hugo_build.lock
