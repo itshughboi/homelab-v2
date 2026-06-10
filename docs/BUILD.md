@@ -147,9 +147,11 @@ dock-prod stack (Traefik → AdGuard → CrowdSec → Vaultwarden → apps). Ord
 
 ## Phase 7 — k3s + GitOps 🔴 tomorrow
 
-k3s VMs (Terraform) → `kubernetes/k3s/new` → kube-vip → MetalLB → Longhorn → Sealed-Secrets →
-cert-manager → ArgoCD. Full sequence: [7-k3s/](7-k3s/index.md). **Before ArgoCD:** restore the
-sealed-secrets key, and add the `k3s → 10.10.10.8:3000` firewall allow so ArgoCD can reach Gitea.
+k3s VMs (Terraform) → `kubernetes/k3s/new` → kube-vip → MetalLB → Longhorn → sealed-secrets
+controller → cert-manager → Traefik → ArgoCD. Full sequence: [7-k3s/](7-k3s/index.md).
+**Before ArgoCD:** add the `k3s → 10.10.10.8:3000` firewall allow so ArgoCD can reach Gitea.
+(Secrets are imperative today — there's no sealed-secrets key to restore yet; that step applies
+only after the planned Sealed Secrets migration.)
 
 ## Phase 8 — Backup validation (ongoing)
 

@@ -81,7 +81,7 @@ terraform apply
 ## 6. Bootstrap Athena
 
 ```sh
-cd ansible/playbooks/ubuntu/bootstrap-athena/
+cd ansible/playbooks/ubuntu/setup-athena/
 ansible-playbook main.yaml -i inventory.yaml
 ```
 

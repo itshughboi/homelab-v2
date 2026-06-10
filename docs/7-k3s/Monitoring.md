@@ -137,6 +137,11 @@ Custom alert rules: `apps/kubernetes/k3s/monitoring/alertmanager-rules/`
 
 ## Dead-man's switch
 
+> [!WARNING] Status: designed, **not yet implemented**
+> The Watchdog route + healthchecks.io receiver below are a proposal — they are **not** in
+> `kube-prometheus-stack/values.yaml` yet (its Alertmanager receivers are still blank). Wire this
+> up as part of monitoring hardening before relying on it.
+
 The gap normal alerting can't cover: **if Prometheus/Alertmanager themselves die, no alert fires
 — you just get silence.** A dead-man's switch inverts that: something *outside* the stack expects
 a steady heartbeat and alerts you when it **stops**.

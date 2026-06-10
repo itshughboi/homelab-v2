@@ -10,7 +10,7 @@ Docker services split across two hosts: **Athena** (management stack) and **dock
 overall stack is strong (100% pinned images, `no-new-privileges` everywhere, Loki logging).
 
 **Quick wins**
-- [ ] **traefik** — DNS `10.10.10.9` → `10.10.10.8` (Bind9; `.9` is a bogus host). *(fixed in git — needs redeploy)*
+- [ ] **gatus + homepage** — DNS `10.10.10.9` → `10.10.10.8` (Bind9 runs on Athena `.8`; `.9` is bogus). traefik is already on `.8`; the stragglers are gatus (`compose.yaml` + `config/config.yaml`), homepage (`compose.yaml`), and the bind9 zone `db.hughboi.vip` self-record.
 - [ ] **bind9** — move off the `_beta` image tag (foundational DNS shouldn't run a beta).
 
 **Medium**

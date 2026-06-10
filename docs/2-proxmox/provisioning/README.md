@@ -80,7 +80,11 @@ With 4 nodes + 1 QDevice on Athena, you can lose 2 nodes simultaneously and stay
 | 4-node bare | 4 | 3 | 1 |
 | 4-node + QDevice | 5 | 3 | **2** |
 
-Set up QDevice after Athena is running (Phase 8):
+> [!NOTE] Not used by choice — the cluster runs 4 nodes **without** a QDevice (quorum 3,
+> tolerates 1 failure) per [Corosync](../pve/Corosync.md) and [BUILD.md](../../BUILD.md). The
+> steps below are reference only, for if you later decide to add one.
+
+To set up a QDevice (optional) after Athena is running:
 ```sh
 # On Athena
 apt install corosync-qnetd
@@ -244,7 +248,7 @@ Per srv-2/3/4 (32 GB / 16-thread mini PCs), each hosts 1 master + 1 worker + 1 l
 | VM | VLAN | IP | vCPU | RAM | Disk | Node |
 | --- | --- | --- | --- | --- | --- | --- |
 | athena | 10 | 10.10.10.8 | 4 | 8 GB | 50 GB | pve-srv-1 |
-| dock-prod | 10 | 10.10.10.10 | 8 | 16 GB | 50 GB | pve-srv-1 |
+| dock-prod | 10 | 10.10.10.10 | 4 | 16 GB | 200 GB | pve-srv-1 |
 | k3s-master-1 | 30 | 10.10.30.1 | 2 | 4 GB | 50 GB | pve-srv-2 |
 | k3s-master-2 | 30 | 10.10.30.2 | 2 | 4 GB | 50 GB | pve-srv-3 |
 | k3s-master-3 | 30 | 10.10.30.3 | 2 | 4 GB | 50 GB | pve-srv-4 |

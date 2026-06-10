@@ -90,8 +90,8 @@ docs:
 
 | Scope | Files | Status | Doc |
 | --- | --- | --- | --- |
-| **Docker** | `apps/docker/**/.env` → `.env.sops` | **Live** (the only rule in `.sops.yaml`) | [sops-secrets.md](sops-secrets.md) |
-| **Ansible / Terraform** | `secrets.yaml`, `terraform.tfvars` → `.sops` versions | **Planned** | [Secrets_SOPS.md](Secrets_SOPS.md) |
+| **Docker** | `apps/docker/**/.env` → `.env.sops` | Rule present; **inactive** (placeholder key) | [sops-secrets.md](sops-secrets.md) |
+| **Ansible / Terraform** | `secrets.yaml`, `terraform.tfvars` → `.sops` versions | Rules present; **inactive** (placeholder key) | [Secrets_SOPS.md](Secrets_SOPS.md) |
 
 > [!IMPORTANT] Not active until the age key is set
 > `.sops.yaml` still ships `AGE_PUBLIC_KEY_PLACEHOLDER` — SOPS encrypts nothing until you run

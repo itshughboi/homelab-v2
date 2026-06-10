@@ -143,13 +143,9 @@ For setup procedure and behavioral notes see [README.md](README.md).
 > your MAC reservations. Also scope the NFS export on TrueNAS to the downloads dataset only
 > (not the whole pool) — a compromised torrent client can then only touch downloads.
 
-> [!WARNING] **TODO — TrueNAS is not yet on VLAN 40**
-> TrueNAS is currently on Management (10.10.10.5) while the VLAN 40 migration is pending.
-> The `TORRENT → TrueNAS NFS` rule in UniFi currently points at `10.10.10.5`, not `10.10.40.5`.
-> When TrueNAS moves to VLAN 40:
-> 1. Update the rule destination from `10.10.10.5` → `10.10.40.5`
-> 2. Confirm the MGMT → STORAGE rule still covers the TrueNAS web UI on the new IP
-> 3. Update MAC reservation in UniFi to reflect the new network assignment
+> [!NOTE] TrueNAS storage is on VLAN 40 (`10.10.40.5`)
+> The `TORRENT → TrueNAS NFS` rule destination is the storage IP `10.10.40.5` (above). TrueNAS keeps
+> its VLAN 10 management IP `10.10.10.5` for the web UI/SSH (covered by the MGMT → STORAGE rule).
 
 > [!NOTE]
 > RFC1918 is not a built-in alias in UniFi. Create an IP group covering

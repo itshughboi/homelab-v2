@@ -47,11 +47,10 @@ Each Proxmox node needs virtual interfaces for each VLAN it participates in.
 | vmbr1.20 | VLAN                 | vmbr1        | —             | —            | 1500 | Cluster / Corosync — create if not present         |
 | vmbr1.40 | VLAN                 | vmbr1        | —             | —            | 9000 | Storage — Jumbo Frames — create if not present     |
 
-> [!WARNING] **TODO — TrueNAS and PBS not yet on VLAN 40**
-> Both VMs are currently on Management (VLAN 10) only. Each needs a **second NIC** added for VLAN 40 storage traffic.
-> Keep the existing VLAN 10 NIC — it stays as the management interface (web UI, SSH).
->
-> Steps for each VM (TrueNAS and PBS):
+> [!NOTE] TrueNAS and PBS are dual-homed on VLAN 40 (storage)
+> Both keep their VLAN 10 management NIC (web UI, SSH) **and** have a second NIC on VLAN 40 for
+> storage traffic — TrueNAS `10.10.40.5`, PBS `10.10.40.6`. The steps below are how each was
+> configured (reference for a rebuild):
 > 1. In Proxmox: VM → Hardware → Add → Network Device → Bridge: `vmbr1`, VLAN Tag: `40`, MTU: `9000`
 > 2. Inside TrueNAS: configure the new NIC with static IP `10.10.40.5`, no gateway, DNS `9.9.9.9`
 > 3. Inside PBS: configure the new NIC with static IP `10.10.40.6`, no gateway, DNS `9.9.9.9`

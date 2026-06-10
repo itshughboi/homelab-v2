@@ -22,7 +22,7 @@ HA k3s cluster across 9 nodes on pve-srv-2, 3, 4. ArgoCD watches Gitea and appli
 
 Workers and Longhorn nodes are dual-homed (VLAN 30 + VLAN 40) so storage traffic — replica sync
 between Longhorn nodes and volume access from workers — uses the storage VLAN, not the workload
-VLAN. VM sizing (workers 50 GB, Longhorn nodes 200 GB) is in the
+VLAN. VM sizing (workers 50 GB, Longhorn nodes 300 GB) is in the
 [Terraform spec](../2-proxmox/provisioning/README.md#vm-spec-table).
 
 ### Virtual IPs (MetalLB)
@@ -31,8 +31,8 @@ VLAN. VM sizing (workers 50 GB, Longhorn nodes 200 GB) is in the
 | --- | --- | --- |
 | k3s-api-vip | 10.10.30.30 | kube-vip HA control plane — all `kubectl` points here |
 | k3s-longhorn-vip | 10.10.30.50 | Longhorn UI |
-| traefik-vip | 10.10.30.65 | k3s ingress (MetalLB) |
-| adguard-vip | 10.10.30.69 | k3s DNS (MetalLB) |
+| traefik-vip | 10.10.30.75 | k3s ingress (MetalLB — pinned in traefik `values.yaml`) |
+| adguard-vip | 10.10.30.65 | k3s DNS (MetalLB — Service does **not** pin `loadBalancerIP` yet; see note) |
 | MetalLB pool | 10.10.30.60–99 | Available for LoadBalancer services |
 
 ---
@@ -108,7 +108,7 @@ kubectl apply -f apps/kubernetes/k3s/infra/metallb/l2-advertisement.yaml
 
 ### Longhorn (Distributed Block Storage)
 
-Turns the dedicated 200 GB disk on each Longhorn node into replicated block storage. Every PVC is replicated across nodes — a node failure doesn't lose data.
+Turns the dedicated 300 GB disk on each Longhorn node into replicated block storage. Every PVC is replicated across nodes — a node failure doesn't lose data.
 
 Verify prerequisites first:
 ```sh
@@ -127,7 +127,11 @@ Longhorn UI available at `10.10.30.50` (MetalLB VIP) after MetalLB is up.
 
 ### Sealed Secrets
 
-Encrypt Kubernetes Secret objects so they can be safely committed to Git. **Install before ArgoCD** — ArgoCD will try to apply `SealedSecret` manifests on first sync and will fail if the controller isn't running.
+Encrypt Kubernetes Secret objects so they can be safely committed to Git. The controller is part
+of the manual floor — install it before ArgoCD so it's ready when you adopt sealed secrets.
+
+> **Current state:** no app uses it yet — k3s secrets are **imperative** today (see
+> [GitOps → Secrets](#gitops-argocd)). Installing the controller now is harmless.
 
 ```sh
 helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
@@ -175,11 +179,16 @@ kubectl apply -f apps/kubernetes/k3s/networking/traefik/helm/traefik/cert-manage
 
 Mirrors the wildcard TLS secret into every app namespace. Without it, each namespace needs its own copy of the cert.
 
-```sh
-helm install reflector emberstack/reflector -n kube-system
-```
+> **GitOps-managed** — Reflector is no longer installed by hand. ArgoCD installs it (chart `10.0.46`)
+> via [`argocd/apps/reflector-app.yaml`](../../apps/kubernetes/k3s/argocd/apps/reflector-app.yaml)
+> once `root-app` is applied. Shown here only to explain the bootstrap order.
 
-### Traefik + CrowdSec
+### Traefik (CrowdSec is GitOps-managed)
+
+Traefik is part of the **manual bootstrap floor** (it's the ingress for the ArgoCD UI itself).
+CrowdSec is now **GitOps-managed** — ArgoCD installs it (chart `0.24.0`,
+[`argocd/apps/crowdsec-app.yaml`](../../apps/kubernetes/k3s/argocd/apps/crowdsec-app.yaml)) after
+`root-app` is applied, so do **not** `helm install` it by hand.
 
 ```sh
 cd apps/kubernetes/k3s/networking/traefik/
@@ -188,17 +197,12 @@ cd apps/kubernetes/k3s/networking/traefik/
 kubectl apply -f helm/traefik/cert-manager/certificates/production/hughboi-production.yaml
 kubectl get certificate -n traefik -w   # wait for Ready: True
 
-# CrowdSec secrets (imperative)
-kubectl create secret generic crowdsec-bouncer-key -n traefik \
-  --from-literal=key=<bouncer-api-key>
-helm install crowdsec crowdsec/crowdsec -n crowdsec --create-namespace -f helm/crowdsec/values.yaml
-
-# Install Traefik
+# Install Traefik (floor)
 helm install traefik traefik/traefik -n traefik --create-namespace -f helm/traefik/values.yaml
 kubectl apply -f helm/traefik/dashboard/
 kubectl apply -f helm/traefik/default-headers.yaml manifest/bouncer-middleware.yaml
 
-# Verify: Traefik should have EXTERNAL-IP 10.10.30.65
+# Verify: Traefik should have EXTERNAL-IP 10.10.30.75
 kubectl get svc -n traefik
 ```
 
@@ -208,9 +212,9 @@ kubectl get svc -n traefik
 kubectl apply -f apps/kubernetes/k3s/networking/adguard/
 ```
 
-Configure in AdGuard UI (`http://10.10.30.69`):
+Configure in AdGuard UI (`http://10.10.30.65`):
 - Upstream DNS: `10.10.10.8` (Athena Bind9)
-- DNS rewrites: `*.hughboi.vip → 10.10.30.65` (routes all k3s domains to Traefik)
+- DNS rewrites: `*.hughboi.vip → 10.10.30.75` (routes all k3s domains to Traefik)
 
 **Split-DNS design:**
 - `*.hughboi.cc` → Docker Traefik (dock-prod) — LAN DNS
@@ -219,7 +223,7 @@ Configure in AdGuard UI (`http://10.10.30.69`):
 
 > This AdGuard-on-k3s instance is the target of the broader
 > [DNS design](../1-networking/Unifi/Networks/DNS.md#target-dns-design-planned--not-yet-implemented)
-> (AdGuard for WiFi/IoT/guest, forwarding local zones to Bind9). Its MetalLB VIP `10.10.30.69`
+> (AdGuard for WiFi/IoT/guest, forwarding local zones to Bind9). Its MetalLB VIP `10.10.30.65`
 > is the `adguard-vip`.
 
 ---
@@ -294,9 +298,9 @@ kubectl apply -f install/ingressroute.yaml
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
 
-# Register Gitea repo
+# Register Gitea repo — use the direct Athena IP (matches root-app/appset; survives a DNS/Traefik outage)
 argocd login argocd.hughboi.vip
-argocd repo add https://gitea.hughboi.cc/hughboi/homelab.git \
+argocd repo add http://10.10.10.8:3000/hughboi/homelab.git \
   --username hughboi --password <gitea-token>
 
 # Bootstrap App of Apps — ArgoCD now manages everything
@@ -305,18 +309,21 @@ kubectl apply -f apps/root-app.yaml
 
 ArgoCD discovers every directory under `apps/kubernetes/k3s/apps/` automatically. New apps appear when you add a directory and push.
 
-**Secrets via Sealed Secrets** — encrypted `SealedSecret` manifests live in git and ArgoCD applies them like any other manifest. The sealed-secrets controller (installed in Phase 9, before ArgoCD) decrypts them automatically. No pre-sync manual steps needed.
+**Secrets — current state is imperative.** Every app ships a **comment-only `secret.yaml`** that
+you create by hand (`kubectl create secret …`) before/around first sync. ArgoCD ignores existing
+Secret `/data`, so it won't clobber them. **No app uses Sealed Secrets yet** — the controller is
+installed (floor) but zero `SealedSecret` manifests exist in the repo.
 
-To seal a secret for a new app:
-```sh
-kubectl create secret generic my-app-secret -n my-app \
-  --from-literal=api-key=<value> \
-  --dry-run=client -o yaml \
-  | kubeseal --format yaml > apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml
-git add apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml && git commit && git push
-```
-
-If a pod crashes on first sync, check the app's `secret.yaml` for any remaining imperative secrets (some apps may not be migrated to Sealed Secrets yet).
+> **Target state (planned):** migrate each secret to a committed `sealed-secret.yaml` so a rebuild
+> is fully hands-off. The DR step "restore the sealed-secrets key" only applies *after* that
+> migration — today, secrets come from Vaultwarden by hand. Workflow once adopted:
+> ```sh
+> kubectl create secret generic my-app-secret -n my-app \
+>   --from-literal=api-key=<value> --dry-run=client -o yaml \
+>   | kubeseal --format yaml > apps/kubernetes/k3s/apps/my-app/sealed-secret.yaml
+> git add … && git commit && git push   # ArgoCD applies it; the controller decrypts it
+> ```
+> See [8-gitops/index.md](../8-gitops/index.md) for the authoritative secrets model.
 
 ### Adding a New k3s App
 
@@ -395,7 +402,7 @@ spec:
 | SOPS decrypt fails | Verify `SOPS_AGE_KEY_FILE` env var on Athena |
 | cert-manager not issuing | Check Cloudflare token secret exists in `cert-manager` namespace |
 | Traefik no EXTERNAL-IP | MetalLB must be running; check L2Advertisement covers the IP |
-| Pod crashlooping on start | Missing secret — check if `SealedSecret` was committed and synced; or check `secret.yaml` for any remaining imperative secrets |
+| Pod crashlooping on start | Missing secret — most apps use **imperative** secrets; run the `kubectl create secret …` from the app's `secret.yaml` comment |
 | k3s nodes can't reach Athena | Firewall rule: K3S → MGMT is DENY by design — use polling from Athena |
 | Longhorn prereqs missing | Run `open-iscsi` / `nfs-common` check via Ansible on all nodes |
 | Sealed Secrets won't decrypt | Key backup in Vaultwarden? If key is lost, must re-seal all secrets |

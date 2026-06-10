@@ -10,7 +10,7 @@ Security here is layered, not bolted on at the end:
 
 - **Network layer** — VLAN segmentation isolates traffic by purpose (done in step 2)
 - **Host layer** — SSH hardening, fail2ban, UFW on every Ubuntu host
-- **Secrets layer** — Age encryption for files at rest (SOPS), Sealed Secrets for k8s, Vaultwarden for everything else
+- **Secrets layer** — Vaultwarden is the source of truth; SOPS+Age (provisioning files) and Sealed Secrets (k8s) are the encryption targets — both **staged but not yet active** (see [8-gitops](../8-gitops/index.md))
 - **Runtime layer** — CrowdSec on k3s ingress, Wazuh SIEM across the fleet
 - **CI layer** — gitleaks and Trivy scan every PR before it merges
 
