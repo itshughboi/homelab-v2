@@ -19,7 +19,7 @@ spec:
         - name: machine-learning
           # Use openvino variant for Intel GPU acceleration
           # Use plain image tag for CPU-only: ghcr.io/immich-app/immich-machine-learning:release
-          image: ghcr.io/immich-app/immich-machine-learning:release-openvino
+          image: ghcr.io/immich-app/immich-machine-learning:v2.7.5-openvino
           ports:
             - containerPort: 3003
           envFrom:

@@ -24,7 +24,7 @@ spec:
           command: ["sh", "-c", "until nc -z immich-redis 6379; do sleep 2; done"]
       containers:
         - name: immich-server
-          image: ghcr.io/immich-app/immich-server:release
+          image: ghcr.io/immich-app/immich-server:v2.7.5
           command: ["start.sh", "immich"]
           ports:
             - containerPort: 2283

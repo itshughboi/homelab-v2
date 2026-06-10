@@ -21,7 +21,7 @@ spec:
           command: ["sh", "-c", "until nc -z ezbookkeeping-mysql 3306; do sleep 2; done"]
       containers:
         - name: ezbookkeeping
-          image: mayswind/ezbookkeeping:latest
+          image: mayswind/ezbookkeeping:1.5.0
           ports:
             - containerPort: 8080
               name: http

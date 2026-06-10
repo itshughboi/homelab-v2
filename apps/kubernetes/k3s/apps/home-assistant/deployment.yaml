@@ -26,7 +26,7 @@ spec:
           command: ["sh", "-c", "until nc -z home-assistant-postgres 5432; do sleep 2; done"]
       containers:
         - name: home-assistant
-          image: ghcr.io/home-assistant/home-assistant:stable
+          image: ghcr.io/home-assistant/home-assistant:2026.6.0
           ports:
             - containerPort: 8123
               name: http

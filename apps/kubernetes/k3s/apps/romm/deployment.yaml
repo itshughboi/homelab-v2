@@ -21,7 +21,7 @@ spec:
           command: ["sh", "-c", "until nc -z romm-mariadb 3306; do sleep 2; done"]
       containers:
         - name: romm
-          image: rommapp/romm:latest
+          image: rommapp/romm:4.8.1
           ports:
             - containerPort: 8080
               name: http

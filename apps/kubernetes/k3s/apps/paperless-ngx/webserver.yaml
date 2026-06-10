@@ -24,7 +24,7 @@ spec:
           command: ["sh", "-c", "until nc -z paperless-redis 6379; do sleep 2; done"]
       containers:
         - name: webserver
-          image: ghcr.io/paperless-ngx/paperless-ngx:latest
+          image: ghcr.io/paperless-ngx/paperless-ngx:2.20.15
           ports:
             - containerPort: 8000
               name: http

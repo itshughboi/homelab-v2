@@ -21,7 +21,7 @@ spec:
           command: ["sh", "-c", "until nc -z semaphore-mysql 3306; do sleep 2; done"]
       containers:
         - name: semaphore
-          image: semaphoreui/semaphore:latest
+          image: semaphoreui/semaphore:v2.18.12
           ports:
             - containerPort: 3000
               name: http
