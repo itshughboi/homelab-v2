@@ -2,6 +2,9 @@
 
 ArgoCD + SOPS/Age. Push to Git → cluster applies it. Secrets encrypted at rest, decrypted at runtime on Athena. Every app deployment is a `git push`.
 
+> [!TIP] Making a change? See **[Workflow.md](Workflow.md)** — the branch → PR → merge → deploy
+> flow, what gets validated where (CI vs runtime), and how to roll back with `git revert`.
+
 ---
 
 ## How It Works
