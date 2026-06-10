@@ -30,6 +30,7 @@ qm set 106 --virtio2 /dev/disk/by-id/ata-ST8000DM004-2U9188_ZR15JMEQ
 ## 2. Create the local ZFS datastore (inside PBS)
 
 `Administration → Storage / Disks → ZFS → Create ZFS`:
+- **Name: `zfs-backups`**
 - select both virtio disks, RAID level **mirror** (1-disk fault tolerance)
 - check **Add as Datastore**
 - **Compression: LZ4**
@@ -58,7 +59,7 @@ only where ntfy isn't supported. *(Gotify is retired.)*
 ID:          pbs
 Server:      10.10.10.6        ← management IP (see note)
 Username:    backup@pam        ← scoped user, NOT root
-Datastore:   <the ZFS datastore name>
+Datastore:   zfs-backups
 Fingerprint: PBS → Datastore → Summary → Show Connect Info
 ```
 

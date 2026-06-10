@@ -24,7 +24,7 @@ Run immediately after bootstrapping any new host:
 
 ```sh
 cd ansible/playbooks/ubuntu/hardening
-ansible-playbook -i inventory.ini main.yaml
+ansible-playbook -i inventory.ini harden.yaml
 ```
 
 What it enforces:

@@ -33,7 +33,7 @@ Hardware detail per node: [Inventory/](Inventory/).
 | truenas   | 10.10.10.5  | pve-srv-1 | NAS — management NIC (web UI, SSH); also on VLAN 40 |
 | pbs       | 10.10.10.6  | pve-srv-1 | Proxmox Backup Server — management NIC; also on VLAN 40 |
 | athena    | 10.10.10.8  | pve-srv-1 | Bind9 DNS (primary), Ansible, Terraform, Gitea, Semaphore |
-| dock-prod | 10.10.10.10 | pve-srv-1 | Docker host — UniFi controller, AdGuard, app workloads |
+| dock-prod | 10.10.10.10 | pve-srv-1 | Docker host — UniFi controller, AdGuard, app workloads; also on VLAN 40 |
 
 Gateway for all: `10.10.10.254`.
 
@@ -41,14 +41,15 @@ Gateway for all: `10.10.10.254`.
 
 ## VLAN 40 — Storage (no gateway, MTU 9000)
 
-TrueNAS and PBS are **dual-homed** — VLAN 10 (above) for management, VLAN 40 for storage
-traffic (NFS, iSCSI, jumbo frames). No gateway on the storage NIC; set matching MAC
+TrueNAS, PBS, and dock-prod are **dual-homed** — VLAN 10 (above) for management, VLAN 40 for
+storage traffic (NFS, iSCSI, jumbo frames). No gateway on the storage NIC; set matching MAC
 reservations for both NICs to prevent conflicts.
 
 | Name    | IP         | Node      | Role |
 | ------- | ---------- | --------- | ---- |
 | truenas | 10.10.40.5 | pve-srv-1 | NAS — storage NIC |
 | pbs     | 10.10.40.6 | pve-srv-1 | Proxmox Backup Server — storage NIC |
+| dock-prod | 10.10.40.10 | pve-srv-1 | Docker host — storage NIC (jumbo NFS to TrueNAS) |
 | k3s-worker-1 | 10.10.40.11 | pve-srv-2 | k3s worker — storage NIC (Longhorn) |
 | k3s-worker-2 | 10.10.40.12 | pve-srv-3 | k3s worker — storage NIC (Longhorn) |
 | k3s-worker-3 | 10.10.40.13 | pve-srv-4 | k3s worker — storage NIC (Longhorn) |

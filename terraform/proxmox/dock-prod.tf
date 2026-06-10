@@ -40,6 +40,14 @@ resource "proxmox_virtual_environment_vm" "dock-prod" {
     mtu     = 1500
   }
 
+  # eth1 — storage VLAN 40 (jumbo, MTU 9000) for NFS to TrueNAS over the east-west plane.
+  # Parent bridge vmbr1 must be MTU 9000 — see docs/2-proxmox/pve/Virtual Interfaces.md.
+  network_device {
+    bridge  = "vmbr1"
+    vlan_id = 40
+    mtu     = 9000
+  }
+
   initialization {
     datastore_id = "local-lvm" # Where the Cloud-init ISO will be stored temporarily
 
@@ -51,6 +59,14 @@ resource "proxmox_virtual_environment_vm" "dock-prod" {
         # Hardcoding the IP for reliability
         address = "10.10.10.10/24"
         gateway = "10.10.10.254" # Your router/gateway IP
+      }
+    }
+
+    # eth1 — VLAN 40 storage (no gateway — east-west only). Lets dock-prod mount
+    # TrueNAS NFS at 10.10.40.5 over jumbo frames.
+    ip_config {
+      ipv4 {
+        address = "10.10.40.10/24"
       }
     }
 

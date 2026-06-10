@@ -123,7 +123,7 @@ From here, Ansible runs from Semaphore — **the laptop retires.**
 **Run — harden every host:**
 ```sh
 # via Semaphore or laptop:
-ansible-playbook ansible/playbooks/ubuntu/hardening/main.yaml -i <inventory>
+ansible-playbook ansible/playbooks/ubuntu/hardening/harden.yaml -i <inventory>
 ```
 **Verify:** SSH password auth disabled; `ufw status` deny-by-default; run [security routine checks](5-security/index.md#routine-security-checks-semaphore-schedule).
 

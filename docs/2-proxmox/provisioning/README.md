@@ -248,7 +248,8 @@ Per srv-2/3/4 (32 GB / 16-thread mini PCs), each hosts 1 master + 1 worker + 1 l
 | VM | VLAN | IP | vCPU | RAM | Disk | Node |
 | --- | --- | --- | --- | --- | --- | --- |
 | athena | 10 | 10.10.10.8 | 4 | 8 GB | 50 GB | pve-srv-1 |
-| dock-prod | 10 | 10.10.10.10 | 4 | 16 GB | 200 GB | pve-srv-1 |
+| dock-prod | 10/40 | 10.10.10.10 | 4 | 16 GB | 200 GB | pve-srv-1 |
+| pbs | 10/40 | 10.10.10.6 | 2 | 8 GB | 32 GB | pve-srv-1 |
 | k3s-master-1 | 30 | 10.10.30.1 | 2 | 4 GB | 50 GB | pve-srv-2 |
 | k3s-master-2 | 30 | 10.10.30.2 | 2 | 4 GB | 50 GB | pve-srv-3 |
 | k3s-master-3 | 30 | 10.10.30.3 | 2 | 4 GB | 50 GB | pve-srv-4 |
@@ -258,6 +259,11 @@ Per srv-2/3/4 (32 GB / 16-thread mini PCs), each hosts 1 master + 1 worker + 1 l
 | k3s-longhorn-1 | 30/40 | 10.10.30.51 | 2 | 6 GB | 300 GB | pve-srv-2 |
 | k3s-longhorn-2 | 30/40 | 10.10.30.52 | 2 | 6 GB | 300 GB | pve-srv-3 |
 | k3s-longhorn-3 | 30/40 | 10.10.30.53 | 2 | 6 GB | 300 GB | pve-srv-4 |
+
+> **Dual-homed VLANs:** `10/40` and `30/40` = a primary NIC plus a VLAN-40 storage NIC (MTU 9000).
+> PBS's 32 GB is the OS disk only — its backup data lives on 2× passed-through 8 TB HDDs.
+> **TrueNAS is a manual appliance** (not Terraform), so it's deliberately not in this table — see
+> [4-storage](../../4-storage/index.md).
 
 ### State Backend
 
