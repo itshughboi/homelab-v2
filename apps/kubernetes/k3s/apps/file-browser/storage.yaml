@@ -12,8 +12,8 @@ spec:
     - nfsvers=4.1
     - noatime
   nfs:
-    server: TRUENAS_IP         # e.g. 10.10.10.50
-    path: /mnt/tank/data       # NFS export path — adjust to your share
+    server: 10.10.40.5         # TrueNAS storage-VLAN NIC (VLAN 40)
+    path: /mnt/truenas/data       # NFS export path — adjust to your share
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

@@ -1,4 +1,4 @@
-# NFS PersistentVolume for TrueNAS media — replace TRUENAS_IP and NFS_PATH before applying.
+# NFS PersistentVolume for TrueNAS media — CONFIRM the dataset path below (server IP set to 10.10.40.5).
 # NFS export must be configured on TrueNAS with no_root_squash (needed for HOST_UID=1000 writes).
 ---
 apiVersion: v1
@@ -11,8 +11,8 @@ spec:
   accessModes:
     - ReadWriteMany
   nfs:
-    server: TRUENAS_IP   # e.g. 10.10.10.50
-    path: NFS_PATH       # e.g. /mnt/tank/yt-audios
+    server: 10.10.40.5   # TrueNAS storage-VLAN NIC (VLAN 40)
+    path: /mnt/truenas/tube-archivist   # CONFIRM leaf name (TrueNAS dataset export path)
   storageClassName: ""
   persistentVolumeReclaimPolicy: Retain
 ---

@@ -17,13 +17,13 @@ Fill in `TRUENAS_IP` and the NFS path in [storage.yaml](storage.yaml):
 
 ```yaml
 nfs:
-  server: 10.10.10.50         # Your TrueNAS IP
-  path: /mnt/tank/data        # The NFS export you want to browse
+  server: 10.10.40.5         # Your TrueNAS IP
+  path: /mnt/truenas/data        # The NFS export you want to browse
 ```
 
 Confirm the NFS export is accessible from cluster nodes:
 ```bash
-showmount -e 10.10.10.50
+showmount -e 10.10.40.5
 ```
 
 ## Deploy

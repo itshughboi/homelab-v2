@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: adguard
+  namespace: argocd
+  annotations:
+    # Wave -1: depends on the MetalLB pool (wave -3) for its LoadBalancer DNS IP.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: http://10.10.10.8:3000/hughboi/homelab.git
+    targetRevision: main
+    path: apps/kubernetes/k3s/networking/adguard
+    directory:
+      recurse: false
+      # adguard-secret.yml is a no-op stub (AdGuard self-manages auth on its PVC).
+      exclude: '{README.md,adguard-secret.yml}'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: adguard
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+# NOTE: Phase-2 follow-ups for AdGuard — pin image tag (currently :latest),
+# pin the LoadBalancer IP to 10.10.30.65 (the Service does NOT set loadBalancerIP,
+# so the DNS IP can drift), add liveness/readiness probes, decide DNS-HA story.

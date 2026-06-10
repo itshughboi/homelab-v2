@@ -21,9 +21,8 @@ Self-hosted YouTube media manager and archiver.
 
 ## Before You Apply
 
-1. **Fill in TrueNAS NFS details** in [storage.yaml](storage.yaml):
-   - Replace `TRUENAS_IP` with your TrueNAS IP (e.g. `10.10.10.50`)
-   - Replace `NFS_PATH` with the NFS export path (e.g. `/mnt/tank/yt-audios`)
+1. **Confirm TrueNAS NFS details** in [storage.yaml](storage.yaml):
+   - Server IP is set to `10.10.40.5` (storage VLAN). Confirm the dataset export path (`/mnt/truenas/tube-archivist`).
    - Confirm the NFS export has `no_root_squash` or maps `uid=1000` correctly
 
 2. **Fill in secrets** in [secret.yaml](secret.yaml):

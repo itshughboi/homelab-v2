@@ -6,6 +6,9 @@ vault_pass.txt
 *.pem
 *.cry
 
+# Ansible plaintext provisioning secrets — only the *.sops.yaml encrypted copy is committed
+secrets.yaml
+
 # Terraform variable files (contain API tokens, passwords)
 terraform.tfvars
 *.tfvars
@@ -25,6 +28,8 @@ packer/proxmox-iso-ubuntu/proxmox.pkrvars.sh
 # .env.sops files have age/AES256-GCM-encrypted values.
 # See scripts/README.md for the full SOPS workflow.
 !*.env.sops
+!*.sops.yaml
+!*.sops.tfvars
 
 # ── OS ─────────────────────────────────────────────────────────────────────────
 .DS_Store

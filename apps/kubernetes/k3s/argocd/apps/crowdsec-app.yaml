@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crowdsec
+  namespace: argocd
+  annotations:
+    # Wave -2: edge security; LAPI+agent run independently of apps. The enroll secret
+    # is optional (optional: true in values), so it won't crash before enrollment.
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  # Multi-source: chart from the Helm repo, values from THIS git repo (ArgoCD >= 2.6).
+  sources:
+    - repoURL: https://crowdsecurity.github.io/helm-charts
+      chart: crowdsec
+      targetRevision: 0.24.0
+      helm:
+        valueFiles:
+          - $values/apps/kubernetes/k3s/networking/traefik/helm/crowdsec/values.yaml
+    - repoURL: http://10.10.10.8:3000/hughboi/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: crowdsec
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

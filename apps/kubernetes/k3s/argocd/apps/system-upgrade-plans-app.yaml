@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: system-upgrade-plans
+  namespace: argocd
+  annotations:
+    # Wave -1: Plans need the system-upgrade-controller CRDs + namespace,
+    # which are installed during bootstrap (see infra/system-upgrade-controller/install.yaml).
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: http://10.10.10.8:3000/hughboi/homelab.git
+    targetRevision: main
+    path: apps/kubernetes/k3s/infra/system-upgrade-controller
+    directory:
+      recurse: false
+      # ONLY the Plans — install.yaml is an upstream-URL reference, not a manifest.
+      include: plans.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: system-upgrade
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

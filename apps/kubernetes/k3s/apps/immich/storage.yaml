@@ -62,8 +62,8 @@ spec:
     - ReadOnlyMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: TRUENAS_IP           # e.g. 10.10.10.50
-    path: /mnt/tank/immich       # NFS export path
+    server: 10.10.40.5           # TrueNAS storage-VLAN NIC (VLAN 40)
+    path: /mnt/truenas/immich       # NFS export path
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

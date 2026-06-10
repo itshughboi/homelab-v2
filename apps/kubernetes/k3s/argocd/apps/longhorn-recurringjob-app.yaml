@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn-recurringjob
+  namespace: argocd
+  annotations:
+    # Wave -1: RecurringJob CRs need Longhorn (bootstrap floor) and its CRDs present.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: http://10.10.10.8:3000/hughboi/homelab.git
+    targetRevision: main
+    path: apps/kubernetes/k3s/infra/longhorn
+    directory:
+      recurse: false
+      # ONLY the RecurringJob CRs — never longhorn.yaml (the manual floor install).
+      include: recurringjob.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+# NOTE: hourly snapshots work immediately; the daily/weekly *backup* jobs only
+# succeed once a Longhorn backup target (S3/NFS) is configured — see Phase 3.

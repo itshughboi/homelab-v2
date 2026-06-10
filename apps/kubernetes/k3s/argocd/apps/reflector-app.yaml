@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reflector
+  namespace: argocd
+  annotations:
+    # Wave -3: must be running before cert-manager creates the wildcard TLS secret,
+    # so Reflector can mirror it into every app namespace.
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: default
+  # Multi-source: pull the chart from the Helm repo, but take values from THIS git repo
+  # (reuses the existing values.yaml; requires ArgoCD >= 2.6).
+  sources:
+    - repoURL: https://emberstack.github.io/helm-charts
+      chart: reflector
+      targetRevision: 10.0.46
+      helm:
+        valueFiles:
+          - $values/apps/kubernetes/k3s/networking/traefik/helm/reflector/values.yaml
+    - repoURL: http://10.10.10.8:3000/hughboi/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

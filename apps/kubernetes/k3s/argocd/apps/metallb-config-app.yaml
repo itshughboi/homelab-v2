@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metallb-config
+  namespace: argocd
+  annotations:
+    # Wave -3: the LoadBalancer IP pool must exist before any LB service
+    # (Traefik, AdGuard) can be assigned an address.
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: default
+  source:
+    # Athena-hosted Gitea by direct IP — survives a DNS/Traefik outage (see ../README.md).
+    repoURL: http://10.10.10.8:3000/hughboi/homelab.git
+    targetRevision: main
+    path: apps/kubernetes/k3s/infra/metallb
+    directory:
+      recurse: false
+      exclude: README.md
+  destination:
+    server: https://kubernetes.default.svc
+    # metallb-system is created by the manual MetalLB Helm install (bootstrap floor).
+    # This Application manages ONLY the IPAddressPool + L2Advertisement CRs.
+    namespace: metallb-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

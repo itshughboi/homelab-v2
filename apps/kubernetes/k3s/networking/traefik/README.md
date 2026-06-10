@@ -60,9 +60,8 @@ helm install cert-manager jetstack/cert-manager \
   --set installCRDs=true \
   -f helm/traefik/cert-manager/values.yaml
 
-# 2. Reflector
-helm repo add emberstack https://emberstack.github.io/helm-charts
-helm install reflector emberstack/reflector -n kube-system
+# 2. Reflector — NOW GITOPS-MANAGED via argocd/apps/reflector-app.yaml (chart 10.0.46).
+#    Skip during rebuild; ArgoCD installs it automatically once root-app is applied.
 
 # 3. Traefik
 helm repo add traefik https://traefik.github.io/charts
@@ -70,11 +69,8 @@ helm install traefik traefik/traefik \
   -n traefik --create-namespace \
   -f helm/traefik/values.yaml
 
-# 4. CrowdSec
-helm repo add crowdsec https://crowdsecurity.github.io/helm-charts
-helm install crowdsec crowdsec/crowdsec \
-  -n crowdsec --create-namespace \
-  -f helm/crowdsec/values.yaml
+# 4. CrowdSec — NOW GITOPS-MANAGED via argocd/apps/crowdsec-app.yaml (chart 0.24.0).
+#    Skip during rebuild; ArgoCD installs it automatically once root-app is applied.
 
 # 5. Issuers and certificate
 kubectl apply -f helm/traefik/cert-manager/issuers/secret-cf-token.yaml

@@ -15,23 +15,23 @@ Self-hosted media server for Films, TV Shows, Music, and Concerts.
 
 | Library | NFS Path |
 |---------|---------|
-| Films | `/mnt/tank/jellyfin/Films` |
-| TVShows | `/mnt/tank/jellyfin/TVShows` |
-| Music | `/mnt/tank/jellyfin/Music` |
-| Concerts | `/mnt/tank/jellyfin/Concerts` |
+| Films | `/mnt/truenas/jellyfin/Films` |
+| TVShows | `/mnt/truenas/jellyfin/TVShows` |
+| Music | `/mnt/truenas/jellyfin/Music` |
+| Concerts | `/mnt/truenas/jellyfin/Concerts` |
 
 ## Before You Apply
 
 Fill in `TRUENAS_IP` in [storage.yaml](storage.yaml) for all four NFS PersistentVolumes:
 ```yaml
 nfs:
-  server: 10.10.10.50   # Your TrueNAS IP
-  path: /mnt/tank/jellyfin/Films
+  server: 10.10.40.5   # Your TrueNAS IP
+  path: /mnt/truenas/jellyfin/Films
 ```
 
 Confirm NFS exports are accessible from cluster nodes:
 ```bash
-showmount -e 10.10.10.50
+showmount -e 10.10.40.5
 ```
 
 ## Deploy

@@ -24,7 +24,7 @@ spec:
     requests:
       storage: 20Gi
 ---
-# NFS PV for each media library — fill in TRUENAS_IP and NFS paths
+# NFS PV for each media library — TrueNAS storage VLAN (10.10.40.5), read-only
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -36,8 +36,8 @@ spec:
     - ReadOnlyMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: TRUENAS_IP
-    path: /mnt/tank/jellyfin/Films
+    server: 10.10.40.5
+    path: /mnt/truenas/jellyfin/Films
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -64,8 +64,8 @@ spec:
     - ReadOnlyMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: TRUENAS_IP
-    path: /mnt/tank/jellyfin/TVShows
+    server: 10.10.40.5
+    path: /mnt/truenas/jellyfin/TVShows
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -92,8 +92,8 @@ spec:
     - ReadOnlyMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: TRUENAS_IP
-    path: /mnt/tank/jellyfin/Music
+    server: 10.10.40.5
+    path: /mnt/truenas/jellyfin/Music
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -120,8 +120,8 @@ spec:
     - ReadOnlyMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
-    server: TRUENAS_IP
-    path: /mnt/tank/jellyfin/Concerts
+    server: 10.10.40.5
+    path: /mnt/truenas/jellyfin/Concerts
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
