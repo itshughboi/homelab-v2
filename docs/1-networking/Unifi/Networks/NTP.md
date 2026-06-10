@@ -1,7 +1,9 @@
 # NTP — Internal Time Source
 
-> Status: **planned.** Today every host syncs time independently from public NTP over WAN.
-> This documents moving to a single internal time source.
+> [!WARNING] Status: planned — not yet implemented
+> Today every host syncs time independently from public NTP over WAN. The runbook below moves the
+> fleet to **one internal source (the UXG Max gateway)**. It's a small change and worth doing —
+> Corosync / k3s / TLS are all time-sensitive. Apply it during or right after network setup.
 
 ## Why this matters
 

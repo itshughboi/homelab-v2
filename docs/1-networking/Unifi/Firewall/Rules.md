@@ -154,6 +154,23 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 ---
 
+## Guest (172.69.69.0/24)
+
+*AP guest WiFi. Internet-only, client isolation on, no internal access.*
+
+| Source | Destination | Services | Intent |
+| --- | --- | --- | --- |
+| GUEST | WAN | CORE, WEB | Internet only |
+| GUEST | RFC1918 | **DENY** | No internal access |
+| ANY | GUEST | **DENY** | No inbound |
+
+> Client isolation (guest devices can't see each other) is the UniFi **Guest Network** toggle on
+> the network itself, not a firewall rule. Guests resolve DNS via the gateway's encrypted DoH (no
+> AdGuard) — see [DNS.md](../Networks/DNS.md). The `GUEST → WAN` allow + `ANY → GUEST DENY` are
+> mostly implicit in UniFi's guest handling, but state them so the policy is explicit and auditable.
+
+---
+
 ## VPN — Tailscale (10.10.80.0/24)
 
 *Tailscale subnet router. VPN users get scoped access to Management, k3s, and Storage.*

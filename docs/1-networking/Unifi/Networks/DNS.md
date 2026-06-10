@@ -89,6 +89,12 @@ No single Proxmox host failure can take out trusted DNS (primary on srv-1, secon
 srv-2/3/4). AdGuard and Bind9 serve different populations, so they were never redundant for
 each other — **Bind9 HA = a second Bind9, not Bind9 + AdGuard.**
 
+> [!NOTE] Secondary placement is still being decided
+> The k3s-hosted secondary (above) is the leading option; the alternative is a **dedicated Bind9
+> VM on a different Proxmox host** (simpler, no k3s dependency for the secondary). Either is valid
+> for HA as long as it lives on a *different host than the primary* — decide before implementing.
+> Near-term priority.
+
 > [!NOTE] No circular dependency
 > k3s nodes themselves resolve via Bind9 *primary* on Athena (.8), not via the k3s-hosted
 > resolvers — so k3s can cold-boot without needing its own pods for DNS. The k3s-hosted
