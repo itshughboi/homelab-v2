@@ -19,7 +19,7 @@ spec:
           command: ["sh", "-c", "until nc -z gatus-postgres 5432; do sleep 2; done"]
       containers:
         - name: gatus
-          image: twinproduction/gatus:latest
+          image: twinproduction/gatus:v5.34.0
           ports:
             - containerPort: 8080
               name: http

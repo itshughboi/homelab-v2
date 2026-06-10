@@ -20,7 +20,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: file-browser
-          image: hurlenko/filebrowser:latest
+          image: hurlenko/filebrowser:v2.63.2
           ports:
             - containerPort: 8080
               name: http

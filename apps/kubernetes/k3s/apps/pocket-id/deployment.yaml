@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: pocket-id
-          image: ghcr.io/pocket-id/pocket-id:latest
+          image: ghcr.io/pocket-id/pocket-id:v2.8.0
           ports:
             - containerPort: 1411
               name: http

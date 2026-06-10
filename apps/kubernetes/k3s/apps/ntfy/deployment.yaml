@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: ntfy
-          image: binwiederhier/ntfy:latest
+          image: binwiederhier/ntfy:v2.23.0
           command: ["serve"]
           args: ["--config", "/etc/ntfy/server.yml"]
           ports:

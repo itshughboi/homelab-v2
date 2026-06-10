@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: mailrise
-          image: yoryan/mailrise:latest
+          image: yoryan/mailrise:1.4.0
           ports:
             - containerPort: 8025
               name: smtp
