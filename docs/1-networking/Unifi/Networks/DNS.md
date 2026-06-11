@@ -22,11 +22,11 @@ Networks with DHCP disabled (k3s, Storage): DNS is not distributed by UniFi — 
 
 | Network       | DNS servers                                | Reason                                                                                        |
 | ------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Management    | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | athena, adguard, bind9                                                                        |
-| k3s           | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | **DHCP disabled — set via cloud-init in Terraform, not from UniFi**                           |
+| Management    | `10.10.10.8` (+ Bind9 secondary when live)  | **Bind9 only.** Dropped `10.10.10.10`/`9.9.9.9` — round-robin would intermittently bypass internal resolution + filtering. |
+| k3s           | `10.10.10.8` (+ Bind9 secondary when live)  | **Bind9 only**, set via cloud-init (DHCP disabled). Resolves via the Athena primary so k3s can cold-boot. |
 | Storage       | `9.9.9.9`, `1.1.1.2`                       | Package updates only. **DHCP disabled — configure statically on each machine (TrueNAS, PBS)** |
-| Tailscale VPN | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | Same as management                                                                            |
-| WireGuard VPN | `10.10.10.8`<br>`10.10.10.10`<br>`9.9.9.9` | Remote clients need internal resolution                                                       |
+| Tailscale VPN | `10.10.10.8` (+ Bind9 secondary when live)  | Bind9 only — same as management. |
+| WireGuard VPN | `10.10.10.8` (+ Bind9 secondary when live)  | Bind9 only — remote clients still get internal resolution + filtering via Bind9. |
 | Torrent       | Auto (gateway DoH)                         | Airgapped — no internal IPs. Gateway proxies to Quad9 via DoH.                                |
 | IoT           | Auto (gateway DoH)                         | Untrusted devices must not reach internal resolvers                                           |
 | Guest         | Auto (gateway DoH)                         | Internet DNS only, encrypted via gateway                                                      |
@@ -88,6 +88,16 @@ one host dying kills all DNS. Target spreads them:
 No single Proxmox host failure can take out trusted DNS (primary on srv-1, secondary on
 srv-2/3/4). AdGuard and Bind9 serve different populations, so they were never redundant for
 each other — **Bind9 HA = a second Bind9, not Bind9 + AdGuard.**
+
+> [!IMPORTANT] ⚠️ AdGuard cutover — when k3s AdGuard goes live, repoint off dock-prod
+> AdGuard currently runs on **dock-prod (`10.10.10.10`)**. When the k3s AdGuard
+> (`10.10.30.65`, MetalLB VIP) is up, switch **everything** that points at `10.10.10.10` for DNS
+> over to `10.10.30.65`, then retire the dock-prod AdGuard. Checklist:
+> - [ ] UniFi DHCP DNS for the **filtered networks** (WiFi, IoT, TV, Guest) → `10.10.30.65`
+> - [ ] Bind9's forward/fallback references to AdGuard (`10.10.10.10` → `10.10.30.65`)
+> - [ ] Any docs/configs still naming `10.10.10.10` as the AdGuard resolver (`grep -r 10.10.10.10`)
+> - [ ] Confirm the k3s AdGuard conditional-forwards local zones to Bind9 (`10.10.10.8`) before cutover
+> - [ ] Decommission the dock-prod AdGuard container once clients are confirmed on `.65`
 
 > [!NOTE] Secondary placement is still being decided
 > The k3s-hosted secondary (above) is the leading option; the alternative is a **dedicated Bind9

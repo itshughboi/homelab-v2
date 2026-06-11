@@ -52,7 +52,7 @@ resource "proxmox_virtual_environment_vm" "dock-prod" {
     datastore_id = "local-lvm" # Where the Cloud-init ISO will be stored temporarily
 
     dns {
-      servers = ["10.10.10.8", "10.10.10.10", "9.9.9.9"]
+      servers = ["10.10.10.8"] # Bind9 primary only — dropped 9.9.9.9/AdGuard (DNS round-robin footgun); add Bind9 secondary VIP when live. See docs/1-networking/Unifi/Networks/DNS.md
     }
     ip_config {
       ipv4 {

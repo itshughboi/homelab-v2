@@ -50,7 +50,7 @@ resource "proxmox_virtual_environment_vm" "k3s_longhorn" {
     datastore_id = "local-lvm"
 
     dns {
-      servers = ["10.10.10.8", "10.10.10.10", "9.9.9.9"]
+      servers = ["10.10.10.8"] # Bind9 primary only — dropped 9.9.9.9/AdGuard (DNS round-robin footgun); add Bind9 secondary VIP when live. See docs/1-networking/Unifi/Networks/DNS.md
     }
 
     # eth0 — VLAN 30
