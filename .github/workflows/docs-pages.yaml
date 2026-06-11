@@ -1,0 +1,78 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-pages.yaml"
+  workflow_dispatch: # allow manual re-deploy from the Actions tab
+
+# Least-privilege token scopes required by the Pages deploy
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let a newer push cancel an in-flight build
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HUGO_VERSION: 0.161.1
+    steps:
+      - uses: actions/checkout@v4
+
+      # Hugo Book theme is a Hugo Module (go.mod) — Go is required to fetch it
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Hugo (extended)
+        run: |
+          curl -sSLo hugo.tar.gz \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          tar -xf hugo.tar.gz hugo
+          sudo mv hugo /usr/local/bin/
+          hugo version
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Regenerate content/ from docs/ and build
+        run: |
+          cd docs/hugo
+          ./sync.sh
+          # baseURL from the Pages step → correct project subpath (/homelab-v2/)
+          hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
+
+      - name: Fail on unresolved internal .md links
+        run: |
+          cd docs/hugo
+          bad=$(grep -rohE 'href="[^"]*\.md[^"]*"' public/ --include='*.html' \
+                | grep -vE 'https?://|bootstrap/|packer/|terraform/|ansible/|apps/' | sort -u || true)
+          if [ -n "$bad" ]; then
+            echo "Unresolved internal .md links (broken source links):"; echo "$bad"; exit 1
+          fi
+          echo "All internal doc links resolve."
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/hugo/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
