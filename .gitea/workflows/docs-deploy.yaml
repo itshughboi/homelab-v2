@@ -1,0 +1,26 @@
+name: Deploy docs (self-hosted)
+
+# Gitea-side equivalent of the GitHub Pages workflow. Builds the immutable docs image and
+# (re)deploys it behind Traefik at https://docs.hughboi.cc. Runs on the self-hosted Gitea
+# runner (dock-prod), which has Docker access. GitHub ignores .gitea/; Gitea ignores .github/.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "apps/docker/docs/**"
+      - ".gitea/workflows/docs-deploy.yaml"
+  workflow_dispatch: # manual re-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build + (re)deploy docs container (immutable image)
+        run: |
+          docker compose -f apps/docker/docs/compose.yaml up -d --build
+
+      - name: Prune dangling build layers
+        run: docker image prune -f

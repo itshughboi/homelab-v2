@@ -1,0 +1,48 @@
+---
+# Self-hosted docs site — the Gitea/internal equivalent of GitHub Pages.
+# Built + deployed by .gitea/workflows/docs-deploy.yaml (`docker compose up -d --build`).
+# NOT yet live — scaffold for when the repo moves to Gitea. Bring up manually with:
+#   docker compose -f apps/docker/docs/compose.yaml up -d --build
+services:
+  docs:
+    container_name: docs
+    build:
+      context: ../../.. # repo root — the Hugo build needs docs/ + sync.sh + go.mod
+      dockerfile: apps/docker/docs/Dockerfile
+      args:
+        BASE_URL: "https://docs.hughboi.cc/"
+        BOOK_REPO: "https://gitea.hughboi.cc/hughboi/homelab"
+    image: homelab-docs:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.docs.entrypoints=http"
+      - "traefik.http.routers.docs.rule=Host(`docs.hughboi.cc`)"
+      - "traefik.http.middlewares.docs-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.docs.middlewares=docs-https-redirect"
+      - "traefik.http.routers.docs-secure.entrypoints=https"
+      - "traefik.http.routers.docs-secure.rule=Host(`docs.hughboi.cc`)"
+      - "traefik.http.routers.docs-secure.tls=true"
+      - "traefik.http.routers.docs-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.docs-secure.service=docs"
+      - "traefik.http.services.docs.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+      - "diun.enable=false" # locally built, not a pulled image
+    networks:
+      - proxy
+
+
+networks:
+  proxy:
+    external: true
