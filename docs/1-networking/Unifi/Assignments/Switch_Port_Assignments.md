@@ -17,7 +17,8 @@
 > [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) and plug straight into their
 > permanent trunk port on the Flex Mini — see the [post-mortem](../../Alternative%20Methods/Netboot/README.md).
 > Both ports are now reassigned to **Management (VLAN 10)** as general-purpose access ports.
-> The provisioning **VLAN 99** is retired — remove it in UniFi once nothing else references it.
+> The provisioning **VLAN 99** is kept **dormant** (no active ports) — retained in case you re-use
+> it later, not removed.
 
 ---
 

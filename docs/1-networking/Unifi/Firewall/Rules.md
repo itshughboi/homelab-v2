@@ -24,17 +24,17 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *Admin plane. Reaches everything. Nothing initiates into it.*
 
-| Priority | Source              | Destination                  | Services  | Intent                                           |
-| -------- | ------------------- | ---------------------------- | --------- | ------------------------------------------------ |
-| 1        | MGMT                | MGMT (10.10.10.0/24)         | ANY       | Intra-VLAN admin traffic — prevents self-lockout |
-| 2        | MGMT                | K3S (10.10.30.0/24)          | SSH, K3S  | Admin control                                    |
-| 3        | MGMT                | STORAGE (10.10.40.0/24)      | SSH, WEB  | Admin access to TrueNAS + PBS web UIs only       |
-| 4        | MGMT                | TORRENT (172.16.20.0/24)     | SSH       | Admin access only                                |
-| 5        | MGMT                | VPN (10.10.80.0/24)          | SSH       | Admin access                                     |
-| ~~6~~    | ~~MGMT~~            | ~~PROVISIONING (10.10.99.0/24)~~ | ~~SSH~~ | **Sunsetted** — netboot abandoned, remove (see Provisioning section) |
-| 7        | MGMT                | WAN                          | CORE, WEB | Updates, DNS, NTP                                |
-| 8        | VPN (10.10.80.0/24) | MGMT                         | SSH, WEB  | Remote admin                                     |
-| last     | ANY                 | MGMT                         | DENY      | No inbound initiation from other zones           |
+| Priority | Source              | Destination                  | Port group     | Intent                                           |
+| -------- | ------------------- | ---------------------------- | -------------- | ------------------------------------------------ |
+| 1        | MGMT                | MGMT (10.10.10.0/24)         | ANY            | Intra-VLAN admin traffic — prevents self-lockout |
+| 2        | MGMT                | K3S (10.10.30.0/24)          | `k3s-api`      | Admin + API control                              |
+| 3        | MGMT                | STORAGE (10.10.40.0/24)      | `admin`        | Admin access to TrueNAS + PBS web UIs            |
+| 4        | MGMT                | TORRENT (172.16.20.0/24)     | `ssh`          | Admin access only (SSH, no web UIs)              |
+| 5        | MGMT                | VPN (10.10.80.0/24)          | `ssh`          | Admin access to the Tailscale box                |
+| 6        | MGMT                | PROVISIONING (10.10.99.0/24) | `ssh`          | **Dormant** — VLAN 99 retired but retained; rule kept ready |
+| 7        | MGMT                | WAN                          | `wan-egress`   | Updates, DNS, NTP                                |
+| 8        | VPN (10.10.80.0/24) | MGMT                         | `admin`        | Remote admin                                     |
+| last     | ANY                 | MGMT                         | DENY           | No inbound initiation from other zones           |
 
 
 
@@ -47,7 +47,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 ## Cluster (10.10.20.0/24)
 *Corosync heartbeat only. No gateway. Completely isolated. Intra-VLAN traffic is invisible to the firewall — no rules needed for Corosync itself.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
 | ANY | CLUSTER | DENY | Fully isolated |
 
@@ -57,14 +57,14 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *Nodes talk to each other, pull from internet, access storage. Cannot initiate to Management.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
 | K3S | K3S | ANY | Intra-VLAN — pod networking and node-to-node traffic |
-| MGMT | K3S | SSH, K3S | Admin/API access |
-| K3S | STORAGE | STORAGE | Persistent volumes |
-| K3S | Athena Gitea (`10.10.10.8`) | TCP 3000 | **ArgoCD pulls IaC from Gitea** — scoped exception to the K3S→MGMT deny (must be above it) |
-| K3S | DNS (`10.10.10.8`) | TCP/UDP 53 | Resolve `*.hughboi.cc` via Bind9 (for the Gitea hostname / images) |
-| K3S | WAN | CORE, WEB | Images, DNS, NTP |
+| MGMT | K3S | `k3s-api` | Admin/API access |
+| K3S | STORAGE | `storage` | Persistent volumes |
+| K3S | Athena Gitea (`10.10.10.8`) | `gitea` | **ArgoCD pulls IaC from Gitea** — scoped exception to the K3S→MGMT deny (must be above it) |
+| K3S | DNS (`10.10.10.8`) | `dns` | Resolve `*.hughboi.cc` via Bind9 (for the Gitea hostname / images) |
+| K3S | WAN | `wan-egress` | Images, DNS, NTP |
 | K3S | MGMT | DENY | No lateral movement (all other MGMT) |
 | ANY | K3S | DENY | Block inbound |
 
@@ -88,11 +88,11 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *No gateway — internal only. Jumbo frames (MTU 9000). Accepts connections from Management and k3s only.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
 | STORAGE | STORAGE | ANY | Intra-VLAN — PBS → TrueNAS backups, **dock-prod → TrueNAS NFS** |
-| MGMT | STORAGE | SSH, WEB | Admin access to TrueNAS + PBS web UIs |
-| K3S | STORAGE | NFS 2049, rpcbind 111, iSCSI 3260, node_exporter 9100, Longhorn 9500 | Volume access + Prometheus scraping |
+| MGMT | STORAGE | `admin` | Admin access to TrueNAS + PBS web UIs |
+| K3S | STORAGE | `storage` | Volume access + Prometheus scraping (NFS, iSCSI, node_exporter, Longhorn) |
 | ANY | STORAGE | DENY | Default deny inbound |
 
 > [!NOTE] **dock-prod is dual-homed into this zone** (`10.10.40.10`)
@@ -115,11 +115,11 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *Smart home devices. Untrusted — cannot initiate to any internal network. Home Assistant is the sole exception, reaching in from k3s.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
-| MGMT | IoT | SSH, WEB | Admin access to device UIs |
-| K3S (entire zone for now) | IoT | any | Home Assistant device control |
-| IoT | WAN | CORE, WEB | Device updates and cloud APIs |
+| MGMT | IoT | `admin` | Admin access to device UIs |
+| K3S (entire zone for now) | IoT | ANY | Home Assistant device control |
+| IoT | WAN | ANY | Device updates and cloud APIs (left open — smart-home devices hit unpredictable ports) |
 | IoT | RFC1918 | **DENY** | No internal access |
 | ANY | IoT | **DENY** | No inbound access |
 
@@ -135,11 +135,11 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *Fully airgapped from internal network. WAN only.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
-| MGMT | TORRENT | SSH | Admin access |
-| TORRENT VM IP (172.16.20.x) | TrueNAS (`10.10.40.5`) | NFS 2049 | Download writes to TrueNAS — scoped to exact IPs, not whole zones |
-| TORRENT | WAN | CORE, WEB, TORRENT | Internet + torrent traffic |
+| MGMT | TORRENT | `ssh` | Admin access |
+| TORRENT VM IP (172.16.20.x) | TrueNAS (`10.10.40.5`) | `nfs` | Download writes to TrueNAS — scoped to exact IPs, not whole zones |
+| TORRENT | WAN | `torrent-wan` | Internet + torrent traffic |
 | TORRENT | RFC1918 | DENY | Full internal isolation |
 | ANY | TORRENT | DENY | No inbound access |
 
@@ -164,9 +164,9 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *AP guest WiFi. Internet-only, client isolation on, no internal access.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
-| GUEST | WAN | CORE, WEB | Internet only |
+| GUEST | WAN | ANY | Internet only (left open — guest devices hit unpredictable ports) |
 | GUEST | RFC1918 | **DENY** | No internal access |
 | ANY | GUEST | **DENY** | No inbound |
 
@@ -181,12 +181,12 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *Tailscale subnet router. VPN users get scoped access to Management, k3s, and Storage.*
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
-| VPN | MGMT | SSH, WEB | Admin access — ensure this is above ANY→MGMT DENY |
-| VPN | K3S | K3S | Cluster access |
-| VPN | STORAGE | SSH, WEB | Remote admin access |
-| VPN | WAN | VPN | Tunnel egress |
+| VPN | MGMT | `admin` | Admin access — ensure this is above ANY→MGMT DENY |
+| VPN | K3S | `k3s-api` | Cluster access |
+| VPN | STORAGE | `admin` | Remote admin access |
+| VPN | WAN | `vpn-out` | Tunnel egress (subnet router → internet; **add this — TS breaks under Block-all without it**) |
 | ANY | VPN | DENY | No inbound access |
 
 > [!NOTE]
@@ -212,13 +212,13 @@ For setup procedure and behavioral notes see [README.md](README.md).
 > The inbound tunnel rule destination is `Gateway` — the WireGuard server runs on the UXG Max itself, not a VM.
 > The `Wireguard` zone applies to the network/clients, not the server process.
 
-| Source | Destination | Services | Intent |
+| Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
-| **External (WAN)** | **Gateway** | **UDP 51820** | **Allow inbound tunnel establishment — required or no client can connect** |
-| Wireguard | MGMT | SSH, WEB | Remote admin |
-| Wireguard | K3S | K3S | Cluster access |
-| Wireguard | STORAGE | SSH, WEB | Remote admin access |
-| Wireguard | WAN | CORE, WEB | Internet egress for connected clients |
+| **External (WAN)** | **Gateway** | **`wg-in`** | **Allow inbound tunnel establishment (UDP 51820) — required or no client can connect** |
+| Wireguard | MGMT | `admin` | Remote admin |
+| Wireguard | K3S | `k3s-api` | Cluster access |
+| Wireguard | STORAGE | `admin` | Remote admin access |
+| Wireguard | WAN | `wan-egress` | Internet egress for connected clients (only if full-tunnel) |
 | ANY | Wireguard | DENY | No other inbound access |
 
 > [!NOTE]
@@ -227,25 +227,23 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 ---
 
-## Provisioning (10.10.99.0/24) — SUNSETTED
+## Provisioning (10.10.99.0/24) — DORMANT (retained)
 
-> [!WARNING] Sunsetted — no longer in use
-> This VLAN existed for PXE/netboot provisioning, which has been **abandoned**. Nodes now
-> install via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) directly onto
-> Management (VLAN 10), so the provisioning zone serves no purpose. See the
-> [netboot post-mortem](../../Alternative%20Methods/Netboot/README.md).
->
-> **Action:** these rules can be removed from UniFi along with the VLAN 99 network and its
-> DHCP boot options. The rules below are retained only as a record of what was in place.
+> [!NOTE] Dormant — retired but intentionally kept
+> This VLAN existed for PXE/netboot provisioning, which has been **abandoned** (nodes now install
+> via [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) directly onto Management). The VLAN
+> and these rules are **kept in place, dormant** — ready to re-enable if a temporary provisioning
+> network is ever wanted again — **not removed**. No active ports/clients are on VLAN 99 today.
+> See the [netboot post-mortem](../../Alternative%20Methods/Netboot/README.md).
 
 *Former purpose: temporary VLAN — nodes lived here during Proxmox install, then moved to Management.*
 
-| Source | Destination | Services | Intent | Status |
+| Source | Destination | Port group | Intent | Status |
 | --- | --- | --- | --- | --- |
-| MGMT | PROVISIONING | SSH | PXE control | Remove |
-| PROVISIONING | WAN | CORE, WEB, BOOT | Install dependencies | Remove |
-| PROVISIONING | INTERNAL | DENY | No lateral movement | Remove |
-| ANY | PROVISIONING | DENY | Fully disposable | Remove |
+| MGMT | PROVISIONING | `ssh` | Admin access | Keep (dormant) |
+| PROVISIONING | WAN | `wan-egress` | Install dependencies (add TFTP/BOOT only if PXE is ever revived) | Keep (dormant) |
+| PROVISIONING | INTERNAL | DENY | No lateral movement | Keep (dormant) |
+| ANY | PROVISIONING | DENY | Fully disposable | Keep (dormant) |
 
 > [!NOTE]
 > When PXE was active, serving between the Libre Potato and booting nodes was entirely
