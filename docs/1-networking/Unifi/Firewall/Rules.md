@@ -28,7 +28,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | -------- | ------------------- | ---------------------------- | -------------- | ------------------------------------------------ |
 | 1        | MGMT                | MGMT (10.10.10.0/24)         | ANY            | Intra-VLAN admin traffic — prevents self-lockout |
 | 2        | MGMT                | K3S (10.10.30.0/24)          | `k3s-api`      | Admin + API control                              |
-| 3        | MGMT                | STORAGE (10.10.40.0/24)      | `admin`        | Admin access to TrueNAS + PBS web UIs            |
+| 3        | MGMT                | STORAGE (10.10.40.0/24)      | ANY            | Full — NFS/SMB shares + web UIs (mounted from management clients) |
 | 4        | MGMT                | TORRENT (172.16.20.0/24)     | `ssh`          | Admin access only (SSH, no web UIs)              |
 | 5        | MGMT                | VPN (10.10.80.0/24)          | `ssh`          | Admin access to the Tailscale box                |
 | 6        | MGMT                | PROVISIONING (10.10.99.0/24) | `ssh`          | **Dormant** — VLAN 99 retired but retained; rule kept ready |
@@ -91,7 +91,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
 | STORAGE | STORAGE | ANY | Intra-VLAN — PBS → TrueNAS backups, **dock-prod → TrueNAS NFS** |
-| MGMT | STORAGE | `admin` | Admin access to TrueNAS + PBS web UIs |
+| MGMT | STORAGE | ANY | Full — NFS/SMB shares + web UIs from management clients |
 | K3S | STORAGE | `storage` | Volume access + Prometheus scraping (NFS, iSCSI, node_exporter, Longhorn) |
 | ANY | STORAGE | DENY | Default deny inbound |
 

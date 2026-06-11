@@ -68,7 +68,7 @@ named group.
 | Network List  | Ports                            | Rule protocol | Used by (source → dest)                                            |
 | ------------- | -------------------------------- | ------------- | ------------------------------------------------------------------ |
 | `ssh`         | 22                               | TCP           | MGMT→Torrent, MGMT→VPN                                             |
-| `admin`       | 22, 80, 443, 8006, 8007          | TCP           | MGMT→Storage, MGMT→IoT (VPN/WG→MGMT & →Storage are full `ANY` — see Rules.md) |
+| `admin`       | 22, 80, 443, 8006, 8007          | TCP           | MGMT→IoT (MGMT→Storage + VPN/WG→MGMT & →Storage are full `ANY` — see Rules.md) |
 | `dns`         | 53, 853                          | Both          | k3s→Bind9 (`10.10.10.8`)                                           |
 | `wan-egress`  | 53, 80, 123, 443                 | Both          | MGMT→WAN, k3s→WAN, IoT→WAN, Guest→WAN, WG→WAN                      |
 | `torrent-wan` | 53, 80, 123, 443, 6881–6889      | Both          | Torrent→WAN                                                        |
