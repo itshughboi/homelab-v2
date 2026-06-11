@@ -72,12 +72,12 @@ named group.
 | `dns`         | 53, 853                          | Both          | k3s→Bind9 (`10.10.10.8`)                                           |
 | `wan-egress`  | 53, 80, 123, 443                 | Both          | MGMT→WAN, k3s→WAN, IoT→WAN, Guest→WAN, WG→WAN                      |
 | `torrent-wan` | 53, 80, 123, 443, 6881–6889      | Both          | Torrent→WAN                                                        |
-| `k3s-api`     | 22, 6443, 8472, 10250            | Both          | MGMT→k3s, VPN→k3s, WG→k3s                                          |
+| `k3s-api`     | 22, 6443, 8472, 10250            | Both          | MGMT→k3s (VPN/WG→k3s are full `ANY`)                               |
 | `storage`     | 111, 2049, 3260, 9100, 9500–9504 | Both          | k3s→Storage (NFS, iSCSI, node_exporter, Longhorn)                  |
 | `nfs`         | 111, 2049                        | Both          | Torrent→TrueNAS                                                    |
 | `gitea`       | 3000                             | TCP           | k3s→Athena Gitea (ArgoCD pull)                                     |
 | `wg-in`       | 51820                            | UDP           | External→Gateway (WireGuard inbound tunnel)                        |
-| `vpn-out`     | 41641, 3478, 443                 | Both          | Tailscale→WAN (subnet-router egress)                               |
+| `vpn-out`     | 41641, 3478, 443                 | Both          | *(unused — Tailscale→WAN set to All; kept for reference)*          |
 
 > [!NOTE] "Rule protocol" is set on the **rule**, not the list — Network Lists hold port numbers
 > For mixed groups (e.g. `wan-egress` = DNS/NTP over UDP + HTTP/S over TCP) set the rule's

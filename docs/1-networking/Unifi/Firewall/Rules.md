@@ -184,9 +184,9 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | Source | Destination | Port group | Intent |
 | --- | --- | --- | --- |
 | VPN | MGMT | ANY | **Full remote access** (owner) — reach any port/service on management; avoids "why is this blocked" surprises. Must be above ANY→MGMT DENY |
-| VPN | K3S | `k3s-api` | Cluster access |
+| VPN | K3S | ANY | **Full** (owner) — cluster + any service over VPN |
 | VPN | STORAGE | ANY | **Full** — includes NFS + SMB shares + web UIs over VPN |
-| VPN | WAN | `vpn-out` | Tunnel egress (subnet router → internet; **add this — TS breaks under Block-all without it**) |
+| VPN | WAN | ANY (All) | Subnet router internet egress — set to **All** (Tailscale uses varied/unpredictable ports; a scoped list proved too brittle). **Required or TS goes down under Block-all.** |
 | ANY | VPN | DENY | No inbound access |
 
 > [!NOTE]
@@ -216,7 +216,7 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | --- | --- | --- | --- |
 | **External (WAN)** | **Gateway** | **`wg-in`** | **Allow inbound tunnel establishment (UDP 51820) — required or no client can connect** |
 | Wireguard | MGMT | ANY | **Full remote access** (owner) — same as Tailscale |
-| Wireguard | K3S | `k3s-api` | Cluster access |
+| Wireguard | K3S | ANY | **Full** (owner) — cluster + any service over VPN |
 | Wireguard | STORAGE | ANY | **Full** — includes NFS + SMB over VPN |
 | Wireguard | WAN | `wan-egress` | Internet egress for connected clients (only if full-tunnel) |
 | ANY | Wireguard | DENY | No other inbound access |
