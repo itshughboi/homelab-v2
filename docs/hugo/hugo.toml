@@ -10,8 +10,9 @@ title = "hughboi homelab"
   BookCollapseSection = true  # sidebar sections collapse by default
   BookSection = "/"           # render root content as sidebar (not a "docs" subdirectory)
 
-  # Repo link in header (optional — remove if you don't want it)
-  BookRepo = "https://gitea.hughboi.cc/hughboi/homelab"
+  # Repo link in header. Public GitHub for the Pages site; the self-hosted (Gitea) build
+  # overrides this to the internal Gitea via HUGO_PARAMS_BOOKREPO (see apps/docker/docs/Dockerfile).
+  BookRepo = "https://github.com/itshughboi/homelab-v2"
 
 [markup]
   [markup.highlight]
@@ -25,8 +26,8 @@ title = "hughboi homelab"
 [menu]
   # These appear in the top nav bar
   [[menu.before]]
-    name = "Gitea"
-    url = "https://gitea.hughboi.cc"
+    name = "GitHub"
+    url = "https://github.com/itshughboi/homelab-v2"
     weight = 1
   [[menu.after]]
     name = "Proxmox"
