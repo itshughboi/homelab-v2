@@ -48,32 +48,55 @@ Zone names, trust levels, and port groups to use when writing rules.
 
 ---
 
-## Service Groups (Legend)
+## Port Groups (UniFi Network Lists)
 
-Conceptual groups used in the rule tables in [Rules.md](Rules.md). See **UniFi Network Lists** below for the actual port groups configured in UniFi.
+Defined in UniFi → Firewall & Security → **Network Lists** (type: Port), referenced by name in
+firewall rules. **This is the single source of truth** — the **Used by** column maps every
+[Rules.md](Rules.md) rule to its group, so when you build a rule in UniFi you pick exactly one
+named group. (The old conceptual legend — SSH/CORE/WEB/etc. — is retired; it never matched the
+actual UniFi objects and just created drift.)
 
-| Group | Ports |
-| --- | --- |
-| SSH | 22 TCP |
-| CORE | DNS 53 TCP/UDP, DHCP 67/68 UDP, NTP 123 UDP |
-| WEB | HTTP 80 TCP, HTTPS 443 TCP, Proxmox 8006 TCP, PBS 8007 TCP |
-| ~~BOOT~~ | ~~TFTP 69 UDP, HTTP/HTTPS (PXE)~~ — sunsetted (was for netboot; no longer used) |
-| STORAGE | NFS 2049, rpcbind 111, SMB 445, iSCSI 3260 |
-| COROSYNC | 5404–5405 UDP, 2224 TCP |
-| K3S | 6443 TCP, 8472 UDP |
-| MONITOR | 9100, 9090, 3000, 3100, 8086 TCP |
-| TORRENT | 6881–6889 TCP/UDP |
-| VPN | 41641 UDP (Tailscale), 51820 UDP (WireGuard) |
+> [!IMPORTANT] One port group per rule — design for it
+> A UniFi firewall rule references **exactly one** port group, and you can't change that reference
+> after the rule is created (you'd delete + recreate the rule). So each group below is a
+> **complete, pre-merged superset** for its purpose: a rule that conceptually needs "SSH + web UIs"
+> uses the single `admin` group, **not** two groups. The lists themselves *are* editable later
+> (add a port → every rule using it picks it up), but the rule→list assignment is fixed. Lean
+> slightly over-inclusive on trusted zones; never split a rule's needs across two groups.
+>
+> `ANY` / `DENY` rules use **no** port group (All ports).
 
----
+| Network List   | Ports                            | Rule protocol | Used by (source → dest) |
+| -------------- | -------------------------------- | ------------- | ----------------------- |
+| `ssh`          | 22                               | TCP  | MGMT→Torrent, MGMT→VPN |
+| `admin`        | 22, 80, 443, 8006, 8007          | TCP  | MGMT→Storage, MGMT→IoT, VPN→MGMT, VPN→Storage, WG→MGMT, WG→Storage |
+| `dns`          | 53, 853                          | Both | k3s→Bind9 (`10.10.10.8`) |
+| `wan-egress`   | 53, 80, 123, 443                 | Both | MGMT→WAN, k3s→WAN, IoT→WAN, Guest→WAN, WG→WAN |
+| `torrent-wan`  | 53, 80, 123, 443, 6881–6889      | Both | Torrent→WAN |
+| `k3s-api`      | 22, 6443, 8472, 10250            | Both | MGMT→k3s, VPN→k3s, WG→k3s |
+| `storage-data` | 111, 2049, 3260, 9100, 9500–9504 | Both | k3s→Storage (NFS, iSCSI, node_exporter, Longhorn) |
+| `nfs`          | 111, 2049                        | Both | Torrent→TrueNAS |
+| `gitea`        | 3000                             | TCP  | k3s→Athena Gitea (ArgoCD pull) |
+| `wg-in`        | 51820                            | UDP  | External→Gateway (WireGuard inbound tunnel) |
+| `vpn-out`      | 41641, 3478, 443                 | Both | Tailscale→WAN (subnet-router egress) |
 
-## UniFi Network Lists (Port Groups)
+> [!NOTE] "Rule protocol" is set on the **rule**, not the list — Network Lists hold port numbers
+> only. For mixed groups (e.g. `wan-egress` = DNS/NTP over UDP + HTTP/S over TCP) set the rule's
+> protocol to **Both**. `wg-in` is UDP-only; `ssh`/`gitea` are TCP-only.
+>
+> `vpn-out` is a best-effort egress set for the Tailscale subnet router (direct `41641` + STUN
+> `3478` + DERP `443`). If Tailscale struggles to connect, broaden it to all outbound — TS is
+> finicky about egress ports.
 
-Defined in UniFi → Firewall & Security → Network Lists. Referenced by name in firewall rules.
+### Migrating your current lists
+You have four lists today; here's the delta to the set above:
 
-| List name   | Ports                       | Notes                                        |
-| ----------- | --------------------------- | -------------------------------------------- |
-| `admin`     | 22, 80, 443, 8006, 8007     | SSH + web UIs including Proxmox and PBS      |
-| `k3s-admin` | 111, 2049, 3260, 9100, 9500 | rpcbind, NFS, iSCSI, node_exporter, Longhorn |
-| `storage`   | 111, 2049, 22, 80, 443      | Admin access to storage nodes                |
-| `dns`       | 53, 853                     | DNS + DoT                                    |
+| Current list | Ports today | Action |
+| --- | --- | --- |
+| `admin` | 22, 80, 443 | **Expand** → add `8006` (Proxmox) + `8007` (PBS) |
+| `dns` | 53, 853 | **Keep** ✅ |
+| `k3s-admin` | 111, 2049, 3260, 9100, 9500, 80, 443 | **Replace** → these are storage data-path ports; recreate as `storage-data` (drop `80`/`443`, add `9501–9504`). The k3s *API* gets its own `k3s-api` list. |
+| `storage` | 111, **2048**, 22, 80, 443 | **Delete** → `2048` is a typo (NFS is `2049`); this conflated data-path + web. k3s→storage uses `storage-data`; admin web access uses `admin`. |
+
+Then **create** the remaining new lists: `ssh`, `wan-egress`, `torrent-wan`, `k3s-api`,
+`storage-data`, `nfs`, `gitea`, `wg-in`, `vpn-out`.
