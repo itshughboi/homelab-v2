@@ -4,6 +4,8 @@ The network foundation — UniFi (VLANs, firewall, DNS, WiFi, VPN, switching, se
 authoritative IP/MAC inventory, and archived/alternative methods. Build the network first;
 everything else sits on top of it.
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 0 (Network)** — do this first; the whole stack sits on it.
+
 ## UniFi
 
 | File | Contents |

@@ -2,6 +2,8 @@
 
 Security baseline configured before any production services go live. These settings apply across every VM, every container, and the k3s cluster. Do this after storage is mounted and before deploying Docker or k3s workloads.
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 4 (baseline hardening)** — once the management plane is up, before Docker/k3s workloads.
+
 ---
 
 ## Philosophy

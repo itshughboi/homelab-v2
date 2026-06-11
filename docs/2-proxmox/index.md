@@ -2,6 +2,8 @@
 
 The virtualization platform — bringing nodes into existence and operating the hypervisor.
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 1 (Proxmox cluster)** — right after the network (folder 1).
+
 | Area | Contents |
 | --- | --- |
 | [provisioning/](provisioning/README.md) | Node install (Ventoy), VM template (Packer), Terraform, cluster formation |

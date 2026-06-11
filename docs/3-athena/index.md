@@ -2,6 +2,8 @@
 
 Athena (10.10.10.8) is the management plane — the VM that replaces your laptop as the control center. The Git server, Ansible UI, and DNS run here. (The reverse proxy / Traefik and the password manager run on **dock-prod**, not Athena.)
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 3 (Athena)** — after storage; before Docker/k3s.
+
 ---
 
 ## What Runs Here

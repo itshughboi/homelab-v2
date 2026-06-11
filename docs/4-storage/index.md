@@ -3,6 +3,8 @@
 TrueNAS for primary NAS + NFS, Proxmox Backup Server (PBS) for VM backups. Both run on
 pve-srv-1 — TrueNAS as a VM with disk passthrough, **PBS as a VM that owns its own disks**.
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 2 (Storage)** — after the Proxmox cluster, *before* Athena. (Folder number ≠ build order.)
+
 | Doc | Contents |
 | --- | --- |
 | [TrueNAS/README.md](TrueNAS/README.md) | TrueNAS setup, disk passthrough, NFS exports |
