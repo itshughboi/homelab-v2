@@ -49,7 +49,7 @@ resource "proxmox_virtual_environment_vm" "pbs" {
     datastore_id = "local-lvm"
 
     dns {
-      servers = ["10.10.10.8", "10.10.10.10", "9.9.9.9"]
+      servers = ["9.9.9.9", "1.1.1.2"] # external only — PBS needs no internal name resolution (storage policy); package updates / offsite sync only
     }
 
     # NIC 0 — VLAN 10 management (gateway here, not on storage NIC)
