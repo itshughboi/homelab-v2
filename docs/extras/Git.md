@@ -1,3 +1,5 @@
+> [!NOTE] **Reference / extras** — git tips (sparse-checkout, etc.); **not** part of the rebuild sequence ([BUILD.md](../BUILD.md)).
+
 ### Exclude .env from being included
 ```
 echo ".env" >> .gitignore

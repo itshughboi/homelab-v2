@@ -28,7 +28,7 @@ Secrets:
 
 ## ArgoCD
 
-See [`7-k3s/index.md#gitops`](../7-k3s/index.md#gitops-argocd) for the full install sequence.
+See the [k3s GitOps section](../7-k3s/index.md#gitops-argocd) for the full install sequence.
 
 ### App of Apps Pattern
 

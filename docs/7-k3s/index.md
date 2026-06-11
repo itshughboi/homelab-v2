@@ -237,7 +237,7 @@ Beyond the core infra/networking layers, these run in the cluster (each has a fu
 
 | Component | Role | Source |
 | --- | --- | --- |
-| **Velero** | Cluster-level DR — backs up **k8s resources + PVC data** to S3 (MinIO/B2), for full-cluster reconstruction. Complements Longhorn (which does volume-level restores). | [`infra/velero/`](../../apps/kubernetes/k3s/infra/velero/) |
+| **Velero** | *(Planned — **not operational**; the S3/MinIO target on TrueNAS isn't stood up yet.)* Cluster-level DR — backs up **k8s resources + PVC data** to S3 for full-cluster reconstruction. Complements Longhorn (volume-level restores). | [`infra/velero/`](../../apps/kubernetes/k3s/infra/velero/) |
 | **system-upgrade-controller** | Automated k3s version upgrades via declarative `Plan`s — cordons/drains/upgrades/uncordons each node (servers first). No more SSH-per-node. | [`infra/system-upgrade-controller/`](../../apps/kubernetes/k3s/infra/system-upgrade-controller/) |
 | **tailscale-operator** | Exposes individual Services on the tailnet (`tailscale.com/expose: "true"`) for remote admin (Grafana/ArgoCD/Longhorn) **without** public Traefik or open ports. | [`infra/tailscale-operator/`](../../apps/kubernetes/k3s/infra/tailscale-operator/) |
 | **Authentik** | SSO / OIDC for k3s apps (forward-auth via Traefik). The k3s counterpart to Docker's Pocket ID — see [5-security identity](../5-security/index.md#identity--sso). | [`apps/authentik/`](../../apps/kubernetes/k3s/apps/authentik/) |

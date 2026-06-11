@@ -1,5 +1,7 @@
 # GPU Passthrough
 
+> [!NOTE] **Reference / extras** — optional GPU notes, not part of the core rebuild ([BUILD.md](../BUILD.md)).
+
 ---
 
 ## Standard Passthrough vs SR-IOV

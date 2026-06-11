@@ -173,7 +173,7 @@ Copy the entire contents to a Vaultwarden secure note named something like `home
 ./scripts/sops-check.sh
 ```
 
-Output:
+Example output (illustrative — your actual counts depend on what's been migrated; today it's 0):
 ```
 SOPS Migration Status  (3 / 18 migrated)
 ═══════════════════════════════════════════════
