@@ -34,28 +34,11 @@ resource "unifi_network" "production" {
   igmp_snooping = each.value.igmp
   dhcp_guarded  = each.value.guard
 
-## DHCP Range
-  dhcp_enabled = each.key == "provisioning"     #  dhcp_enabled = true
+## DHCP — per-network (ranges in locals.tf). VLANs 20/30/40 are static-only (dhcp = false).
+  dhcp_enabled = each.value.dhcp
+  dhcp_start   = each.value.dhcp_start
+  dhcp_stop    = each.value.dhcp_stop
 
-  dhcp_start = each.key == "provisioning" ? "10.10.99.100" : null     #  dhcp_start   = cidrhost(each.value.subnet, 100)
-  dhcp_stop  = each.key == "provisioning" ? "10.10.99.200" : null     #  dhcp_stop    = cidrhost(each.value.subnet, 200)
-
-
-
-## PXE: only the provisioning VLAN boots via netboot.xyz
-  dhcpd_boot_enabled  = each.key == "provisioning"
-  dhcpd_boot_server   = each.key == "provisioning" ? "10.10.99.100" : null
-  dhcpd_boot_filename = each.key == "provisioning" ? "netboot.xyz.kpxe" : null
-
-
-
-### PXE Boot option 66 & 67
-  dynamic "dhcp_options" {
-    for_each = each.key == "provisioning" ? [1] : []  # only applies to network "provisioning"
-    content {
-      option = 66  # TFTP server for PXE
-      value  = "10.10.99.100"  # IP of your NetbootXYZ host
-    }
-    # Optionally add 67: bootfile name, etc.
-  }
+  # Netboot/PXE removed — nodes install via Ventoy USB, not netboot.xyz. No DHCP boot options.
+  # See docs/1-networking/Alternative Methods/Netboot/README.md (post-mortem).
 }
