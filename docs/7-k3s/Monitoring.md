@@ -2,6 +2,12 @@
 
 ## Architecture
 
+> [!WARNING] This is the TARGET design — the dock-prod ↔ k3s log unification is **undecided**
+> Current reality (k3s being rebuilt): **dock-prod runs its own separate observability stack** (its
+> own Loki / Grafana / InfluxDB). The diagram below is the *aspirational* unified pipeline. Whether
+> dock-prod's Alloy actually ships to **k3s** Loki depends on dock-prod's future (keep on Docker /
+> migrate to k3s / unify) — **not yet decided**. Until then, treat the two stacks as separate.
+
 One Grafana. Everything feeds it.
 
 ```

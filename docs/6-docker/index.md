@@ -178,6 +178,8 @@ done
 | EzBookkeeping | dock-prod | https://money.hughboi.cc | Finance tracker |
 | Change Detection | dock-prod | https://cd.hughboi.cc | Website change monitor |
 | SearXNG | dock-prod | https://search.hughboi.cc | Private search engine |
+| Glances | dock-prod | — | Host metrics dashboard/API (**status TBD** — pending dock-prod's future) |
+| promgraftail | dock-prod | — | dock-prod monitoring stack: Grafana + Loki + Prometheus/Telegraf (**status TBD**; see [7-k3s/Monitoring](../7-k3s/Monitoring.md)) |
 
 ---
 
