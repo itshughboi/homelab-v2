@@ -90,13 +90,19 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 | Source | Destination | Services | Intent |
 | --- | --- | --- | --- |
-| STORAGE | STORAGE | ANY | Intra-VLAN — PBS → TrueNAS backups |
+| STORAGE | STORAGE | ANY | Intra-VLAN — PBS → TrueNAS backups, **dock-prod → TrueNAS NFS** |
 | MGMT | STORAGE | SSH, WEB | Admin access to TrueNAS + PBS web UIs |
 | K3S | STORAGE | NFS 2049, rpcbind 111, iSCSI 3260, node_exporter 9100, Longhorn 9500 | Volume access + Prometheus scraping |
 | ANY | STORAGE | DENY | Default deny inbound |
 
+> [!NOTE] **dock-prod is dual-homed into this zone** (`10.10.40.10`)
+> dock-prod's VLAN 40 leg is in the Storage zone, so its NFS to TrueNAS (`10.10.40.5`) is
+> **intra-zone** — already covered by `STORAGE → STORAGE` above; no new cross-zone rule needed.
+> (Unlike the torrent VM on VLAN 49, which needs the explicit exception below.) dock-prod reaches
+> everything else over its VLAN 10 management leg.
+
 > [!NOTE] No `STORAGE → WAN` rule — and that's intentional
-> VLAN 40 has **no gateway configured on any storage NIC**. TrueNAS and PBS are dual-homed;
+> VLAN 40 has **no gateway configured on any storage NIC**. TrueNAS, PBS, and dock-prod are dual-homed;
 > all outbound (package updates, etc.) egresses via their **VLAN 10 management interface**,
 > not VLAN 40. So storage never routes out on 40 — no WAN rule is needed or wanted here.
 > (UniFi may still show a gateway field for the network; it's just unused.)

@@ -33,8 +33,8 @@ Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Pac
 │  │  Longhorn: 10.10.30.51-53                    │   │
 │  │                                              │   │
 │  │  MetalLB pool: 10.10.30.60-99               │   │
-│  │  Traefik:  10.10.30.65  (*.hughboi.vip)     │   │
-│  │  AdGuard:  10.10.30.69                      │   │
+│  │  Traefik:  10.10.30.75  (*.hughboi.vip)     │   │
+│  │  AdGuard:  10.10.30.65                      │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                     │
 │  Docker host (dock-prod) — legacy, being migrated   │

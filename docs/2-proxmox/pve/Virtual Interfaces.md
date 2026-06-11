@@ -47,16 +47,19 @@ Each Proxmox node needs virtual interfaces for each VLAN it participates in.
 | vmbr1.20 | VLAN                 | vmbr1        | —             | —            | 1500 | Cluster / Corosync — create if not present         |
 | vmbr1.40 | VLAN                 | vmbr1        | —             | —            | 9000 | Storage — Jumbo Frames — create if not present     |
 
-> [!NOTE] TrueNAS and PBS are dual-homed on VLAN 40 (storage)
-> Both keep their VLAN 10 management NIC (web UI, SSH) **and** have a second NIC on VLAN 40 for
-> storage traffic — TrueNAS `10.10.40.5`, PBS `10.10.40.6`. The steps below are how each was
-> configured (reference for a rebuild):
+> [!NOTE] TrueNAS, PBS, and dock-prod are dual-homed on VLAN 40 (storage)
+> Each keeps its VLAN 10 management NIC (web UI, SSH) **and** has a second NIC on VLAN 40 for
+> storage traffic — TrueNAS `10.10.40.5`, PBS `10.10.40.6`, dock-prod `10.10.40.10`. The steps
+> below are how each was configured (reference for a rebuild):
 > 1. In Proxmox: VM → Hardware → Add → Network Device → Bridge: `vmbr1`, VLAN Tag: `40`, MTU: `9000`
 > 2. Inside TrueNAS: configure the new NIC with static IP `10.10.40.5`, no gateway, DNS `9.9.9.9`
 > 3. Inside PBS: configure the new NIC with static IP `10.10.40.6`, no gateway, DNS `9.9.9.9`
-> 4. Add MAC reservations in UniFi for both new NICs (see [MAC Reservations.md](../../1-networking/Unifi/Assignments/MAC%20Reservations.md))
-> 5. Update the `TORRENT → TrueNAS NFS` firewall rule destination from `10.10.10.5` → `10.10.40.5` (see Firewall/Rules.md)
-> 6. Verify jumbo frames end-to-end: `ping -M do -s 8972 10.10.40.5`
+> 4. Inside dock-prod: static IP `10.10.40.10`, no gateway (keep the VLAN 10 default route). NIC is defined in [`dock-prod.tf`](../../../terraform/proxmox/dock-prod.tf).
+> 5. Add MAC reservations in UniFi for the new NICs (see [MAC Reservations.md](../../1-networking/Unifi/Assignments/MAC%20Reservations.md))
+> 6. Update the `TORRENT → TrueNAS NFS` firewall rule destination from `10.10.10.5` → `10.10.40.5` (see Firewall/Rules.md)
+> 7. Verify jumbo frames end-to-end: `ping -M do -s 8972 10.10.40.5`
+>
+> ⚠️ **dock-prod is live production** — prefer hot-adding the NIC in the Proxmox UI over `terraform apply` (which may force a restart).
 
 > [!IMPORTANT]
 > `vmbr1` itself must be set to MTU 9000. The parent bridge MTU must be >= the highest sub-interface MTU.

@@ -7,16 +7,17 @@
 | Port | Mode | Device | VLAN | IP | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Access | — | — | — | Available |
-| 2 | Access | Libre Potato | 99 | 10.10.99.99 | **Unused** — was netboot server; free to repurpose |
-| 3 | Access | — | 99 | — | **Free** — was the provisioning port; no longer needed |
+| 2 | Access | — | 10 | — | **Available** (Management) — was Libre Potato / netboot server |
+| 3 | Access | — | 10 | — | **Available** (Management) — was the provisioning port |
 | 4 | Trunk | Uplink to USW Flex Mini | N/A | N/A | Port 5 on Flex Mini |
 | 5 | — | Comcast WAN | N/A | DHCP | WAN uplink |
 
-> [!NOTE] Netboot abandoned
+> [!NOTE] Netboot abandoned — ports returned to Management
 > Ports 2 and 3 (and VLAN 99) were the PXE provisioning setup. Nodes now install via
 > [Ventoy USB](../../../2-proxmox/provisioning/Ventoy.md) and plug straight into their
 > permanent trunk port on the Flex Mini — see the [post-mortem](../../Alternative%20Methods/Netboot/README.md).
-> These ports are free to repurpose.
+> Both ports are now reassigned to **Management (VLAN 10)** as general-purpose access ports.
+> The provisioning **VLAN 99** is retired — remove it in UniFi once nothing else references it.
 
 ---
 

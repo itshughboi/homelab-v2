@@ -55,6 +55,8 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 
 **Docker and iptables:** Docker bypasses iptables by default. For host-level restrictions, use the `DOCKER-USER` chain. Never use `--network=host` unless it's the only option (Bind9 on Athena is the deliberate exception).
 
+**Storage backplane (VLAN 40):** dock-prod is dual-homed — a second NIC on VLAN 40 at `10.10.40.10` (no gateway, MTU 9000) carries NFS to TrueNAS (`10.10.40.5`) over jumbo frames. Point NFS mounts at `10.10.40.5` (storage IP), **not** `10.10.10.5` (management). NIC in [`dock-prod.tf`](../../terraform/proxmox/dock-prod.tf); setup in [Virtual Interfaces](../2-proxmox/pve/Virtual%20Interfaces.md). Intra-zone in the firewall — no new rule needed.
+
 **NFS mounts before compose up:** Tube Archivist and Restic require their TrueNAS NFS mounts to exist before `docker compose up`. If the mount is missing, the container starts with an empty directory and data loss follows silently. Always verify: `mount | grep nfs`
 
 **Wazuh startup time:** The Wazuh OpenSearch indexer takes 2-3 minutes to initialize. Expect connection errors in the dashboard for a few minutes after `docker compose up` — this is normal.
