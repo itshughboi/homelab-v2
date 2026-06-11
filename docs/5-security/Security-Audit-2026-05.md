@@ -356,13 +356,19 @@ Both are now documented as disabled in the VLAN table.
 
 ---
 
-### A2-N1 — k3s VLAN 30 DHCP pool overlaps static node IPs ✅ Documented
-**Risk:** Old DHCP pool (`.1–.20`) directly overlaps k3s master IPs (.1–.3), worker IPs
+### A2-N1 — k3s VLAN 30 DHCP overlaps static node IPs ✅ Documented
+**Risk:** The old DHCP pool (`.1–.20`) directly overlaps k3s master IPs (.1–.3), worker IPs
 (.11–.13), and kube-vip (.30). An IP conflict at the wrong moment can silently partition
 a control plane node — the hardest failure mode to diagnose.
 
-**Fix (manual — UniFi UI):**
-- Networks → VLAN 30 → DHCP → Start: `10.10.30.200`, End: `10.10.30.220`
+**Fix (manual — UniFi UI): disable DHCP entirely** (not just move the pool):
+- Networks → VLAN 30 → DHCP Mode → **None**
+
+VLAN 30 has **no legitimate DHCP clients** — k3s nodes are static via cloud-init and MetalLB
+manages `.60–.99` internally. This matches the standing rule that **VLANs 20/30/40 all run DHCP
+disabled** (see [VLANs + VMs.md](../1-networking/Unifi/Networks/VLANs%20+%20VMs.md) and `A2-M2`).
+*(If you ever did want ad-hoc DHCP on VLAN 30, `.200–.220` is the only conflict-free range —
+above MetalLB's `.60–.99` and the static node IPs — but disabling is the chosen posture.)*
 
 Updated in docs. Apply immediately.
 
@@ -406,8 +412,7 @@ disappear from Grafana without an obvious error.
 - [ ] Enable branch protection on `main` in Gitea
 - [ ] Set `SIGNUPS_ALLOWED=false` in Vaultwarden env
 - [ ] Restrict Gitea runner to only this repo in Gitea admin UI
-- [ ] Fix VLAN 30 DHCP pool → `10.10.30.200–220` in UniFi
-- [ ] Disable DHCP on VLAN 20 and VLAN 40 in UniFi
+- [ ] Disable DHCP on VLAN 20, VLAN 30, and VLAN 40 in UniFi (Mode → None)
 - [ ] Add port 9500 to MONITOR service group in UniFi
 
 ### This week
