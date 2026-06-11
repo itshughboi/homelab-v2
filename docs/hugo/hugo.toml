@@ -12,7 +12,6 @@ title = "hughboi homelab"
 
   # Repo link in header (optional — remove if you don't want it)
   BookRepo = "https://gitea.hughboi.cc/hughboi/homelab"
-  BookEditPath = "edit/main/docs/hugo/content"
 
 [markup]
   [markup.highlight]
@@ -38,56 +37,8 @@ title = "hughboi homelab"
   [[module.imports]]
     path = "github.com/alex-shpak/hugo-book"
 
-  # Source section mounts — Hugo reads directly from docs/N-section/
-  # Edit source files → Hugo hot-reloads. Hugo never writes back.
-  # index.md excluded from each mount to avoid duplicating the _index.md section page.
-  [[module.mounts]]
-    source = "../../1-prep"
-    target = "content/1-prep"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../2-networking"
-    target = "content/2-networking"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../3-proxmox"
-    target = "content/3-proxmox"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../4-athena"
-    target = "content/4-athena"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../5-storage"
-    target = "content/5-storage"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../6-security"
-    target = "content/6-security"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../7-docker"
-    target = "content/7-docker"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../8-k3s"
-    target = "content/8-k3s"
-    excludeFiles = ["index.md"]
-
-  [[module.mounts]]
-    source = "../../9-gitops"
-    target = "content/9-gitops"
-    excludeFiles = ["index.md"]
-
-  # Local content/ last = highest priority.
-  # Provides: _index.md section defs (title/weight/collapse), home page, master-guide.md
+  # content/ is generated from the docs/ source tree by sync.sh (run `./sync.sh` before `hugo`).
+  # It is the single source-injection path — the old per-section module.mounts were removed.
   [[module.mounts]]
     source = "content"
     target = "content"

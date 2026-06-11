@@ -2,6 +2,8 @@
 
 Docker services split across two hosts: **Athena** (management stack) and **dock-prod** (production services). Both are VMs on Proxmox, both provisioned from Template 9999 via Terraform.
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 6 (Docker)** — after Git handoff (Phase 5); before k3s.
+
 ---
 
 ## Hardening TODO (from the per-app audit)
@@ -86,8 +88,8 @@ user-facing is fronted by it.
 
 ```sh
 # 1. Reverse proxy + TLS — fill in the Cloudflare token first
-echo "your-cloudflare-token" > ${CODE_ROOT}/traefik/cf_api_token.txt
-chmod 600 ${CODE_ROOT}/traefik/cf_api_token.txt
+echo "your-cloudflare-token" > ${DATA_ROOT}/traefik/cf_api_token.txt
+chmod 600 ${DATA_ROOT}/traefik/cf_api_token.txt
 cd apps/docker/traefik && docker compose up -d
 
 # 2. DNS filtering (LAN ad-block for WiFi/guest)

@@ -2,6 +2,8 @@
 
 HA k3s cluster across 9 nodes on pve-srv-2, 3, 4. ArgoCD watches Gitea and applies everything declaratively — no manual `kubectl apply` for ongoing operations.
 
+> ▸ **Build order:** [BUILD.md](../BUILD.md) **Phase 7 (k3s + GitOps)** — the last major phase, after the Docker stack (Phase 6).
+
 ---
 
 ## Cluster Layout
