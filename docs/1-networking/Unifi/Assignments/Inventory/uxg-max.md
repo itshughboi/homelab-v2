@@ -1,2 +1,0 @@
-LAN MAC: 9c:05:d6:a6:14:4d
-WAN Mac: 9c:05:d6:a6:14:51

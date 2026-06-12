@@ -15,11 +15,8 @@ Controls DNS for the UXG Max itself (system updates, controller calls). Accepts 
 
 The higher-impact config is Bind9 forwarding upstream via Quad9 — see [Networks/DNS.md](../Networks/DNS.md).
 
+POTENTIAL_MISMATCH: Again, im not sure what is authoritative in documentation as this feels like the 5th reference ive come across. I need to address this dns issue. 
+
 ---
 
-## TLS Certificate for the Local Controller
-
-Primary access is via `https://unifi.hughboi.cc` (Traefik + Let's Encrypt) — no cert issues when Traefik is up.
-
-If Traefik is unavailable, fall back to `https://10.10.10.10:8443` directly. This hits the controller's self-signed cert and will show a browser warning. Accepting the browser exception is fine as a break-glass fallback. If you want clean direct access without warnings, set up a local CA → issue a cert for the controller → install only the CA cert on your Mac (not the controller cert itself — it changes on reinstall).
-
+THIS ENTIRE FILE CAN BE MERGED INTO DNS.MD!!!

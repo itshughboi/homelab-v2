@@ -79,6 +79,22 @@ Zone-based firewall rules for the UXG Max. This setup uses **zone-based firewall
    > by your explicit allow rules and the Block All default. Verify with a quick test: ping from an
    > IoT device to `10.10.10.10` — it should time out.
 
+
+## Global Rules
+
+> [!DANGER] If using Legacy Rules...
+> **This order must be enforced in UniFi.** Rules fire top-to-bottom; a DENY above
+> an ALLOW silently wins. After any restore or rule change, verify this sequence. Zone and Object Oriented policy rules don't work the same. You don't really worry about the order except for any blanket "Allow All" that should be "Block All", but thats set on the default security policy
+
+
+| Global Priority | Rule                                          | Why it must be here                                                                                                                                                                 |
+| --------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1**           | `ANY → ANY` state `established/related` ALLOW | Return traffic for all initiated connections. Missing this = all responses dropped.                                                                                                 |
+| **2**           | `MGMT → MGMT ANY` ALLOW                       | Intra-VLAN admin traffic. Zone firewall intercepts same-subnet traffic — without this your Mac can't reach pve-srv nodes or the controller VM. **Root cause of June 2026 lockout.** |
+| **3**           | `VPN → MGMT SSH,WEB` ALLOW                    | Remote admin via Tailscale. Must be above the MGMT deny below.                                                                                                                      |
+| **4–N**         | All other ALLOW rules                         | Per-VLAN sections below.                                                                                                                                                            |
+| **last**        | `ANY → MGMT DENY`                             | Default deny inbound to admin plane. Must come after all explicit ALLOWs above.                                                                                                     |
+
 ### Intra-VLAN Rules
 
 UniFi's zone-based firewall can intercept same-subnet traffic. Without these, devices on the

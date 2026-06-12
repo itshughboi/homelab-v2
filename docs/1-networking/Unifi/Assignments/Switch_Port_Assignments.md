@@ -1,16 +1,12 @@
-# Switch Port Assignments
-
----
-
 ## UXG Max
 
-| Port | Mode | Device | VLAN | IP | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Access | — | — | — | Available |
-| 2 | Access | — | 10 | — | **Available** (Management) — was Libre Potato / netboot server |
-| 3 | Access | — | 10 | — | **Available** (Management) — was the provisioning port |
-| 4 | Trunk | Uplink to USW Flex Mini | N/A | N/A | Port 5 on Flex Mini |
-| 5 | — | Comcast WAN | N/A | DHCP | WAN uplink |
+| Port | Mode  | Device                  | VLAN   | Notes                                          |
+| ---- | ----- | ----------------------- | ------ | ---------------------------------------------- |
+| 1    | Trunk | Synology                | 10, 40 | dual-homed for PBS & TrueNAS rsync on MTU 9000 |
+| 2    | Trunk | —                       | —      | Open. Native MGMT                              |
+| 3    | Trunk | —                       | —      | Open. Native MGMT                              |
+| 4    | Trunk | Uplink to USW Flex Mini | N/A    | Port 5 on Flex Mini                            |
+| 5    | —     | Comcast WAN             | N/A    | WAN uplink                                     |
 
 > [!NOTE] Netboot abandoned — ports returned to Management
 > Ports 2 and 3 (and VLAN 99) were the PXE provisioning setup. Nodes now install via
@@ -24,19 +20,19 @@
 
 ## USW Flex Mini
 
-| Port | Mode | Device | VLANs | IP | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Trunk | pve-srv-1 | All (10,20,30,40) | 10.10.10.1 | Trunk allows all VLANs |
-| 2 | Trunk | pve-srv-2 | 10, 20, 30, 40 | 10.10.10.2 | |
-| 3 | Trunk | pve-srv-3 | 10, 20, 30, 40 | 10.10.10.3 | |
-| 4 | Trunk | pve-srv-4 | 10, 20, 30, 40 | 10.10.10.4 | |
-| 5 | Trunk | Uplink to UXG Max | N/A | — | Port 4 on UXG Max |
+| Port | Mode  | Device            | VLANs          | IP         | Notes             |
+| ---- | ----- | ----------------- | -------------- | ---------- | ----------------- |
+| 1    | Trunk | pve-srv-1         | 10, 20, 30, 40 | 10.10.10.1 |                   |
+| 2    | Trunk | pve-srv-2         | 10, 20, 30, 40 | 10.10.10.2 |                   |
+| 3    | Trunk | pve-srv-3         | 10, 20, 30, 40 | 10.10.10.3 |                   |
+| 4    | Trunk | pve-srv-4         | 10, 20, 30, 40 | 10.10.10.4 |                   |
+| 5    | Trunk | Uplink to UXG Max | N/A            | DHCP       | Port 4 on UXG Max |
 
 ---
 
 ## Unifi Controller Access
 
-Default credentials (only relevant on fresh hardware before Ansible configures it):
+Default credentials (only relevant on fresh hardware)
 
 ```sh
 username: ubnt

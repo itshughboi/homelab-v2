@@ -4,22 +4,6 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 ---
 
-## Global Rule Order
-
-> [!DANGER]
-> **This order must be enforced in UniFi.** Rules fire top-to-bottom; a DENY above
-> an ALLOW silently wins. After any restore or rule change, verify this sequence.
-
-| Global Priority | Rule | Why it must be here |
-| --- | --- | --- |
-| **1** | `ANY → ANY` state `established/related` ALLOW | Return traffic for all initiated connections. Missing this = all responses dropped. |
-| **2** | `MGMT → MGMT ANY` ALLOW | Intra-VLAN admin traffic. Zone firewall intercepts same-subnet traffic — without this your Mac can't reach pve-srv nodes or the controller VM. **Root cause of June 2026 lockout.** |
-| **3** | `VPN → MGMT SSH,WEB` ALLOW | Remote admin via Tailscale. Must be above the MGMT deny below. |
-| **4–N** | All other ALLOW rules | Per-VLAN sections below. |
-| **last** | `ANY → MGMT DENY` | Default deny inbound to admin plane. Must come after all explicit ALLOWs above. |
-
----
-
 ## Management (10.10.10.0/24)
 
 *Admin plane. Reaches everything. Nothing initiates into it.*
@@ -74,10 +58,6 @@ For setup procedure and behavioral notes see [README.md](README.md).
 > allow above is **required** or ArgoCD can't reach its source. Scope it to that IP+port only,
 > not all of MGMT. (DR break-glass: if Gitea is down, ArgoCD can be pointed at the GitHub mirror.)
 
-> [!IMPORTANT] Post-bootstrap
-> Once Bind9 is live on Athena, change the `K3S → WAN CORE` rule destination
-> from `WAN` to the Bind9 IP specifically. Prevents nodes from bypassing the
-> internal resolver.
 
 > [!TIP] Longhorn
 > Longhorn replica sync uses ports 9500–9504 between k3s nodes. Covered by `K3S → K3S ANY` above.
@@ -123,12 +103,6 @@ For setup procedure and behavioral notes see [README.md](README.md).
 | IoT | RFC1918 | **DENY** | No internal access |
 | ANY | IoT | **DENY** | No inbound access |
 
-> [!WARNING] **TODO — tighten K3S → IoT source once Home Assistant is deployed**
-> Current rule allows the entire k3s zone (10.10.30.0/24) into IoT. Once HA is running,
-> scope the source to its specific LoadBalancer IP assigned by MetalLB.
-> HA will run on Docker (dock-prod), not k3s — update this rule source to the dock-prod IP
-> (`10.10.10.10`) and move the rule to MGMT → IoT instead of K3S → IoT.
-
 ---
 
 ## Torrent (172.16.20.0/24)
@@ -153,10 +127,16 @@ For setup procedure and behavioral notes see [README.md](README.md).
 > The `TORRENT → TrueNAS NFS` rule destination is the storage IP `10.10.40.5` (above). TrueNAS keeps
 > its VLAN 10 management IP `10.10.10.5` for the web UI/SSH (covered by the MGMT → STORAGE rule).
 
-> [!NOTE]
-> RFC1918 is not a built-in alias in UniFi. Create an IP group covering
-> `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16` and reference it in
-> the `TORRENT → RFC1918 DENY` rule.
+> [!NOTE] Is the explicit `RFC1918 DENY` redundant under the Block All preset?
+> **Mostly yes — it's optional defense-in-depth, not a required rule.** With Security Posture =
+> Block All, Torrent→{every internal zone} is already denied by the zone matrix, so you don't
+> *need* a separate RFC1918 deny (no need to build the IP group now). What an explicit deny
+> still buys, if you ever add it: (1) it catches private-range destinations that don't belong
+> to any defined zone (a stray/undefined subnet), and (2) it survives a future mistake like a
+> too-broad Torrent allow or a preset change — the deny stays pinned above. Keep it documented
+> as intent; add it in UniFi only if you want that belt-and-suspenders (IP group:
+> `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). Same logic applies to the IoT/Guest
+> RFC1918 rows.
 
 ---
 
@@ -164,16 +144,18 @@ For setup procedure and behavioral notes see [README.md](README.md).
 
 *AP guest WiFi. Internet-only, client isolation on, no internal access.*
 
-| Source | Destination | Port group | Intent |
-| --- | --- | --- | --- |
-| GUEST | WAN | ANY | Internet only (left open — guest devices hit unpredictable ports) |
-| GUEST | RFC1918 | **DENY** | No internal access |
-| ANY | GUEST | **DENY** | No inbound |
+| Source | Destination | Port group | Intent                                                            |
+| ------ | ----------- | ---------- | ----------------------------------------------------------------- |
+| GUEST  | WAN         | ANY        | Internet only (left open — guest devices hit unpredictable ports) |
+| GUEST  | RFC1918     | **DENY**   | No internal access                                                |
+| ANY    | GUEST       | **DENY**   | No inbound                                                        |
 
 > Client isolation (guest devices can't see each other) is the UniFi **Guest Network** toggle on
 > the network itself, not a firewall rule. Guests resolve DNS via the gateway's encrypted DoH (no
 > AdGuard) — see [DNS.md](../Networks/DNS.md). The `GUEST → WAN` allow + `ANY → GUEST DENY` are
 > mostly implicit in UniFi's guest handling, but state them so the policy is explicit and auditable.
+
+POTENTIAL_MISMATCH: With my Deny All on wouldn't this be blocked anyways? Or do i really need to add this? 
 
 ---
 
@@ -212,18 +194,20 @@ For setup procedure and behavioral notes see [README.md](README.md).
 > The inbound tunnel rule destination is `Gateway` — the WireGuard server runs on the UXG Max itself, not a VM.
 > The `Wireguard` zone applies to the network/clients, not the server process.
 
-| Source | Destination | Port group | Intent |
-| --- | --- | --- | --- |
-| **External (WAN)** | **Gateway** | **`wg-in`** | **Allow inbound tunnel establishment (UDP 51820) — required or no client can connect** |
-| Wireguard | MGMT | ANY | **Full remote access** (owner) — same as Tailscale |
-| Wireguard | K3S | ANY | **Full** (owner) — cluster + any service over VPN |
-| Wireguard | STORAGE | ANY | **Full** — includes NFS + SMB over VPN |
-| Wireguard | WAN | `wan-egress` | Internet egress for connected clients (only if full-tunnel) |
-| ANY | Wireguard | DENY | No other inbound access |
+| Source             | Destination | Port group   | Intent                                                                                 |
+| ------------------ | ----------- | ------------ | -------------------------------------------------------------------------------------- |
+| **External (WAN)** | **Gateway** | **`wg-in`**  | **Allow inbound tunnel establishment (UDP 51820) — required or no client can connect** |
+| Wireguard          | MGMT        | ANY          | **Full remote access** (owner) — same as Tailscale                                     |
+| Wireguard          | K3S         | ANY          | **Full** (owner) — cluster + any service over VPN                                      |
+| Wireguard          | STORAGE     | ANY          | **Full** — includes NFS + SMB over VPN                                                 |
+| Wireguard          | WAN         | `wan-egress` | Internet egress for connected clients (only if full-tunnel)                            |
+| ANY                | Wireguard   | DENY         | No other inbound access                                                                |
 
 > [!NOTE]
 > WireGuard clients receive IPs from `10.10.81.0/24` and resolve internal hostnames via Bind9 (`10.10.10.8`) —
 > configured in [Networks/DNS.md](../Networks/DNS.md). No additional DNS rules needed beyond what the Tailscale section already has.
+
+POTENTIAL_MISMATCH: I will have a secondary bind9 setup for HA. I need to come back and add that secondary Bind9 address once I have it up 
 
 ---
 

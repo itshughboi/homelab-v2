@@ -101,7 +101,7 @@ docker restart unifi_controller
 - [x] **Never block traffic to the controller VM (10.10.10.10)** — if the UXG
       Max can't reach its controller, it can cascade into WAN loss. Covered by
       the `MGMT → MGMT ANY` rule now documented in the Management section.
-- [ ] **Record the UXG Max SSH device password** in Vaultwarden — would have been a faster recovery path than the console → VM → docker chain.
+- [x] **Record the UXG Max SSH device password** in Vaultwarden — would have been a faster recovery path than the console → VM → docker chain.
 - [x] **Take a manual backup before every firewall change** — `autobackup` is
       what saved us. Also consider a manual snapshot immediately before any change.
 - [x] **`ALLOW MGMT → MGMT` is now rule priority 1** in the Management section —

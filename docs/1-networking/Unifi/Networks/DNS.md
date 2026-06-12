@@ -56,21 +56,15 @@ Networks with DHCP disabled (k3s, Storage): DNS is not distributed by UniFi — 
 
 ---
 
-## Target DNS Design (planned — not yet implemented)
-
-> The per-network table below still reflects the **current/live** config. This section is
-> the agreed target. Two principles drive it: (1) every resolver handed to a given client
-> must answer the *same* things (no mixing full + partial resolvers), and (2) DNS must
-> survive any single host failure.
-
 ### Resolver per population
 
 Assign DNS **per network** — one consistent resolver per client population, never a mixed list:
 
-| Population | Resolver(s) | Why |
-| --- | --- | --- |
+| Population                            | Resolver(s)                                | Why                                                                                                                      |
+| ------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | **Trusted** — Mgmt, k3s, VPN, Storage | Bind9 primary (`.8`) **+ Bind9 secondary** | Two *identical* Bind9 instances (zone-transfer). Safe to list both — parallel querying stays consistent. This is the HA. |
-| **Filtered** — WiFi, IoT, TV, Guest | AdGuard only (k3s MetalLB VIP) | Ad/tracker blocking for the devices that want it. Conditional-forwards local zones to Bind9. |
+| **Filtered** — WiFi ad block          | AdGuard only (k3s MetalLB VIP)             | Ad/tracker blocking for the devices that want it. Conditional-forwards local zones to Bind9.                             |
+| **Filtered** — Iot, Guest, Torrent    | UXG Mac                                    | Uses encrypted DNS via Cloudflare and Quad9 without touching internal infrastructure                                     |
 
 Drop `9.9.9.9` from every **client-facing** list — it stays only as Bind9's own upstream.
 
@@ -99,11 +93,6 @@ each other — **Bind9 HA = a second Bind9, not Bind9 + AdGuard.**
 > - [ ] Confirm the k3s AdGuard conditional-forwards local zones to Bind9 (`10.10.10.8`) before cutover
 > - [ ] Decommission the dock-prod AdGuard container once clients are confirmed on `.65`
 
-> [!NOTE] Secondary placement is still being decided
-> The k3s-hosted secondary (above) is the leading option; the alternative is a **dedicated Bind9
-> VM on a different Proxmox host** (simpler, no k3s dependency for the secondary). Either is valid
-> for HA as long as it lives on a *different host than the primary* — decide before implementing.
-> Near-term priority.
 
 > [!NOTE] No circular dependency
 > k3s nodes themselves resolve via Bind9 *primary* on Athena (.8), not via the k3s-hosted
@@ -124,6 +113,10 @@ Everything else uses AdGuard's filtered/recursive upstreams. **Don't** use a DNS
 `*.hughboi.cc → 10.10.10.10` — that would resolve *every* local name to the Traefik IP,
 diverging from Bind9 (e.g. `athena.hughboi.cc` would wrongly point at .10).
 
+
+POTENTIAL_MISMATCH: This is saying that adguard forwards to bind9. that is not the case. bind9 forwards to ADGUARD if its external to my zone files. adguard then sends it to unbound. Im very open to reworking this. i care a lot about security in this regard and need to know if my DNS chain is actually legit and how I want it to operate.
+
+
 ### Bind9 secondary (zone transfer)
 
 The secondary is a real Bind9 configured as a `secondary`/`slave` that pulls zones from the
@@ -137,6 +130,8 @@ primary via AXFR/IXFR — so it's an *identical* resolver, not a separate config
 > Once AdGuard serves Guest/IoT directly, the UniFi Content Filter (below) becomes a redundant
 > second layer for those networks rather than the primary ad-block — keep it or drop it, your
 > call, but it's no longer load-bearing.
+
+POTENTIAL_MISMATCH: Do I really want this ^^? I don't really want those networks talking to my network and would rather just send them up to the uxg which is using the encrypted dns. the only thing i could ever think of i might have on iot network is a smart tv i want to access my jellyfin ui, but that can be addressed probably statically and with a firewall rule, so not worried. Like see below under Content Filter I say guest and IoT use gateway DNS, not internal resolvers. Doesn't line up with the below.
 
 ---
 

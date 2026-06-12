@@ -1,3 +1,6 @@
+
+## Firewall
+
 # Smart Home Automation Ideas — Organized by Category
 
 > [!NOTE] **Future / aspirational** — ideas only; **not** part of the current homelab or the rebuild.

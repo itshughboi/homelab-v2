@@ -13,12 +13,21 @@
 
 ---
 
+## UXG Max
+
+| Name | MAC               |
+| ---- | ----------------- |
+| LAN  | 9c:05:d6:a6:14:4d |
+| WAN  | 9c:05:d6:a6:14:51 |
+
+***
+
 ## VLAN 10 — Management: Proxmox nodes
 
 Hardware detail per node: [Inventory/](Inventory/).
 
-| Name      | MAC               | IP         | Trunk NIC | Hosts (VMs) |
-| --------- | ----------------- | ---------- | --------- | ----------- |
+| Name      | MAC               | IP         | Trunk NIC | Hosts (VMs)                                |
+| --------- | ----------------- | ---------- | --------- | ------------------------------------------ |
 | pve-srv-1 | 04:7c:16:87:65:66 | 10.10.10.1 | enp42s0   | athena, dock-prod, truenas, pbs, tailscale |
 | pve-srv-2 | c8:ff:bf:00:80:7c | 10.10.10.2 | enp4s0    | k3s-master-1, k3s-worker-1, k3s-longhorn-1 |
 | pve-srv-3 | 1c:83:41:40:ff:0b | 10.10.10.3 | enp4s0    | k3s-master-2, k3s-worker-2, k3s-longhorn-2 |
@@ -28,22 +37,58 @@ Hardware detail per node: [Inventory/](Inventory/).
 
 ## VLAN 10 — Management: VMs & services
 
-| Name      | IP          | Node      | Role |
-| --------- | ----------- | --------- | ---- |
-| truenas   | 10.10.10.5  | pve-srv-1 | NAS — management NIC (web UI, SSH); also on VLAN 40 |
-| pbs       | 10.10.10.6  | pve-srv-1 | Proxmox Backup Server — management NIC; also on VLAN 40 |
-| athena    | 10.10.10.8  | pve-srv-1 | Bind9 DNS (primary), Ansible, Terraform, Gitea, Semaphore |
+| Name      | IP          | Node      | Role                                                                    |
+| --------- | ----------- | --------- | ----------------------------------------------------------------------- |
+| truenas   | 10.10.10.5  | pve-srv-1 | NAS — management NIC (web UI, SSH); also on VLAN 40                     |
+| pbs       | 10.10.10.6  | pve-srv-1 | Proxmox Backup Server — management NIC; also on VLAN 40                 |
+| athena    | 10.10.10.8  | pve-srv-1 | Bind9 DNS (primary), Ansible, Terraform, Gitea, Semaphore               |
 | dock-prod | 10.10.10.10 | pve-srv-1 | Docker host — UniFi controller, AdGuard, app workloads; also on VLAN 40 |
 
+POTENTIAL_MISMATCH_FIX_THIS: AdGuard on Docker above? I thought we decided to use bind9 on athena and then adguard on k3s?
+
 Gateway for all: `10.10.10.254`.
+
+---
+## VLAN 10 — Misc
+
+| Name     | MAC               | IP          | Hosts (VMs)                                                                  |
+| -------- | ----------------- | ----------- | ---------------------------------------------------------------------------- |
+| Synology | 90:09:d0:68:9c:8b | 10.10.10.15 | PBS Backup - offsite ready, some TrueNAS<br>dataset remote backups via rsync |
+
+POTENTIAL_MISMATCH_FIX_THIS:  I ideally need to dual-home this too for receiving the PBS backups to it. However, since this will eventually be offsite, this would only be something temporary
+
+***
+
+## VLAN 30 — k3s
+
+IPs set statically via cloud-init at Terraform provision time (DHCP disabled on VLAN 30).
+VIPs are MetalLB / control-plane virtual IPs, not pinned to a node.
+
+| Name             | IP          | Node      | Type                                                                                                                          |
+| ---------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| k3s-master-1     | 10.10.30.1  | pve-srv-2 | Control plane                                                                                                                 |
+| k3s-master-2     | 10.10.30.2  | pve-srv-3 | Control plane                                                                                                                 |
+| k3s-master-3     | 10.10.30.3  | pve-srv-4 | Control plane                                                                                                                 |
+| k3s-worker-1     | 10.10.30.11 | pve-srv-2 | Worker                                                                                                                        |
+| k3s-worker-2     | 10.10.30.12 | pve-srv-3 | Worker                                                                                                                        |
+| k3s-worker-3     | 10.10.30.13 | pve-srv-4 | Worker                                                                                                                        |
+| k3s-longhorn-1   | 10.10.30.51 | pve-srv-2 | Longhorn storage node                                                                                                         |
+| k3s-longhorn-2   | 10.10.30.52 | pve-srv-3 | Longhorn storage node                                                                                                         |
+| k3s-longhorn-3   | 10.10.30.53 | pve-srv-4 | Longhorn storage node                                                                                                         |
+| k3s-api-vip      | 10.10.30.30 | —         | Control-plane VIP                                                                                                             |
+| k3s-longhorn-vip | 10.10.30.50 | —         | Longhorn VIP                                                                                                                  |
+| traefik-vip      | 10.10.30.65 | —         | MetalLB — ingress                                                                                                             |
+| adguard-vip      | 10.10.30.69 | —         | AdGuard on k3s (planned) — DNS filter for WiFi/IoT/guest; see [DNS.md](../Networks/DNS.md) + [7-k3s](../../../7-k3s/index.md) |
+
+**MetalLB pool:** `10.10.30.60`–`10.10.30.99`.
 
 ---
 
 ## VLAN 40 — Storage (no gateway, MTU 9000)
 
-TrueNAS, PBS, and dock-prod are **dual-homed** — VLAN 10 (above) for management, VLAN 40 for
-storage traffic (NFS, iSCSI, jumbo frames). No gateway on the storage NIC; set matching MAC
-reservations for both NICs to prevent conflicts.
+TrueNAS, PBS, and dock-prod are **dual-homed** — VLAN 10 (above) for management, VLAN 40 for storage traffic (NFS, iSCSI, jumbo frames). No gateway on the storage NIC; set matching MAC reservations for both NICs to prevent conflicts.
+
+POTENTIAL_MISMATCH_FIX_THIS: Synology needs to have this too
 
 | Name    | IP         | Node      | Role |
 | ------- | ---------- | --------- | ---- |
@@ -61,6 +106,7 @@ reservations for both NICs to prevent conflicts.
 > (eth1). Longhorn must be told to use this network via its `storage-network` setting, else
 > replica traffic stays on VLAN 30.
 
+ POTENTIAL_MISMATCH_FIX_THIS: WHAT IS STATUS OF THIS ^^?
 ---
 
 ## VLAN 80 — VPN
@@ -68,31 +114,6 @@ reservations for both NICs to prevent conflicts.
 | Name                    | IP           | Node      | Role |
 | ----------------------- | ------------ | --------- | ---- |
 | vpn-gateway (tailscale) | 10.10.80.254 | pve-srv-1 | Tailscale subnet router only |
-
----
-
-## VLAN 30 — k3s
-
-IPs set statically via cloud-init at Terraform provision time (DHCP disabled on VLAN 30).
-VIPs are MetalLB / control-plane virtual IPs, not pinned to a node.
-
-| Name             | IP          | Node      | Type |
-| ---------------- | ----------- | --------- | ---- |
-| k3s-master-1     | 10.10.30.1  | pve-srv-2 | Control plane |
-| k3s-master-2     | 10.10.30.2  | pve-srv-3 | Control plane |
-| k3s-master-3     | 10.10.30.3  | pve-srv-4 | Control plane |
-| k3s-worker-1     | 10.10.30.11 | pve-srv-2 | Worker |
-| k3s-worker-2     | 10.10.30.12 | pve-srv-3 | Worker |
-| k3s-worker-3     | 10.10.30.13 | pve-srv-4 | Worker |
-| k3s-longhorn-1   | 10.10.30.51 | pve-srv-2 | Longhorn storage node |
-| k3s-longhorn-2   | 10.10.30.52 | pve-srv-3 | Longhorn storage node |
-| k3s-longhorn-3   | 10.10.30.53 | pve-srv-4 | Longhorn storage node |
-| k3s-api-vip      | 10.10.30.30 | —         | Control-plane VIP |
-| k3s-longhorn-vip | 10.10.30.50 | —         | Longhorn VIP |
-| traefik-vip      | 10.10.30.65 | —         | MetalLB — ingress |
-| adguard-vip      | 10.10.30.69 | —         | AdGuard on k3s (planned) — DNS filter for WiFi/IoT/guest; see [DNS.md](../Networks/DNS.md) + [7-k3s](../../../7-k3s/index.md) |
-
-**MetalLB pool:** `10.10.30.60`–`10.10.30.99`.
 
 ---
 

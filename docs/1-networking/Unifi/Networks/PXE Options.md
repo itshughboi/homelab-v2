@@ -43,25 +43,3 @@ Settings → Networks → Provisioning → DHCP → Network Boot (enable checkbo
 > node that needs provisioning just gets plugged in there first. (Access Port only)
 
 ---
-
-## Switch Port Assignments
-
-###### UXG Max
-
-| Port | Mode   | Device                | Native VLAN | Tagged VLANs | IP                   | Notes                                                                                                                             |
-| ---- | ------ | --------------------- | ----------- | ------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Access | Synology              | 10          | All          | Tailscale            | Temporary — becoming available soon                                                                                               |
-| 2    | Trunk  | Libre Potato (SUNSET) | 10          | All          | 10.10.99.99 (SUNSET) | Netboot server. Native VLAN 99 so Libre Potato gets provisioning DHCP on boot. Unplug for Mac management access during bootstrap. |
-| 3    | Trunk  | —                     | 10          | All          | —                    | Dedicated provisioning port. VLAN 99 only — plug node in here to PXE boot.                                                        |
-| 4    | Trunk  | Uplink                | 10          | All          | —                    | USW Flex Mini (port 5)                                                                                                            |
-| 5    | —      | Uplink                | —           | —            | DHCP                 | Comcast WAN                                                                                                                       |
-
-###### USW Flex Mini
-
-| Port | Mode  | Device    | Native VLAN | IP         | Notes            |
-| ---- | ----- | --------- | ----------- | ---------- | ---------------- |
-| 1    | Trunk | pve-srv-1 | 10          | 10.10.10.1 |                  |
-| 2    | Trunk | pve-srv-2 | 10          | 10.10.10.2 |                  |
-| 3    | Trunk | pve-srv-3 | 10          | 10.10.10.3 |                  |
-| 4    | Trunk | pve-srv-4 | 10          | 10.10.10.4 |                  |
-| 5    | Trunk | Uplink    | N/A         | —          | UXG Max (port 4) |

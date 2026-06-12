@@ -84,6 +84,9 @@ Settings:
 - **IGMP Snooping enabled** — prevents Corosync multicast from flooding all switch ports
 - **QoS:** Tag traffic on UDP 5404–5405 with DSCP 46 (Expedited Forwarding)
 
+POTENTIAL_MISMATCH: other palcaes we have IGMP disabled. I'll enable it, but we need to update everywhere that said corosync has igmp disabled. And why do I need QoS here if that's more for internet facing things and cluster is east west traffic, not north south? QoS at least in Unifi only applies onto a WAN interface for a network or ip or whatever. Reconcile this.
+
+
 ###### VLAN 30 — k3s
 Nodes pull from internet, access storage, talk to each other. Cannot initiate to Management.
 See firewall rules for specifics.
@@ -98,6 +101,8 @@ East-west storage traffic only: PBS ↔ TrueNAS replication/NFS, Longhorn replic
 
 **Proxmox → PBS backup jobs do NOT use this VLAN.** The Proxmox hypervisor hosts only have VLAN 10 IPs, so backup jobs always go over management at MTU 1500. This is acceptable — PBS compresses and deduplicates before sending, so actual wire traffic is much smaller than raw VM size.
 
+POTENTIAL_MISMATCH: I may have put somewhere else that the above ^^ is conclifcting. I should really consider doing this though. Not sure. 
+
 MTU 9000 (Jumbo Frames) — must be configured end-to-end on every device on this VLAN. See [Switching.md](Switching.md#jumbo-frames).
 
 ###### VLAN 49 — Torrent
@@ -106,6 +111,8 @@ gluetun (VPN killswitch), qBittorrent, Soularr live here.
 
 > RFC1918 block required in firewall. UniFi doesn't have a built-in RFC1918 alias —
 > create an IP group covering `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`.
+
+POTENTIAL_MISMATCH: Doesn't block all default take care of these? I think this needs to be adjusted
 
 ###### VLAN 50 — IoT
 

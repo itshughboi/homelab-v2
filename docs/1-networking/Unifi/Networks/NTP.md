@@ -1,3 +1,7 @@
+> [!WARNING] Archived — netboot is abandoned
+> I heavily considered it, but since Unifi can't actually serve out NTP (it only offers it for other Unifi devices), and every client device kind of has its own dedicated NTP already set, I'm going to bypass this one. Not going to use unless I start seeing a problem with log times. 
+> 
+
 # NTP — Internal Time Source
 
 > [!WARNING] Status: planned — not yet implemented
