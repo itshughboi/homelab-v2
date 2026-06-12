@@ -18,8 +18,10 @@ Packer builds VM template (ID 9999) on Proxmox
               ├─ k3s-worker-1/2/3   (IDs 611–613)
               ├─ k3s-longhorn-1/2/3 (IDs 621–623)
               ├─ athena             (ID 100)
+              ├─ tailscale          (ID 100)
               └─ dock-prod          (ID 110)
 ```
+
 
 ## Usage
 

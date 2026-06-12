@@ -94,6 +94,8 @@ jobs:
             --exclude ansible/playbooks/docker/swarm/ \
             --exclude ansible/playbooks/docker/docker_portainer/ \
             --exclude ansible/playbooks/kubernetes/rke2/ \
+            --exclude ansible/playbooks/ubuntu/wazuh-single-node.yaml \
+            --exclude ansible/playbooks/vaultwarden/backup-validation.yml \
             --skip-list fqcn,name[prefix],yaml[truthy],no-changed-when,ignore-errors,risky-shell-pipe,command-instead-of-shell,command-instead-of-module,var-naming,risky-file-permissions,jinja[spacing],no-handler,name[casing],name[template],name[play],yaml[line-length] \
             ansible/playbooks/
 

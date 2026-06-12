@@ -57,7 +57,7 @@
 # kube-vip is placed in the auto-deploy manifests directory so it starts
 # with k3s and makes the VIP available before other nodes join.
 ###############################################################################
-- name: Stage 3 — Bootstrap First Master ({{ groups['k3s_masters'][0] }})
+- name: Stage 3 — Bootstrap first master (k3s_masters[0])
   hosts: k3s_masters[0]
   gather_facts: true
   become: true
