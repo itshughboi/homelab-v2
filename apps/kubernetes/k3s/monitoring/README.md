@@ -45,6 +45,14 @@ helm repo update
 
 kubectl apply -f namespace.yaml
 
+# Grafana admin secret FIRST — the chart references it (grafana.admin.existingSecret);
+# the grafana pod won't start without it. Password lives in Vaultwarden: homelab/grafana.
+kubectl create secret generic grafana-admin -n monitoring \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password=<from-vaultwarden>
+
+# Discord webhook + alert email live in Vaultwarden: homelab/alertmanager — pass via --set
+# (re-pass them on every helm upgrade, or the receivers go blank):
 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   -n monitoring -f kube-prometheus-stack/values.yaml \
   --set alertmanager.config.receivers[0].discord_configs[0].webhook_url=<webhook> \
@@ -62,7 +70,7 @@ helm upgrade --install alloy grafana/alloy -n monitoring \
 
 ## Notes
 
-- **Secrets** — Discord webhook and email are intentionally blank in `values.yaml`. Pass at deploy time via `--set`.
+- **Secrets** — Discord webhook and email are intentionally blank in `values.yaml`. Pass at deploy time via `--set`; the actual values live in **Vaultwarden → homelab/alertmanager** (and `homelab/grafana` for the admin password). ⚠️ Every future `helm upgrade` must re-pass the `--set` flags or alert delivery silently breaks — that's also why the dead-man's switch ([Monitoring](../../../../docs/7-k3s/Monitoring.md#dead-mans-switch)) matters.
 - **k3s control plane rules** are disabled (`etcd`, `kubeControllerManager`, `kubeProxy`, `kubeScheduler`) — k3s runs these in-process and doesn't expose metric endpoints.
 - **Helm release name matters** — Grafana service is `kube-prometheus-stack-grafana`. If you change the release name, update the IngressRoute service ref.
 - **Prerequisites** — Longhorn, cert-manager + `letsencrypt-production` ClusterIssuer, Traefik with `traefik-external` ingressClass, Reflector (reflects `hughboi-tls` into `monitoring` namespace).

@@ -228,6 +228,28 @@ Configure in AdGuard UI (`http://10.10.30.65`):
 > (AdGuard for WiFi/IoT/guest, forwarding local zones to Bind9). Its MetalLB VIP `10.10.30.65`
 > is the `adguard-vip`.
 
+### Network Policies (east-west isolation)
+
+> [!IMPORTANT] These do NOT deploy themselves
+> The policies in [`networking/network-policies/`](../../apps/kubernetes/k3s/networking/network-policies/)
+> are **not** covered by any ArgoCD Application (they're templates, namespace set at apply time).
+> If you skip this step the cluster runs with **no east-west isolation** and nothing will warn you.
+
+Rollout strategy (see the [network-policies README](../../apps/kubernetes/k3s/networking/network-policies/README.md)):
+1. Per-app `networkpolicy.yaml` (GitOps-managed) is the preferred pattern — already done for
+   `gitea`, `authentik`, `vaultwarden`.
+2. For namespace-wide default-deny, apply to **one namespace**, verify the app still works
+   (DNS! Traefik! Prometheus scrape!), then roll out fleet-wide:
+```sh
+NS=mealie   # start with something low-stakes
+kubectl apply -n $NS -f apps/kubernetes/k3s/networking/network-policies/default-deny.yaml \
+  -f apps/kubernetes/k3s/networking/network-policies/allow-dns-egress.yaml \
+  -f apps/kubernetes/k3s/networking/network-policies/allow-traefik-ingress.yaml \
+  -f apps/kubernetes/k3s/networking/network-policies/allow-monitoring-scrape.yaml
+```
+End state: every app carries its own `networkpolicy.yaml` in git (tracked in
+[issue #3](https://github.com/itshughboi/homelab-v2/issues/3)).
+
 ---
 
 ## Platform Components

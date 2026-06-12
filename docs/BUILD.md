@@ -161,6 +161,8 @@ controller → cert-manager → Traefik → ArgoCD. Full sequence: [7-k3s/](7-k3
 **Before ArgoCD:** add the `k3s → 10.10.10.8:3000` firewall allow so ArgoCD can reach Gitea.
 (Secrets are imperative today — there's no sealed-secrets key to restore yet; that step applies
 only after the planned Sealed Secrets migration.)
+**After apps are up:** apply the [network policies](7-k3s/index.md#network-policies-east-west-isolation)
+— they are **not** GitOps-managed; until you do, the cluster has no east-west isolation.
 
 ## Phase 8 — Backup validation (ongoing)
 
