@@ -7,7 +7,7 @@
 - [ ] Do Adguard cutover when i have k3s adguard up [[docs/hugo/content/1-networking/unifi/networks/dns|dns]]
 	- [ ] Couple things in here I need to configure, veryify, and change. Couple contradictions in what networks get what dns sesrvers
 - [ ] Decide on if Proxmox should have VLAN 40 for PBS 
-- [ ] Point logs to wazuh
+- [ ] 
 
 
 Things to do when i get more hardware:

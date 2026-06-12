@@ -52,10 +52,7 @@ offload engine at all. The bandwidth-heavy flows here are all deliberately intra
 | WAN (internet) | — | Routed | Capped by Comcast (~≤1.2 Gbps) anyway |
 | Inter-VLAN (SSH, web UIs) | various | Routed | Low bandwidth — control traffic only |
 
-So the only routed paths are WAN (residential-capped, and the UXG Max software-routes well past
-that) and low-bandwidth management traffic. The scenario the warning is written for — sustained
-multi-gig **between VLANs through the gateway** — is exactly what this architecture avoids by
-keeping storage/cluster/k3s traffic switched.
+So the only routed paths are WAN (residential-capped, and the UXG Max software-routes well past that) and low-bandwidth management traffic. The scenario the warning is written for — sustained multi-gig **between VLANs through the gateway** — is exactly what this architecture avoids by keeping storage/cluster/k3s traffic switched.
 
 **Verdict:** enable it. The security value (beaconing detection, lateral-movement visibility,
 forensics) fits the Wazuh/CrowdSec posture, and the throughput cost doesn't land on any path that
