@@ -19,7 +19,7 @@ spec:
       annotations:
         argocd.argoproj.io/sync-wave: "1"
     spec:
-      project: default
+      project: homelab
       source:
         # Athena-hosted Gitea (management plane) — avoids the in-cluster bootstrap cycle.
         # Requires a firewall allow: k3s (VLAN 30) → 10.10.10.8:3000 (k3s→MGMT is deny by default).

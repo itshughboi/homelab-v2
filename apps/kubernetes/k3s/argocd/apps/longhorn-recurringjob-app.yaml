@@ -7,7 +7,7 @@ metadata:
     # Wave -1: RecurringJob CRs need Longhorn (bootstrap floor) and its CRDs present.
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  project: default
+  project: homelab
   source:
     repoURL: http://10.10.10.8:3000/hughboi/homelab.git
     targetRevision: main

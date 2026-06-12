@@ -8,7 +8,7 @@ metadata:
     # is optional (optional: true in values), so it won't crash before enrollment.
     argocd.argoproj.io/sync-wave: "-2"
 spec:
-  project: default
+  project: homelab
   # Multi-source: chart from the Helm repo, values from THIS git repo (ArgoCD >= 2.6).
   sources:
     - repoURL: https://crowdsecurity.github.io/helm-charts

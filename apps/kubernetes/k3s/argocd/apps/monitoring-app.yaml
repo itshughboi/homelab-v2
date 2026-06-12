@@ -6,7 +6,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "1"
 spec:
-  project: default
+  project: homelab
   source:
     # Athena-hosted Gitea — see apps-appset.yaml note (needs k3s→10.10.10.8:3000 firewall allow)
     repoURL: http://10.10.10.8:3000/hughboi/homelab.git

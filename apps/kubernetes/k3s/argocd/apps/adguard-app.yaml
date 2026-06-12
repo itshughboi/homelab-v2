@@ -7,7 +7,7 @@ metadata:
     # Wave -1: depends on the MetalLB pool (wave -3) for its LoadBalancer DNS IP.
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  project: default
+  project: homelab
   source:
     repoURL: http://10.10.10.8:3000/hughboi/homelab.git
     targetRevision: main

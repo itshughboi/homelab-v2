@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: homelab
+  namespace: argocd
+  # root-app applies this alongside the Applications; AppProjects sync before Applications
+  # reference them within the same wave, but pin an earlier wave to be explicit.
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: >-
+    All homelab workloads. Scopes what ArgoCD may pull (only our Gitea, the GitHub
+    break-glass mirror, and the helm repos we actually use) and where it may deploy
+    (this cluster only) — blast-radius limit vs the unrestricted 'default' project.
+
+  sourceRepos:
+    - http://10.10.10.8:3000/hughboi/homelab.git # Athena Gitea (canonical)
+    - https://github.com/itshughboi/homelab-v2.git # break-glass mirror (DR: repoint here if Athena is down)
+    - https://crowdsecurity.github.io/helm-charts
+    - https://emberstack.github.io/helm-charts
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*" # single-cluster homelab; namespaces are app-scoped by the AppSet
+
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*" # apps create Namespaces/CRDs/ClusterRoles (crowdsec, metallb config, …)

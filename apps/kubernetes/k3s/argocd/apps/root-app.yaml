@@ -6,6 +6,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
+  # root stays in 'default' on purpose: it is applied manually at bootstrap and creates
+  # the 'homelab' AppProject (project.yaml) that everything else references.
   project: default
   source:
     # Athena-hosted Gitea — see apps-appset.yaml note (needs k3s→10.10.10.8:3000 firewall allow)
