@@ -25,7 +25,7 @@ GitOps continuous delivery for the k3s cluster. ArgoCD watches your Gitea repo a
 | **Chart** | `argo/argo-cd` |
 | **Domain** | `argocd.hughboi.vip` |
 | **Port** | 80 (ArgoCD serves HTTP; TLS terminated at Traefik) |
-| **Gitea repo** | `http://gitea.gitea.svc.cluster.local:3000/hughboi/homelab.git` |
+| **Gitea repo** | `http://10.10.10.8:3000/hughboi/homelab.git` (Athena, direct IP — see note above) |
 
 ## Architecture
 
@@ -47,17 +47,19 @@ The **App of Apps** pattern means you only need to register the `root` Applicati
 
 ## Secret Strategy
 
-**Primary: Sealed Secrets** — secrets are encrypted and committed to Git. ArgoCD applies `SealedSecret` resources; the sealed-secrets controller decrypts them into real `Secret` objects in-cluster. Full cluster rebuilds need no manual secret re-entry.
+**Current reality: imperative secrets.** Every app ships a comment-only `secret.yaml` with the
+exact `kubectl create secret` command; you run it once before (or after) the app first syncs.
+ArgoCD ignores Secret `/data` (via `ignoreDifferences` in the ApplicationSet), so it never
+fights or deletes them. **Zero `SealedSecret` resources exist today** — a rebuild requires
+re-creating each secret by hand (values from Vaultwarden).
 
-**Reference: Imperative secrets** — documented below as fallback/break-glass. Useful during initial bootstrap before the sealed-secrets controller is running.
+**Migration target: Sealed Secrets.** The controller install is documented
+([`infra/sealed-secrets/`](../infra/sealed-secrets/)) and the goal is to move app secrets to
+encrypted-in-git `SealedSecret`s so a rebuild needs no manual secret re-entry. Tracked in
+[issue #4](https://github.com/itshughboi/homelab-v2/issues/4). Until that migration happens,
+treat everything below under "Sealed Secrets Workflow" as the **target state**, not the present.
 
-This means:
-- ✅ All YAML manifests (Deployments, Services, IngressRoutes, ConfigMaps, SealedSecrets) are GitOps-managed
-- ✅ New apps appear automatically when you add a directory
-- ✅ Secrets live in git encrypted — rebuild = `helm install` + `argocd app sync`, no manual steps
-- ⚠️ Sealed Secrets controller must be installed **before** ArgoCD first syncs (see bootstrap order below)
-
-### Sealed Secrets Workflow (Primary)
+### Sealed Secrets Workflow (Target — not yet in use)
 
 The sealed-secrets controller must be running before you seal anything. Install it once during cluster bootstrap — see [`infra/sealed-secrets/`](../infra/sealed-secrets/) for the full install + key backup procedure.
 
@@ -151,8 +153,8 @@ Log in at `https://argocd.hughboi.vip` with user `admin` and the password above.
 ```bash
 argocd login argocd.hughboi.vip --username admin
 
-# If Gitea is public or using a token:
-argocd repo add http://gitea.gitea.svc.cluster.local:3000/hughboi/homelab.git \
+# Athena Gitea by direct IP (canonical — matches the Application manifests):
+argocd repo add http://10.10.10.8:3000/hughboi/homelab.git \
   --username hughboi \
   --password <gitea-token>
 ```
@@ -210,5 +212,7 @@ helm upgrade argocd argo/argo-cd \
 ## Notes
 
 - The IngressRoute uses `port: 80` (not 443) because `--insecure` is set in values.yaml — ArgoCD serves HTTP and Traefik handles TLS.
-- The Gitea URL uses the internal cluster address (`gitea.gitea.svc.cluster.local`) assuming Gitea is deployed to k8s. If Gitea is still on Docker, use `http://10.10.10.10:3000` or the external URL.
+- The Gitea URL is the **Athena host by direct IP** (`http://10.10.10.8:3000`) everywhere — see
+  the note at the top. An in-cluster Gitea was considered and sunset
+  ([`_sunset/gitea/`](../_sunset/gitea/README.md)) — it creates a bootstrap cycle.
 - Add `argocd` to the Reflector annotation on the TLS certificate.

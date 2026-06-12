@@ -1,6 +1,15 @@
-# Gitea
+# Gitea (in-cluster) — SUNSET
 
-Self-hosted Git service. Acts as the GitOps source of truth for ArgoCD.
+> [!WARNING] Not deployed — Gitea lives on Athena, not in the cluster
+> This in-cluster Gitea was the original plan for the GitOps source, but it creates a
+> bootstrap cycle (ArgoCD needs Gitea before the cluster exists). The decided architecture:
+> **Gitea runs on Athena (`10.10.10.8:3000`)** and ArgoCD/Renovate/Terraform all pull it by
+> direct IP — see [argocd/README](../../argocd/README.md). This directory was moved to
+> `_sunset/` (outside the ApplicationSet's `apps/*` glob) so ArgoCD never deploys it.
+> Kept as reference in case an in-cluster **mirror** is ever wanted (it would be a replica,
+> never the source of truth).
+
+Self-hosted Git service — formerly planned as the GitOps source of truth for ArgoCD.
 
 ## Overview
 

@@ -4,11 +4,14 @@ metadata:
   name: renovate-config
   namespace: renovate
 data:
+  # endpoint = Athena Gitea by direct IP — the same canonical source ArgoCD pulls from
+  # (NOT an in-cluster Gitea; that plan was sunset). Requires the k3s→10.10.10.8:3000
+  # firewall allow, same as ArgoCD.
   config.json: |
     {
       "$schema": "https://docs.renovatebot.com/renovate-schema.json",
       "platform": "gitea",
-      "endpoint": "http://gitea.gitea.svc.cluster.local:3000",
+      "endpoint": "http://10.10.10.8:3000",
       "repositories": ["hughboi/homelab"],
       "automerge": false,
       "dependencyDashboard": true,
