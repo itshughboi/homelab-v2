@@ -5,12 +5,12 @@ globalArguments:
 additionalArguments:
   - "--serversTransport.insecureSkipVerify=true"
   - "--log.level=INFO"
-  - "--experimental.plugins.bouncer.moduleName=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin" 
+  - "--experimental.plugins.bouncer.moduleName=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
   - "--experimental.plugins.bouncer.version=v1.1.16" # << UPDATE THIS AS NEWER VERSIONS COME OUT
   - "--entrypoints.web.http.middlewares=traefik-bouncer@kubernetescrd"
   - "--entrypoints.websecure.http.middlewares=traefik-bouncer@kubernetescrd"
   - "--providers.kubernetescrd"
-  
+
 deployment:
   enabled: true
   replicas: 3 # match with number of workers
@@ -19,7 +19,7 @@ deployment:
   additionalContainers: []
   initContainers: []
 
-nodeSelector: 
+nodeSelector:
   worker: "true" # add these labels to your worker nodes in Rancher if it didn't get applied already. This says only put Traefik on worker nodes
 
 ports:
@@ -32,7 +32,7 @@ ports:
   websecure:
     tls:
       enabled: true
-      
+
 ingressRoute:
   dashboard:
     enabled: false

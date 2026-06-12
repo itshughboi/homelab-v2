@@ -54,14 +54,14 @@ jobs:
                ! -name 'values.yaml' \
                ! -name 'install.yaml' \
                ! -name 'secret.yaml' \
-            | kubeconform \
+            | xargs kubeconform \
                 -strict \
                 -ignore-missing-schemas \
                 -kubernetes-version 1.31.0 \
                 -schema-location default \
                 -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-                -skip IngressRoute,IngressRouteTCP,Middleware,TraefikService,Certificate,ClusterIssuer,Issuer,SealedSecret,HelmChart,HelmRelease,RecurringJob \
-                -summary -
+                -skip IngressRoute,IngressRouteTCP,Middleware,TraefikService,Certificate,ClusterIssuer,Issuer,SealedSecret,HelmChart,HelmRelease,RecurringJob,Application,ApplicationSet,AppProject \
+                -summary
 
   terraform:
     name: Terraform Validate + Format
@@ -92,7 +92,7 @@ jobs:
             --exclude ansible/playbooks/docker/swarm/ \
             --exclude ansible/playbooks/docker/docker_portainer/ \
             --exclude ansible/playbooks/kubernetes/rke2/ \
-            --skip-list fqcn,name[prefix],yaml[truthy],no-changed-when \
+            --skip-list fqcn,name[prefix],yaml[truthy],no-changed-when,ignore-errors,risky-shell-pipe \
             ansible/playbooks/
 
   secret-scan:

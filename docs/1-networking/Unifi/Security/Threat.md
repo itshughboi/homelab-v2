@@ -1,6 +1,6 @@
 ## Intrusion Prevention (IPS)
 
-Settings → Security → Intrusion Prevention
+Settings → Cyber Secure → Intrusion Prevention
 
 - Enable on **all networks** — the UXG Max has headroom for it and you can't predict which VLAN gets hit first
 - **Start in Notify mode for 3–5 days** to surface false positives, then switch to **Block**
@@ -11,7 +11,7 @@ Settings → Security → Intrusion Prevention
 
 ## Region Blocking
 
-Settings → Security → Country Blocking
+Settings → Cyber Secure → Country Blocking
 
 - Enable for **inbound WAN traffic only**
 - Block regions you'll never receive legitimate connections from (common: CN, RU, KP, IR, BY)
@@ -21,7 +21,7 @@ Settings → Security → Country Blocking
 
 ## Honeypot
 
-Settings → Security → Honeypot
+Settings → Cyber Secure → Honeypot
 
 - Deploy on an **unused IP in the Management VLAN** (pick one outside the DHCP range and not reserved for anything)
 - Any connection to it = something scanning internally that shouldn't be: compromised IoT device, lateral movement, misconfigured service
@@ -41,20 +41,3 @@ Settings → Security → Network Security → Rogue DHCP Detection (or per-netw
 - Misconfigured container with a DHCP server exposed
 
 Low overhead, no false-positive risk in a well-controlled environment. Any alert here warrants immediate investigation.
-
----
-
-## Default Security Posture
-
-Settings → Security → Threat Management → Security Posture
-
-This controls IPS/Threat Management sensitivity — **not** the firewall default action (that's handled by zone rules).
-
-- **Allow All** = IPS in detect-only mode. Same as Notify. Threats are logged but not stopped.
-- **Block** = IPS actively drops flagged traffic.
-
-Current: Allow All. **Change to Block after the 3–5 day Notify tuning period.**
-
-> [!NOTE]
-> This setting does not override your zone-based firewall rules. It only governs the
-> IPS/Threat engine's response to traffic it flags as malicious.

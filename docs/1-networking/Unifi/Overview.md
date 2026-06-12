@@ -10,7 +10,7 @@ A Ubiquiti cloud account is linked to it — unifi.ui.com provides remote access
 
 **SSH into UXG Max:**
 ```sh
-ssh ubnt@<uxg-max-ip>
+ssh ubnt@10.10.10.254
 configure
 ```
 

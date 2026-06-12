@@ -42,7 +42,7 @@
               project=$(basename "$dir")
               echo "=== PROJECT: $project ($dir) ==="
               docker compose -f "{{ item.path }}" ps --format \
-                'table {{.Name}}\t{{.Status}}\t{{.Health}}' 2>&1
+                '{% raw %}table {{.Name}}\t{{.Status}}\t{{.Health}}{% endraw %}' 2>&1
           loop: "{{ compose_files.files }}"
           loop_control:
             label: "{{ item.path | dirname | basename }}"
@@ -53,7 +53,7 @@
         - name: Find unhealthy/stopped containers
           ansible.builtin.shell:
             cmd: |
-              docker ps -a --format '{{.Names}}\t{{.Status}}' | \
+              docker ps -a --format '{% raw %}{{.Names}}\t{{.Status}}{% endraw %}' | \
                 grep -v -E '^$|Up [0-9]' | \
                 grep -v 'Exited (0)' || true
           register: unhealthy_containers

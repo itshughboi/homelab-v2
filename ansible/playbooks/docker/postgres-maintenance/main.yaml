@@ -33,7 +33,7 @@
         - name: Find all running Postgres containers
           ansible.builtin.shell:
             cmd: |
-              docker ps --format '{{.Names}}\t{{.Image}}' | \
+              docker ps --format '{% raw %}{{.Names}}\t{{.Image}}{% endraw %}' | \
                 grep -i 'postgres\|postgresql' | awk '{print $1}'
           register: postgres_containers
           changed_when: false

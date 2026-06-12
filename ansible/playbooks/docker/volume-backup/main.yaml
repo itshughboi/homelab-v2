@@ -34,7 +34,7 @@
 
         - name: Get list of named volumes
           ansible.builtin.shell:
-            cmd: docker volume ls --format '{{.Name}}' | grep -v -E '^[a-f0-9]{64}$'
+            cmd: docker volume ls --format '{% raw %}{{.Name}}{% endraw %}' | grep -v -E '^[a-f0-9]{64}$'
           register: volume_list_raw
           changed_when: false
 
@@ -56,7 +56,7 @@
               archive="$dest/${vol}_${timestamp}.tar.gz"
 
               # Get volume mountpoint
-              mountpoint=$(docker volume inspect "$vol" --format '{{.Mountpoint}}')
+              mountpoint=$(docker volume inspect "$vol" --format '{% raw %}{{.Mountpoint}}{% endraw %}')
 
               # Create archive using a temporary container to avoid mount conflicts
               docker run --rm \

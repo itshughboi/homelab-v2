@@ -1,0 +1,16 @@
+# gitleaks config — extends the default ruleset with a narrow allowlist.
+#
+# ONLY add entries here for verified FALSE POSITIVES. Never allowlist a real secret —
+# rotate it instead (history is permanent; the repo is public).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Verified false positives"
+paths = [
+  # Historical: docs/hugo/public/ (generated Hugo output) was tracked before being
+  # gitignored. Minified vendor JS (asciinema-player) trips the aws-access-token rule
+  # on base64 blobs. The path is gone from HEAD; this silences the history hits.
+  '''docs/hugo/public/.*''',
+]

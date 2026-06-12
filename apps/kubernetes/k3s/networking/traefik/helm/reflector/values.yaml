@@ -1,2 +1,2 @@
-nodeSelector: 
+nodeSelector:
   worker: "true"

@@ -25,7 +25,7 @@
       ansible.builtin.shell:
         cmd: >
           docker ps --format
-          '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.ID}}'
+          '{% raw %}{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.ID}}{% endraw %}'
       register: containers_raw
       changed_when: false
 
@@ -33,7 +33,7 @@
       ansible.builtin.shell:
         cmd: |
           docker ps -q | xargs -r docker inspect \
-            --format '{{.Name}} {{.Config.Image}} {{.Image}} {{.Created}}' \
+            --format '{% raw %}{{.Name}} {{.Config.Image}} {{.Image}} {{.Created}}{% endraw %}' \
             2>/dev/null | sed 's|^/||'
       register: image_details_raw
       changed_when: false
@@ -44,7 +44,7 @@
           python3 -c "
           import subprocess, json
           result = subprocess.run(
-              ['docker', 'ps', '--format', '{{.Names}}\t{{.Image}}'],
+              ['docker', 'ps', '--format', '{% raw %}{{.Names}}\t{{.Image}}{% endraw %}'],
               capture_output=True, text=True
           )
           latest = []
@@ -77,7 +77,7 @@
     - name: Find images older than 90 days
       ansible.builtin.shell:
         cmd: |
-          docker images --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}\t{{.Size}}' | \
+          docker images --format '{% raw %}{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}\t{{.Size}}{% endraw %}' | \
             grep -E 'months ago|years ago' || echo "OK: No images older than ~3 months"
       register: old_images
       changed_when: false
@@ -86,7 +86,7 @@
       ansible.builtin.shell:
         cmd: |
           count=$(docker images -f dangling=true -q | wc -l)
-          size=$(docker images -f dangling=true --format '{{.Size}}' | \
+          size=$(docker images -f dangling=true --format '{% raw %}{{.Size}}{% endraw %}' | \
             awk '{sum+=$1} END{print sum " MB"}' 2>/dev/null || echo "?")
           echo "$count dangling images ($size wasted)"
       register: dangling_images
