@@ -1,4 +1,6 @@
 terraform {
+  required_version = "~> 1.9" # keep in step with CI (setup-terraform terraform_version)
+
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"

@@ -136,7 +136,16 @@ Push the repo to your Athena Gitea; GitHub stays as the offsite mirror.
 git remote add gitea http://10.10.10.8:3000/hughboi/homelab.git
 git push gitea main
 ```
-**Verify:** repo visible in Gitea; GitHub mirror syncing.
+**Run — migrate Terraform state off the laptop** (now that Gitea exists):
+```sh
+# Gitea UI: Settings → Applications → generate an access token
+export TF_HTTP_PASSWORD=<gitea-token>
+# uncomment the "Option B" backend block in terraform/proxmox/backend.tf, then:
+cd terraform/proxmox && terraform init -migrate-state
+rm -f terraform.tfstate terraform.tfstate.backup     # local copies retired
+```
+**Verify:** repo visible in Gitea; GitHub mirror syncing; `terraform plan` works against the
+Gitea-backed state (and the state package shows in Gitea → Packages).
 
 ---
 

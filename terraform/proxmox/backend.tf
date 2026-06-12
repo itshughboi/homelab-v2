@@ -38,9 +38,11 @@
 #
 # terraform {
 #   backend "http" {
-#     address        = "https://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox"
-#     lock_address   = "https://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox/lock"
-#     unlock_address = "https://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox/lock"
+#     # NOTE: http, not https — Gitea serves plain HTTP on :3000 (TLS is Traefik's job and
+#     # this path deliberately bypasses Traefik, same as the ArgoCD direct-IP decision).
+#     address        = "http://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox"
+#     lock_address   = "http://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox/lock"
+#     unlock_address = "http://10.10.10.8:3000/api/packages/hughboi/terraform/state/proxmox/lock"
 #     username       = "hughboi"
 #     password       = "<gitea-api-token>"   # store in env: TF_HTTP_PASSWORD
 #     lock_method    = "POST"

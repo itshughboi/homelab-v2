@@ -13,10 +13,27 @@
 | k8s volumes | **Longhorn** | PVC data, replicated 3× | per-volume | Longhorn backup target |
 | k3s control plane | **etcd snapshot** (`kubernetes/k3s/etcd-backup`) | cluster API state | full control-plane | — |
 | App/host data | **Restic** | file-level → TrueNAS/offsite | per-path | offsite |
+| Docker `.env` files | **PBS** (inside the dock-prod VM image) + Vaultwarden | every service credential on dock-prod | per-VM restore / per-entry | ⚠️ see below |
 | Secrets | **Vaultwarden** + age key (paper/cloud) | the keys to rebuild everything | — | paper + cloud ✓ |
 
 The **3-2-1 view**: Longhorn replicas (on-host) → PBS/Velero (second copy) → Synology/B2 (offsite,
 in progress). See [storage 3-2-1](4-storage/index.md#backup-strategy-3-2-1).
+
+> [!WARNING] Known gap — Docker `.env` files are NOT in the repo (yet)
+> The repo ships `.env.example` for ~25 Docker services, but the **real `.env` files exist only
+> on dock-prod's disk**. They are *not* committed (by design — plaintext) and the SOPS migration
+> that would commit them **encrypted** (`.env.sops`) has not run yet (`.sops.yaml` is still the
+> placeholder). Until that lands, a **repo-only rebuild of dock-prod cannot recover service
+> credentials**. Recovery paths today, in order:
+> 1. **PBS restore** of the dock-prod VM (the `.env` files come back with the disk), or
+> 2. **Vaultwarden** entries (`homelab/<service>/…`) re-typed into fresh `.env` files, or
+> 3. The paper/cloud age key is irrelevant here *until* `.env.sops` files exist.
+>
+> **Closing the gap** = run `./scripts/age-setup.sh` on Athena, then `./scripts/sops-migrate.sh
+> <service>` per service ([scripts/README](../scripts/README.md)). The Gitea CI `sops-coverage`
+> job fails until every `.env.example` has a matching `.env.sops` — that's intentional.
+> Note the circularity: Vaultwarden itself runs **on dock-prod** — export an encrypted
+> Vaultwarden backup offsite so the credential store survives the host it protects.
 
 ---
 

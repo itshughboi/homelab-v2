@@ -21,7 +21,8 @@ terraform.tfvars
 terraform.tfstate
 terraform.tfstate.backup
 .terraform/
-.terraform.lock.hcl
+# NOTE: .terraform.lock.hcl IS committed (provider version+hash pinning — supply-chain
+# protection). Only the .terraform/ plugin cache dir is ignored.
 
 # Packer — rendered HCL (generated from .j2) and variable files
 packer/proxmox-iso-ubuntu/proxmox-iso-ubuntu.pkr.hcl
