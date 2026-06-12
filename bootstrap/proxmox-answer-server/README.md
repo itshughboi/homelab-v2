@@ -39,7 +39,7 @@ docker compose logs -f      # watch matches / payloads
 docker compose down         # stop when done
 ```
 
-It reads the per-node TOMLs from `../netbootxyz/assets/proxmox/` (the canonical answer files)
+It reads the per-node TOMLs from `../ventoy/answers/` (the canonical answer files)
 and matches on MAC via the `MAC_TO_NODE` map in `answer_server.py`.
 
 > [!IMPORTANT] Don't host it on a node you're installing
@@ -83,7 +83,7 @@ already allowed — no new firewall rule.
 
 ## Adding / changing a node
 
-- **Change config:** edit `../netbootxyz/assets/proxmox/pve-srv-X.toml`, commit. Nothing else.
+- **Change config:** edit `../ventoy/answers/pve-srv-X.toml`, commit. Nothing else.
 - **Add a node:** drop a new `pve-srv-X.toml` + add one line to `MAC_TO_NODE` in
   `answer_server.py`. No ISO work.
 

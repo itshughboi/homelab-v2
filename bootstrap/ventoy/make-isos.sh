@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ISO="${1:?usage: make-isos.sh <proxmox-ve.iso> [answers-dir] [out-dir]}"
-ANSWERS="${2:-../netbootxyz/assets/proxmox}"
+ANSWERS="${2:-$(dirname "${BASH_SOURCE[0]}")/answers}"
 OUT="${3:-./out}"
 
 command -v proxmox-auto-install-assistant >/dev/null || {

@@ -6,10 +6,10 @@
 > longer active. See the [post-mortem](../docs/1-networking/Alternative%20Methods/Netboot/README.md) for why. These
 > files are retained as a useful record, not deleted.
 >
-> **Still active:** the per-node answer files in
-> [`netbootxyz/assets/proxmox/`](netbootxyz/assets/proxmox/) (`pve-srv-*.toml`) are **not**
-> netboot-specific — they're Proxmox auto-install answer files that Ventoy bakes into the
-> install ISO via `proxmox-auto-install-assistant`. Keep editing those per node.
+> The per-node answer files (`pve-srv-*.toml`) now live in
+> [`ventoy/answers/`](ventoy/answers/) — they were moved out of the sunset netbootxyz tree
+> because they're not netboot-specific: Ventoy bakes them into the install ISOs via
+> `proxmox-auto-install-assistant`. Keep editing those per node.
 
 One-time tooling for provisioning bare-metal hardware from zero — before Terraform or Ansible can take over. Run these tools once per piece of hardware, then shut them down.
 
@@ -19,9 +19,9 @@ One-time tooling for provisioning bare-metal hardware from zero — before Terra
 
 | Directory | Purpose |
 |-----------|---------|
-| [proxmox-answer-server/](proxmox-answer-server/) | **Current** — serves per-node Proxmox auto-install answers by MAC over HTTP (one generic Ventoy ISO for all nodes) |
-| [ventoy/](ventoy/) | Per-node baked-ISO builder (`make-isos.sh`) + `ventoy.json` — the no-infra alternative |
-| [netbootxyz/](netbootxyz/) | **Deprecated** — old PXE boot server (kept for reference); still holds the per-node answer TOMLs in `assets/proxmox/` |
+| [ventoy/](ventoy/) | **Current** — per-node baked-ISO builder (`make-isos.sh`) + `ventoy.json` + the canonical answer TOMLs in [`ventoy/answers/`](ventoy/answers/) |
+| [proxmox-answer-server/](proxmox-answer-server/) | Rung B (built, unused) — serves the same answers by MAC over HTTP (one generic Ventoy ISO for all nodes) |
+| [netbootxyz/](netbootxyz/) | **Deprecated** — old PXE boot server (kept for reference) |
 
 ---
 

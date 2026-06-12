@@ -6,7 +6,7 @@
 > PXE approach.
 
 All three modes USB-boot the Proxmox installer; they differ only in how the *answer file*
-reaches it. Per-node config lives in git as `bootstrap/netbootxyz/assets/proxmox/pve-srv-X.toml`.
+reaches it. Per-node config lives in git as `bootstrap/ventoy/answers/pve-srv-X.toml`.
 
 | Rung | How the answer is delivered | Touch per install | Infra | Best for |
 | --- | --- | --- | --- | --- |

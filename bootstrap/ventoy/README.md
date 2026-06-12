@@ -32,7 +32,7 @@ cd bootstrap/ventoy
 
 # validate each answer file BEFORE building anything
 for n in 2 3 4; do
-  proxmox-auto-install-assistant validate-answer ../netbootxyz/assets/proxmox/pve-srv-$n.toml
+  proxmox-auto-install-assistant validate-answer ./answers/pve-srv-$n.toml
 done
 
 # build per-node ISOs (make-isos.sh re-validates, then prepare-iso --fetch-from iso)
@@ -40,8 +40,15 @@ done
 # → out/pve-srv-2-auto.iso, pve-srv-3-auto.iso, pve-srv-4-auto.iso
 ```
 
-`make-isos.sh` loops every `pve-srv-*.toml` in `../netbootxyz/assets/proxmox/`. Re-run it
+`make-isos.sh` loops every `pve-srv-*.toml` in `answers/`. Re-run it
 whenever a TOML changes.
+
+> [!IMPORTANT] The TOMLs contain root password **hashes** — and this repo is public
+> `root_password` in each answer file is a SHA512-crypt hash. A public hash is offline-crackable
+> if the source password is weak. Treat them as semi-public: **rotate the root password on every
+> node right after install** (hardening playbook or `passwd`), and never put a weak/reused
+> password through these files. Hashes already in git history are there permanently — rotation
+> is the only real mitigation.
 
 ### 2. Make the Ventoy USB (one-time)
 

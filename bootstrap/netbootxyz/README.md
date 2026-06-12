@@ -4,8 +4,8 @@
 > This PXE setup was abandoned in favour of [Ventoy USB](../../docs/2-proxmox/provisioning/Ventoy.md);
 > see the [post-mortem](../../docs/1-networking/Alternative%20Methods/Netboot/README.md) for the full reasoning.
 > The compose stack, `local.ipxe`, and `config/menus/*.ipxe` here are inactive and kept only
-> as reference. The `assets/proxmox/*.toml` answer files, however, are **still live** — Ventoy
-> consumes them.
+> as reference. The per-node answer TOMLs that used to live in `assets/proxmox/` have moved to
+> [`../ventoy/answers/`](../ventoy/answers/) — the live Ventoy path consumes them there.
 
 Serves a PXE environment that fully automates Proxmox installation on bare-metal servers — no USB stick, no manual clicks. Boot a new server, walk away, come back to a configured Proxmox node.
 

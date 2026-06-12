@@ -9,7 +9,7 @@ services:
     volumes:
       - ./answer_server.py:/app/answer_server.py:ro
       # per-node answer TOMLs, served read-only straight from the repo
-      - ../netbootxyz/assets/proxmox:/answers:ro
+      - ../ventoy/answers:/answers:ro
     # Bind to the management interface only (adjust host IP to wherever this runs).
     # MGMT→MGMT is already allowed, so nodes installing on VLAN 10 can reach it.
     ports:
