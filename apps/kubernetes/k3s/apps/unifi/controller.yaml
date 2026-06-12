@@ -22,7 +22,7 @@ spec:
           command: ["sh", "-c", "until nc -z mongo 27017; do sleep 2; done"]
       containers:
         - name: controller
-          image: jacobalberty/unifi:latest
+          image: jacobalberty/unifi:v10.0.162
           env:
             - name: DB_URI
               value: "mongodb://mongo/unifi"

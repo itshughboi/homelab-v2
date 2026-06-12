@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: changedetection
-          image: ghcr.io/dgtlmoon/changedetection.io:latest
+          image: ghcr.io/dgtlmoon/changedetection.io:0.55.7
           ports:
             - containerPort: 5000
               name: http
@@ -52,7 +52,8 @@ spec:
             allowPrivilegeEscalation: false
 
         - name: playwright-chrome
-          image: browserless/chrome:latest
+          # final tag of the deprecated dockerhub line — project moved to ghcr.io/browserless/chromium (v2, different API)
+          image: browserless/chrome:1.61.1-chrome-stable
           env:
             - name: SCREEN_WIDTH
               value: "1920"

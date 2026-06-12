@@ -69,7 +69,9 @@ spec:
     spec:
       containers:
         - name: tika
-          image: ghcr.io/paperless-ngx/tika:latest
+          # ghcr.io/paperless-ngx/tika no longer exists as a package — paperless upstream
+          # switched to apache/tika (verified on Docker Hub)
+          image: docker.io/apache/tika:3.3.1.0
           readinessProbe:
             httpGet:
               path: /tika

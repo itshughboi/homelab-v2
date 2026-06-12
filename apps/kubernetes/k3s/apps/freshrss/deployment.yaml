@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: freshrss
-          image: lscr.io/linuxserver/freshrss:latest
+          image: lscr.io/linuxserver/freshrss:1.28.0
           ports:
             - containerPort: 80
               name: http

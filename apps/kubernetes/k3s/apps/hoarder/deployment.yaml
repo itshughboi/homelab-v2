@@ -21,7 +21,9 @@ spec:
           command: ["sh", "-c", "until nc -z hoarder-meilisearch 7700; do sleep 2; done"]
       containers:
         - name: hoarder
-          image: ghcr.io/hoarder-app/hoarder:latest
+          # NOTE: hoarder is abandoned upstream — migration to ghcr.io/karakeep-app/karakeep
+          # (rename HOARDER_* env/secrets -> KARAKEEP_*) is tracked; pinned in the meantime
+          image: ghcr.io/hoarder-app/hoarder:0.32.0
           ports:
             - containerPort: 3000
               name: http
@@ -61,7 +63,7 @@ spec:
               memory: 1Gi
 
         - name: chrome
-          image: gcr.io/zenika-hub/alpine-chrome:latest
+          image: gcr.io/zenika-hub/alpine-chrome:124
           args:
             - --no-sandbox
             - --disable-gpu
