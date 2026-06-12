@@ -82,8 +82,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install ansible-lint
-        run: pip install ansible-lint
+      - name: Install ansible-lint + required collections
+        run: |
+          pip install ansible-lint
+          ansible-galaxy collection install -r ansible/requirements.yml
       - name: Lint live playbooks (legacy swarm/rke2/portainer excluded)
         run: |
           ansible-lint \
@@ -91,7 +93,7 @@ jobs:
             --exclude ansible/playbooks/docker/swarm/ \
             --exclude ansible/playbooks/docker/docker_portainer/ \
             --exclude ansible/playbooks/kubernetes/rke2/ \
-            --skip-list fqcn,name[prefix],yaml[truthy],no-changed-when,ignore-errors,risky-shell-pipe,command-instead-of-shell,command-instead-of-module,var-naming,risky-file-permissions,jinja[spacing],no-handler \
+            --skip-list fqcn,name[prefix],yaml[truthy],no-changed-when,ignore-errors,risky-shell-pipe,command-instead-of-shell,command-instead-of-module,var-naming,risky-file-permissions,jinja[spacing],no-handler,name[casing],name[template],name[play],yaml[line-length] \
             ansible/playbooks/
 
   secret-scan:

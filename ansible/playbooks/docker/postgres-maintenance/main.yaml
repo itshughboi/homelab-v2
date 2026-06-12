@@ -51,7 +51,7 @@
 
               if [ -z "$dbs" ]; then
                 # Try to get the primary DB user/name from env
-                pg_user=$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' | \
+                pg_user=$(docker inspect "$container" --format '{% raw %}{{range .Config.Env}}{{println .}}{{end}}{% endraw %}' | \
                   grep -E 'POSTGRES_USER=' | cut -d= -f2 | head -1)
                 pg_user="${pg_user:-postgres}"
                 dbs=$(docker exec "$container" psql -U "$pg_user" -t -c \
@@ -62,7 +62,7 @@
               echo "Databases: $dbs"
 
               for db in $dbs; do
-                pg_user=$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' | \
+                pg_user=$(docker inspect "$container" --format '{% raw %}{{range .Config.Env}}{{println .}}{{end}}{% endraw %}' | \
                   grep -E 'POSTGRES_USER=' | cut -d= -f2 | head -1)
                 pg_user="${pg_user:-postgres}"
 
