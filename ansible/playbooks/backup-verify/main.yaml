@@ -88,7 +88,8 @@
     - name: Longhorn — flag if no backups
       ansible.builtin.set_fact:
         problems: "{{ problems + ['Longhorn: no volume backups found'] }}"
-      when: lh_raw.rc != 0 or ('"items": []' in (lh_raw.stdout | default('')))
+      when: >-
+        lh_raw.rc != 0 or ('"items": []' in (lh_raw.stdout | default('')))
       # TODO (refine): check each backup's status + age per important PVC.
 
     # ── Report ──────────────────────────────────────────────────────────────

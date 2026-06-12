@@ -29,7 +29,9 @@
 
     - name: Get jail list
       ansible.builtin.shell:
-        cmd: fail2ban-client status 2>/dev/null | grep 'Jail list' | cut -d: -f2 | tr ',' '\n' | tr -d ' \t' | grep -v '^$'
+        cmd: >-
+          fail2ban-client status 2>/dev/null | grep 'Jail list' | cut -d: -f2
+          | tr ',' '\n' | tr -d ' \t' | grep -v '^$'
       register: jail_list
       changed_when: false
       when: fail2ban_status.stdout == "active"

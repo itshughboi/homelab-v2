@@ -14,7 +14,7 @@ ssh ubnt@10.10.10.254
 configure
 ```
 
-**Factory reset / new device defaults:** `ubnt / ubnt`
+**Factory reset / new device defaults:** `ubnt / ubnt` (192.168.1.1)
 
 ---
 
@@ -28,19 +28,13 @@ Build network → Secure it → Add services
    2. WAN DNS — `9.9.9.9`, `1.1.1.1` or `1.1.1.2`
    3. VLANs — see [Networks/](Networks/README.md)
    4. Firewall — see [Firewall/](Firewall/README.md)
-   5. LACP / MLAG if applicable — see [Switching.md](Networks/Switching.md)
-   6. MAC reservations (static IPs for core infra) → see [Assignments/MAC Reservations.md](Assignments/MAC%20Reservations.md)
+   5. MAC reservations (static IPs for core infra) → see [Assignments/MAC Reservations.md](Assignments/MAC%20Reservations.md)
 
 > [!NOTE]
 > Node provisioning is **not** a UniFi step anymore — nodes install via
 > [Ventoy USB](../../2-proxmox/provisioning/Ventoy.md) directly onto VLAN 10. The old
 > VLAN 99 DHCP PXE options (66/67) are no longer configured; see the
 > [netboot post-mortem](../Alternative%20Methods/Netboot/README.md).
-
-> [!NOTE]
-> All UniFi configuration is done manually through the UI. Set it once, take a backup, and leave it.
-> The UniFi UI changes faster than the Ansible collection keeps up — see [Ansible.md](Ansible.md) for why that approach was shelved.
-> Enable **auto-backup** in UniFi settings and take a manual backup before any significant change.
 
 ---
 

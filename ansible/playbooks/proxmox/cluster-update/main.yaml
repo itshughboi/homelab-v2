@@ -45,13 +45,14 @@
 
         - name: Get other cluster nodes to migrate VMs to
           ansible.builtin.shell:
-            cmd: pvesh get /nodes --output-format json | python3 -c "
+            cmd: |
+              pvesh get /nodes --output-format json | python3 -c "
               import sys, json
               nodes = json.load(sys.stdin)
               current = '{{ inventory_hostname }}'
               others = [n['node'] for n in nodes if n['node'] != current and n['status'] == 'online']
               print(others[0] if others else '')
-            "
+              "
           register: migration_target
           changed_when: false
 
@@ -132,12 +133,13 @@
 
         - name: Wait for Proxmox cluster to see node as online
           ansible.builtin.shell:
-            cmd: pvesh get /nodes --output-format json | python3 -c "
+            cmd: |
+              pvesh get /nodes --output-format json | python3 -c "
               import sys, json
               nodes = json.load(sys.stdin)
               node = next((n for n in nodes if n['node'] == '{{ inventory_hostname }}'), None)
               print(node['status'] if node else 'unknown')
-            "
+              "
           register: node_status
           retries: 20
           delay: 30
