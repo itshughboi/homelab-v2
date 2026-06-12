@@ -81,7 +81,7 @@ The MAC in hex, no colons, lowercase — e.g. `c8:ff:bf:03:f3:50` → `MAC-c8ffb
 
 **3. MAC reservation** in UniFi (VLAN 10) so the node gets its permanent IP after install — see [MAC Reservations.md](../../Unifi/Assignments/MAC%20Reservations.md).
 
-Push to Gitea → Libre Potato picks up changes within 5 minutes (systemd timer runs `git pull` and restarts the container if anything in `bootstrap/netbootxyz` changed).
+Push to Gitea/GitHub → Libre Potato picks up changes within 5 minutes (systemd timer runs `git pull` and restarts the container if anything in `bootstrap/netbootxyz` changed).
 
 ---
 

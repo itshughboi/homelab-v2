@@ -1,0 +1,12 @@
+# k3s cluster secret — TEMPLATE
+#
+# Copy to vault.yml (gitignored) and fill in the value. The real vault.yml must
+# never be committed in plaintext. Two safe options:
+#   1. Keep vault.yml local-only (it is gitignored), or
+#   2. Encrypt it before committing:  ansible-vault encrypt group_vars/vault.yml
+#      (edit later with: ansible-vault edit group_vars/vault.yml)
+#
+# Generate a strong cluster secret:
+#   openssl rand -hex 32
+
+vault_k3s_cluster_secret: "REPLACE_WITH_OUTPUT_OF_openssl_rand_-hex_32"

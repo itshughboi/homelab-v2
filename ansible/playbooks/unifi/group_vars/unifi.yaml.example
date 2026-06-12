@@ -1,0 +1,15 @@
+# UniFi controller credentials — TEMPLATE
+#
+# Copy to unifi.yaml (gitignored) and fill in. The real unifi.yaml must never be
+# committed — it holds a controller admin credential. Prefer encrypting with SOPS
+# (see scripts/README.md) or Ansible Vault if you adopt this playbook.
+#
+# NOTE: this playbook is REFERENCE — the UniFi network is managed by hand in the UI
+# (see ansible/playbooks/unifi/README.md and docs/1-networking/).
+
+unifi_user: "ansible"
+unifi_password: "CHANGE_ME"
+unifi_host: "10.10.10.10"
+unifi_port: 8443
+unifi_site: "default"
+unifi_verify_ssl: false # controller uses a self-signed cert

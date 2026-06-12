@@ -8,6 +8,9 @@ vault_pass.txt
 
 # Ansible plaintext provisioning secrets — only the *.sops.yaml encrypted copy is committed
 secrets.yaml
+# Filled-in credential files (track only the .example templates)
+ansible/playbooks/unifi/group_vars/unifi.yaml
+ansible/playbooks/kubernetes/k3s/new/group_vars/vault.yml
 
 # Terraform variable files (contain API tokens, passwords)
 terraform.tfvars

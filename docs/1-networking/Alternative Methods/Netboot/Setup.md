@@ -5,7 +5,7 @@
 
 ## First-Time Libre Potato Setup
 
-One-time steps to get the netboot server running. Skip if Libre Potato is already serving files.
+One-time steps to get the netboot server running. Skip if Libre Potato is already serving files. Can also run ansible playbook to automatically do all this. 
 
 ### Step 0 — Set a Static IP
 

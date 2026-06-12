@@ -1,12 +1,15 @@
 name: CI
 
+# Single consolidated pipeline (replaces the old ci.yaml + lint.yml pair, which had drifted
+# into two conflicting configs). Mirrors .github/workflows/validate.yaml for the shared jobs;
+# Gitea-only extras here: sops-coverage, docs-build, trivy (informational).
+# Keep job logic in sync with the GitHub workflow when editing either.
+
 on:
   push:
-    branches-ignore:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   yaml-lint:
@@ -14,136 +17,118 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install yamllint
         run: pip install yamllint
-
-      - name: Lint YAML files
+      - name: Lint YAML
         run: |
-          yamllint \
-            --config-data '{extends: default, rules: {line-length: {max: 200}, truthy: {allowed-values: ["true", "false"]}}}' \
-            apps/kubernetes/ \
-            ansible/playbooks/ \
-            bootstrap/
+          yamllint -d '{
+            extends: relaxed,
+            rules: {
+              line-length: {max: 200},
+              truthy: {allowed-values: ["true", "false", "yes", "no"]},
+              comments: disable,
+              document-start: disable
+            }
+          }' apps/kubernetes/ ansible/ bootstrap/
+
+  kubeconform:
+    name: Kubernetes Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform
+        run: |
+          KUBECONFORM_VERSION=v0.6.7
+          curl -sSLo /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+          chmod +x /usr/local/bin/kubeconform
+      - name: Validate k8s manifests
+        run: |
+          find apps/kubernetes/k3s/apps \
+               apps/kubernetes/k3s/infra \
+               apps/kubernetes/k3s/networking \
+               apps/kubernetes/k3s/monitoring \
+               apps/kubernetes/k3s/argocd \
+               -name '*.yaml' \
+               ! -name 'values.yaml' \
+               ! -name 'install.yaml' \
+               ! -name 'secret.yaml' \
+            | kubeconform \
+                -strict \
+                -ignore-missing-schemas \
+                -kubernetes-version 1.31.0 \
+                -schema-location default \
+                -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+                -skip IngressRoute,IngressRouteTCP,Middleware,TraefikService,Certificate,ClusterIssuer,Issuer,SealedSecret,HelmChart,HelmRelease,RecurringJob \
+                -summary -
+
+  terraform:
+    name: Terraform Validate + Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+      - name: Init (no backend)
+        run: terraform -chdir=terraform/proxmox init -backend=false
+      - name: Validate
+        run: terraform -chdir=terraform/proxmox validate
+      - name: Format check
+        run: terraform -chdir=terraform/proxmox fmt -check -recursive
 
   ansible-lint:
     name: Ansible Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install ansible-lint
         run: pip install ansible-lint
-
-      - name: Lint Ansible playbooks
+      - name: Lint live playbooks (legacy swarm/rke2/portainer excluded)
         run: |
-          ansible-lint ansible/playbooks/
-        env:
-          ANSIBLE_ROLES_PATH: ansible/roles
-
-  terraform-validate:
-    name: Terraform Validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.9"
-
-      - name: Terraform init (no backend)
-        working-directory: terraform/proxmox
-        run: terraform init -backend=false
-
-      - name: Terraform validate
-        working-directory: terraform/proxmox
-        run: terraform validate
-
-      - name: Terraform format check
-        working-directory: terraform/proxmox
-        run: terraform fmt -check -recursive
-
-  kubernetes-validate:
-    name: Kubernetes Manifest Validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Dry-run apply apps manifests
-        run: |
-          find apps/kubernetes/k3s/apps \
-               apps/kubernetes/k3s/infra \
-               apps/kubernetes/k3s/networking \
-               apps/kubernetes/k3s/monitoring \
-               -name '*.yaml' \
-               ! -name 'values.yaml' \
-               ! -name 'install.yaml' \
-               ! -name 'secret.yaml' \
-           | xargs -I{} kubectl apply --dry-run=client -f {} || true
-
-      - name: Install kubeconform
-        run: |
-          curl -sSLo kubeconform.tar.gz \
-            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
-          tar xf kubeconform.tar.gz kubeconform
-          chmod +x kubeconform
-          sudo mv kubeconform /usr/local/bin/
-
-      - name: Schema validate manifests
-        run: |
-          find apps/kubernetes/k3s/apps \
-               apps/kubernetes/k3s/infra \
-               apps/kubernetes/k3s/networking \
-               apps/kubernetes/k3s/monitoring \
-               -name '*.yaml' \
-               ! -name 'values.yaml' \
-               ! -name 'install.yaml' \
-               ! -name 'secret.yaml' \
-           | kubeconform \
-               -ignore-missing-schemas \
-               -schema-location default \
-               -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-               -output pretty \
-               -
+          ansible-lint \
+            --exclude ansible/inventories/ \
+            --exclude ansible/playbooks/docker/swarm/ \
+            --exclude ansible/playbooks/docker/docker_portainer/ \
+            --exclude ansible/playbooks/kubernetes/rke2/ \
+            --skip-list fqcn,name[prefix],yaml[truthy],no-changed-when \
+            ansible/playbooks/
 
   secret-scan:
-    name: Secret Scan
+    name: Secret Scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Install gitleaks
         run: |
+          GITLEAKS_VERSION=8.21.0
           curl -sSLo gitleaks.tar.gz \
-            https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.21.0_linux_x64.tar.gz
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           tar xf gitleaks.tar.gz gitleaks
           chmod +x gitleaks
           sudo mv gitleaks /usr/local/bin/
-
-      - name: Scan for secrets
+      - name: Scan full history
         run: gitleaks detect --source . --log-level warn
 
   trivy-scan:
-    name: Trivy Vulnerability Scan
+    name: Trivy Misconfiguration Scan (informational)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Trivy
         run: |
+          TRIVY_VERSION=0.58.1
           curl -sSLo trivy.tar.gz \
-            https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(curl -s https://api.github.com/repos/aquasecurity/trivy/releases/latest | grep tag_name | cut -d'"' -f4 | tr -d v)_Linux-64bit.tar.gz
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
           tar xf trivy.tar.gz trivy
           chmod +x trivy
           sudo mv trivy /usr/local/bin/
-
-      - name: Scan k8s manifests for misconfigurations
+      - name: Scan k8s manifests
+        # exit-code 0 on purpose: the securityContext rollout (issue #3) is in progress —
+        # flip to --exit-code 1 once the baseline is applied, or CI is permanently red.
         run: |
           trivy config \
             --exit-code 0 \
@@ -151,23 +136,48 @@ jobs:
             --format table \
             apps/kubernetes/
 
-      - name: Scan Dockerfiles for vulnerabilities
+  sops-coverage:
+    name: SOPS Secret Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check .env.sops coverage against .env.example
+        # For every service with a .env.example, verify a .env.sops exists and contains the
+        # same KEY names (sops dotenv keeps keys plaintext, values encrypted — verifiable
+        # without the age key). This is the forcing function for the SOPS migration: it fails
+        # until every service's secrets are committed encrypted.
         run: |
-          find . -name 'Dockerfile' -o -name 'Dockerfile.*' | while read df; do
-            echo "Scanning $df"
-            trivy config --exit-code 0 --severity HIGH,CRITICAL "$df"
-          done
+          EXIT=0
+          while IFS= read -r example_file; do
+            service_dir=$(dirname "$example_file")
+            service=$(echo "$service_dir" | sed 's|apps/docker/||')
+            sops_file="$service_dir/.env.sops"
+            if [[ ! -f "$sops_file" ]]; then
+              echo "MISSING .env.sops: $service   (run: ./scripts/sops-migrate.sh $service)"
+              EXIT=1
+              continue
+            fi
+            EXAMPLE_KEYS=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$example_file" | cut -d= -f1 | sort)
+            SOPS_KEYS=$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*' "$sops_file" | sort || true)
+            MISSING=$(comm -23 <(echo "$EXAMPLE_KEYS") <(echo "$SOPS_KEYS") || true)
+            if [[ -n "$MISSING" ]]; then
+              echo "KEY MISMATCH: $service/.env.sops is missing keys:"
+              echo "$MISSING" | sed 's/^/  - /'
+              EXIT=1
+            else
+              echo "OK: $service"
+            fi
+          done < <(find apps/docker -name ".env.example" -not -path "*/sunset/*" | sort)
+          exit $EXIT
 
   docs-build:
     name: Docs Build (Hugo)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
-
       - name: Install Hugo (extended)
         run: |
           HUGO_VERSION=0.161.1
@@ -176,13 +186,11 @@ jobs:
           tar -xf hugo.tar.gz hugo
           sudo mv hugo /usr/local/bin/
           hugo version
-
       - name: Regenerate content/ from docs/ and build
         run: |
           cd docs/hugo
           ./sync.sh
           hugo build --logLevel warn
-
       - name: Fail on unresolved internal .md links
         run: |
           cd docs/hugo

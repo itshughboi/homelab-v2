@@ -1,7 +1,0 @@
-# group_vars/unifi.yml
-unifi_user: "ansible
-unifi_password: "
-unifi_host: "10.10.10.10
-unifi_port: 8443
-unifi_site: "default"
-unifi_verify_ssl: false  # Since your controller likely uses a self-signed cert

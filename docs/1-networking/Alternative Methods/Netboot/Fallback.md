@@ -7,7 +7,8 @@
 
 Use when Libre Potato is down but you still want network-based provisioning. Runs until you close the terminal — no permanent setup needed.
 
-1. Plug Macbook into UXG Max Port 3 (VLAN 99 access port) — it gets assigned `10.10.99.x/24`
+1. Plug Macbook into UXG Max Port 3 (VLAN 99 access port) — it gets assigned `10.10.99.x/24` << This native port will need to be changed to Provisioning instead of Management (switched back after I sunsetted netboot)
+	1. Change PXE options for Provisioning network to point to this new IP
 2. Run the ephemeral container:
 
 ```sh

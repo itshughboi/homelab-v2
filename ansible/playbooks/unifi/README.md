@@ -1,11 +1,19 @@
-# UniFi Ansible Playbook
+# UniFi Ansible Playbook — REFERENCE (not in use)
+
+> [!WARNING] Not in use — UniFi is managed manually
+> Like [`terraform/unifi/`](../../../terraform/unifi/README.md), this playbook is kept as a
+> **reference implementation** only. The live network is configured **by hand in the UI** and
+> documented in [docs/1-networking/](../../../docs/1-networking/). Its `group_vars/all.yaml`
+> still encodes pre-decision values (e.g. a VLAN 30 DHCP pool — DHCP is now **disabled** on
+> VLANs 20/30/40) — the docs, not this playbook, are the source of truth.
 
 Provisions all UniFi networks via `community.general.unifi_network`. Run from Semaphore on Athena after UniFi is up.
 
 ## Prerequisites
 
 - Local UniFi admin account (cloud accounts don't work with the API)
-- Credentials in `group_vars/unifi.yaml`, encrypted with Ansible Vault:
+- Credentials: copy `group_vars/unifi.yaml.example` → `group_vars/unifi.yaml` (gitignored) and
+  fill in. If you ever commit it, encrypt first:
 
 ```sh
 ansible-vault encrypt group_vars/unifi.yaml
