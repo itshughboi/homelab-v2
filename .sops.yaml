@@ -11,10 +11,10 @@
 creation_rules:
   # Docker app env files
   - path_regex: apps/docker/.*\.env\.sops$
-    age: AGE_PUBLIC_KEY_PLACEHOLDER
+    age: age1e77n2z4af6f3q9cq7n0855xuqwnzst0aezras5e5nypzgys2jglsv5h2lm
   # Ansible provisioning secrets (UniFi credentials, service API keys)
   - path_regex: .*secrets\.sops\.yaml$
-    age: AGE_PUBLIC_KEY_PLACEHOLDER
+    age: age1e77n2z4af6f3q9cq7n0855xuqwnzst0aezras5e5nypzgys2jglsv5h2lm
   # Terraform provisioning secrets (Proxmox API token)
   - path_regex: .*\.sops\.tfvars$
-    age: AGE_PUBLIC_KEY_PLACEHOLDER
+    age: age1e77n2z4af6f3q9cq7n0855xuqwnzst0aezras5e5nypzgys2jglsv5h2lm
