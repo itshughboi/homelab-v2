@@ -107,6 +107,36 @@ journal file is persistent — it won't go away. This is just for viewability/ti
 
 ---
 
+## Hand-editing a zone file that has `update-policy` set
+
+`update-policy { grant tsig-key zonesub any; };` (on `hughboi.cc` and `hughboi.vip`) makes BIND
+treat the zone as **dynamic** (`rndc zonestatus <zone>` shows `dynamic: yes`) — this matters even
+if you've never actually run a Terraform-driven dynamic update, because it changes how BIND
+handles the plain zone *file* too.
+
+**A plain `rndc reload` silently does nothing for a dynamic zone** if you've hand-edited the
+zone file directly (e.g. `db.hughboi.cc`) — no error, `rndc reload` reports success, but
+`rndc zonestatus` still shows the old serial and `last loaded` timestamp untouched. BIND expects
+changes to a dynamic zone to arrive via dynamic update (`nsupdate`/TSIG), not by editing the file,
+and doesn't re-read the file on a bare reload. This bit us for real: we hand-edited
+`db.hughboi.cc`, bumped the serial, ran `rndc reload` (reported success, logs said "all zones
+loaded"), and DNS kept serving the old data for hours before we caught it.
+
+**Force it to actually reload from the file:**
+```sh
+docker exec bind9 rndc freeze hughboi.cc
+docker exec bind9 rndc reload hughboi.cc
+docker exec bind9 rndc thaw hughboi.cc
+docker exec bind9 rndc zonestatus hughboi.cc   # confirm the serial actually changed
+```
+
+`rndc reload hughboi.cc` alone (without freeze/thaw) fails outright with `rndc: 'reload' failed:
+dynamic zone` — the freeze/thaw wrapper is required, not optional, for dynamic zones specifically.
+**Always verify with `rndc zonestatus <zone>` after any zone-file edit** — don't trust a bare
+`rndc reload`'s "success" message for a dynamic zone.
+
+---
+
 ## Security Note
 
 The `.tf` files for Bind9 contain the TSIG key reference. Store securely — a leaked
