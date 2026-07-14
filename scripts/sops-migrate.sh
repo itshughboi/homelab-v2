@@ -104,6 +104,7 @@ sops --encrypt \
   --config "$SOPS_CONFIG" \
   --input-type dotenv \
   --output-type dotenv \
+  --filename-override "$SOPS_FILE" \
   "$CLEANED_ENV" > "$SOPS_FILE"
 
 # ── Verify ─────────────────────────────────────────────────────────────────────
