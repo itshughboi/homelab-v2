@@ -10,19 +10,12 @@ zone "hughboi.vip" {
     update-policy { grant tsig-key zonesub any; };
 };
 
-                                                    ; PTR record file. Optional as with my setup the forward lookup resolves already
+// PTR record file. Optional as with my setup the forward lookup resolves already
 
 zone "10.10.10.in-addr.arpa" {
     type master;
     file "/etc/bind/zones/db.10.10.10";
 };
 
-zone "10.10.20.in-addr.arpa" {
-    type master;
-    file "/etc/bind/zones/db.10.10.20";
-};
-
-zone "10.10.30.in-addr.arpa" {
-    type master;
-    file "/etc/bind/zones/db.10.10.30";
-};
+// zone "10.10.20.in-addr.arpa" — no db.10.10.20 zone file exists yet; add one before uncommenting
+// zone "10.10.30.in-addr.arpa" — no db.10.10.30 zone file exists yet; add one before uncommenting
