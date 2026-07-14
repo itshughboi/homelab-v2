@@ -7,9 +7,12 @@ http:
     gitea-https-redirect:
       redirectscheme:
         scheme: https
+    semaphore-https-redirect:
+      redirectscheme:
+        scheme: https
 
-  # Gitea runs on Athena (10.10.10.8), not dock-prod — Traefik's Docker provider
-  # only discovers containers on this host, so it's routed here statically instead.
+  # Gitea and Semaphore run on Athena (10.10.10.8), not dock-prod — Traefik's Docker
+  # provider only discovers containers on this host, so both are routed here statically.
   routers:
     gitea-secure:
       rule: "Host(`gitea.hughboi.cc`)"
@@ -29,9 +32,31 @@ http:
       middlewares:
         - gitea-https-redirect
       service: gitea
+    semaphore-secure:
+      rule: "Host(`semaphore.hughboi.cc`)"
+      entryPoints:
+        - https
+      service: semaphore
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: hughboi.cc
+            sans:
+              - "*.hughboi.cc"
+    semaphore:
+      rule: "Host(`semaphore.hughboi.cc`)"
+      entryPoints:
+        - http
+      middlewares:
+        - semaphore-https-redirect
+      service: semaphore
 
   services:
     gitea:
       loadBalancer:
         servers:
           - url: "http://10.10.10.8:3000"
+    semaphore:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.10.8:3001"

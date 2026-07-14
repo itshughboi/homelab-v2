@@ -16,8 +16,16 @@ Two containers:
 
 ## Network Layout
 
-- `semaphore` network: internal — app and MySQL only
-- `proxy` network: app joins this for Traefik routing
+Semaphore runs on Athena, not dock-prod — Traefik (on dock-prod) can't discover it via
+Docker labels across hosts, so it's routed via a static entry in Traefik's file provider
+(`apps/docker/traefik/data/config.yml`) pointing at `10.10.10.8:3001`, same pattern as
+Gitea. See [6-docker/index.md](../../../docs/6-docker/index.md) for the full explanation.
+
+- `semaphore` network: app and MySQL only — **not** `internal: true` (that setting blocks
+  `ports:` publishing to the host, not just internet egress — see the Gitea compose file's
+  comment for how we found this out)
+- App publishes port `3001:3000` on the host (`3001` to avoid clashing with Gitea's `3000`
+  on the same box)
 
 ## Volumes
 

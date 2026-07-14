@@ -69,20 +69,9 @@ services:
       - /home/hughboi/data/semaphore/inventory/:/inventory:ro
       - /home/hughboi/data/semaphore/authorized-keys/:/authorized-keys:ro
       - /home/hughboi/data/semaphore/config/:/etc/semaphore:rw
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.semaphore.entrypoints=http"
-      - "traefik.http.routers.semaphore.rule=Host(`semaphore.hughboi.cc`)"
-      - "traefik.http.middlewares.semaphore-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.routers.semaphore.middlewares=semaphore-https-redirect"
-      - "traefik.http.routers.semaphore-secure.entrypoints=https"
-      - "traefik.http.routers.semaphore-secure.rule=Host(`semaphore.hughboi.cc`)"
-      - "traefik.http.routers.semaphore-secure.tls=true"
-      - "traefik.http.routers.semaphore-secure.service=semaphore"
-      - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
-      - "traefik.docker.network=proxy"
+    ports:
+      - "3001:3000"   # HTTP — Traefik on dock-prod routes here by static IP (see traefik/data/config.yml). 3001 to avoid clashing with Gitea's 3000 on the same host.
     networks:
-      - proxy
       - semaphore
 
 
@@ -91,7 +80,6 @@ volumes:
     driver: local
 
 networks:
-  proxy:
-    external: true
+  # NOT internal — see apps/docker/gitea/compose.yaml for why: internal: true
+  # blocks ports: publishing, not just internet egress.
   semaphore:
-    internal: true
