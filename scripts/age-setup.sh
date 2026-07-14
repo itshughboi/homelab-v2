@@ -30,7 +30,7 @@ check_dep() {
 }
 
 check_dep age-keygen age "apt install age  OR  download from https://github.com/FiloSottile/age/releases"
-check_dep sops sops "snap install sops  OR  download from https://github.com/getsentry/sops/releases"
+check_dep sops sops "snap install sops  OR  download from https://github.com/getsops/sops/releases"
 
 # ── Key generation ─────────────────────────────────────────────────────────────
 
