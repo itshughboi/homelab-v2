@@ -26,7 +26,7 @@ fine; for heavy reimaging, rung B is nicer. Full comparison:
 ```sh
 # repo + a current stock ISO on the host
 git pull                                     # or git clone the repo
-wget https://enterprise.proxmox.com/iso/proxmox-ve_9.1-1.iso
+wget https://enterprise.proxmox.com/iso/proxmox-ve_9.2-1.iso
 
 cd bootstrap/ventoy
 
@@ -36,7 +36,7 @@ for n in 2 3 4; do
 done
 
 # build per-node ISOs (make-isos.sh re-validates, then prepare-iso --fetch-from iso)
-./make-isos.sh ~/proxmox-ve_9.1-1.iso
+./make-isos.sh ~/proxmox-ve_9.2-1.iso
 # → out/pve-srv-2-auto.iso, pve-srv-3-auto.iso, pve-srv-4-auto.iso
 ```
 

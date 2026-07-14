@@ -1,7 +1,6 @@
 # Corosync — Cluster Links / Rings
 
-Corosync is the Proxmox cluster communication layer (membership + quorum). It heartbeats over
-one or more **links** ("rings"). If a node stops hearing heartbeats, the cluster can **fence**
+Corosync is the Proxmox cluster communication layer (membership + quorum). It heartbeats over one or more **links** ("rings"). If a node stops hearing heartbeats, the cluster can **fence**
 it (hard reboot) to protect shared state — so link reliability directly affects cluster
 stability.
 

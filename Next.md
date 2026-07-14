@@ -15,7 +15,3 @@ Things to do when i get more hardware:
 - lacp
 - dedicated storage NICs for all servers separate from management/corosync
 - channel AI when I get unifi AP up and going
-
-
-
-I put a lot of POTENTIAL_MISMATCH's around in notes within networking of things that i felt were outdated or needed to be readdressed cause info has changed.
