@@ -129,16 +129,14 @@ git push origin main
 
 GitHub is a push mirror (auto-synced from Gitea, configured under the repo's Mirror Settings). GitHub links in docs are valid and intentional — Gitea is primary.
 
-> [!WARNING]
-> **From Athena itself, use `http://10.10.10.8:3000/hughboi/homelab.git`, not the public hostname.**
-> `gitea.hughboi.cc` resolves to Athena's own IP (`10.10.10.8`) — DNS has no way to know the
-> request originated on Athena vs. anywhere else, so it points at the same address either way.
-> But nothing listens on port 443 on Athena; TLS termination and the `gitea.hughboi.cc` routing
-> only exist on dock-prod's Traefik. A plain `git pull` against the public hostname from Athena
-> fails with `Couldn't connect to server` (port 443, nothing there) even after DNS resolves fine.
-> Use the direct IP:port instead — no TLS needed for same-host traffic anyway. This will bite any
-> future Athena-hosted service the same way if it tries to reach another Athena-hosted service (or
-> itself) by its public hostname instead of `10.10.10.8:<port>` directly.
+> [!NOTE]
+> **`gitea.hughboi.cc` now resolves to dock-prod (`10.10.10.10`), not Athena.** Earlier this
+> pointed straight at Athena's own IP, which broke both VPN/Tailscale clients (direct subnet
+> access bypassed Traefik, hit a dead port 443) and Athena itself pulling its own public
+> hostname. Pointing the record at dock-prod instead means every client — LAN, VPN, Athena
+> itself, public — goes through Traefik first, which proxies to Athena over the LAN via the
+> static route in `apps/docker/traefik/data/config.yml`. `http://10.10.10.8:3000/hughboi/homelab.git`
+> still works as a fallback if Traefik itself is ever down.
 
 ---
 

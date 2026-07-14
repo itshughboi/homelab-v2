@@ -54,15 +54,17 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 > not in that service's own compose labels — Docker labels on an Athena compose file are silently
 > inert since Traefik never sees them.
 >
-> **Known gap — VPN/Tailscale clients:** `gitea.hughboi.cc`/`semaphore.hughboi.cc` resolve to
-> Athena's IP (`10.10.10.8`) for everyone, including VPN clients. Public clients reach that IP
-> only via dock-prod's Traefik (which terminates TLS and proxies to Athena) — but a Tailscale
-> client has direct subnet-router access to the `10.10.10.0/24` VLAN, so it connects straight to
-> `10.10.10.8:443`, bypassing Traefik entirely. Nothing listens on 443 on Athena itself
-> (`Connection refused`), even though the same URL works fine for anyone off-VPN. **Workaround:**
-> use the direct IP:port when on the VPN — `http://10.10.10.8:3000` (Gitea),
-> `http://10.10.10.8:3001` (Semaphore) — instead of the public hostname. Real fix would be
-> running Traefik (or a lightweight proxy) on Athena too; not done yet.
+> **Why the zone file points Gitea/Semaphore at dock-prod's IP, not Athena's:** it's tempting to
+> point `gitea.hughboi.cc` straight at `10.10.10.8` (where Gitea actually runs) — that works for
+> public clients (Traefik on dock-prod is the only thing they can reach anyway) but breaks for
+> Tailscale/VPN clients, which get direct subnet-router access to the `10.10.10.0/24` VLAN and
+> would connect straight to Athena on 443, where nothing listens (`Connection refused`) — Traefik
+> never gets a chance to proxy the request. Pointing the DNS record at **dock-prod's IP instead**
+> (`10.10.10.10`, where Traefik actually listens on 443) fixes this for every client uniformly —
+> LAN, VPN, and public all hit Traefik first, which then proxies to Athena over the LAN via the
+> static route in [`apps/docker/traefik/data/config.yml`](../../apps/docker/traefik/data/config.yml).
+> IP:port (`http://10.10.10.8:3000` / `:3001`) still works as a fallback if Traefik itself is ever
+> down — it just isn't required day-to-day anymore.
 
 ---
 
