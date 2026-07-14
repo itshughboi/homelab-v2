@@ -96,17 +96,16 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - gitea
-      - runner-egress
 
 
 volumes:
   db:
 
 networks:
-  # internal: true — gitea/postgres talk to each other only; the gitea service's
-  # own ports: mapping (not this network) is how Traefik/SSH reach it from outside.
+  # NOT internal — `internal: true` blocks more than internet egress, it also
+  # suppresses the NAT/port-forwarding rules that make `ports:` publishing work
+  # on any service attached to it (learned the hard way: gitea's 3000/22 ports
+  # never bound to the host with internal: true set here). The `ports:` list
+  # under the gitea service is what actually limits its host-facing surface —
+  # postgres has no ports: entry, so it's unreachable from outside regardless.
   gitea:
-    internal: true
-  # The runner needs real internet/LAN egress to reach gitea.hughboi.cc over HTTPS
-  # and to pull images for CI jobs — it can't be internal like the other two.
-  runner-egress:
