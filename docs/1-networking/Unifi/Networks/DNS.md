@@ -35,6 +35,13 @@ Networks with DHCP disabled (k3s, Storage): DNS is not distributed by UniFi — 
 ### DNS Resolution Chain
 
 - Bind9 (`10.10.10.8`) is authoritative for `*.hughboi.cc` and `*.hughboi.vip` — answers these directly from zone files
+  - Both zones have `update-policy` set (TSIG, for future Terraform-driven updates — see
+    [Terraform Bind9.md](../../../3-athena/Terraform%20Bind9.md)), which makes BIND treat them as
+    **dynamic zones**. This matters even if you're not using Terraform at all: hand-editing the
+    zone file and running a plain `rndc reload` silently does nothing — no error, but the old data
+    keeps being served. Use `rndc freeze <zone>` / `rndc reload <zone>` / `rndc thaw <zone>`, and
+    always confirm with `rndc zonestatus <zone>` (check the serial actually changed) — see the
+    Terraform Bind9 doc for the full writeup and the exact commands.
 - All other queries are forwarded to AdGuard (`10.10.10.10`), which handles ad/tracker blocking
 - AdGuard passes unblocked queries to Unbound, which does full recursion via Quad9
 - If AdGuard is unreachable, Bind9 falls back to `9.9.9.9` (Quad9) directly
