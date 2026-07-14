@@ -1,3 +1,9 @@
+- [x] Cut Athena's bind9 over from loose dock-prod-era files to the repo's compose.yaml
+- [x] SOPS age key generated + backed up (Athena)
+- [x] Gitea deployed on Athena, routed via Traefik static config (dock-prod)
+- [x] Migrated GitHub repo (history + issues) into Gitea as `hughboi/homelab`; Gitea is now primary, GitHub is a push mirror
+- [ ] Grab Gitea Actions runner registration token, start the runner
+- [ ] Deploy Semaphore on Athena
 - [ ] Flash ventoy images and boot up each pc
 - [ ] Move management VLAN to 10 (test)
 - [ ] Get mini pcs inventory in Unifi/Assignments/Inventory
