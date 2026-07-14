@@ -1,6 +1,6 @@
 $TTL    3d
 @       IN      SOA     ns1.hughboi.cc. admin.hughboi.cc. (
-                        2024091801 ; Serial
+                        2026071401 ; Serial
                         1w         ; Refresh
                         1d         ; Retry
                         4w         ; Expire
@@ -11,5 +11,5 @@ $TTL    3d
 1       IN      PTR     pve-srv-1.hughboi.cc.
 2       IN      PTR     pve-srv-2.hughboi.cc.
 3       IN      PTR     pve-srv-3.hughboi.cc.
-3       IN      PTR     pve-srv-4.hughboi.cc.
+4       IN      PTR     pve-srv-4.hughboi.cc.
 10      IN      PTR     www.hughboi.cc.
