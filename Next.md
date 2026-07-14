@@ -7,8 +7,11 @@
 
 Tomorrow:
 
-- [ ] Decide + implement real fix for VPN/Tailscale bypassing Traefik on Athena-hosted services (gitea.hughboi.cc, semaphore.hughboi.cc resolve straight to 10.10.10.8:443 over Tailscale, nothing listens there) — options: Traefik on Athena too, or split-horizon DNS for Tailscale clients
-- [ ] SOPS-encrypt Semaphore's `.env` (`./scripts/sops-migrate.sh semaphore`) — first real service through the SOPS workflow
+- [ ] Decide + implement real fix for VPN/Tailscale bypassing Traefik on Athena-hosted services (gitea.hughboi.cc, semaphore.hughboi.cc resolve straight to 10.10.10.8:443 over Tailscale, nothing listens there)
+	- [ ] Keep IP:port as the fallback regardless — even if gitea.hughboi.cc works reliably, direct :3000/:3001 access should stay usable if dock-prod's Traefik itself is ever down (already true today, worth preserving)
+	- [ ] Weigh: Traefik on Athena, made authoritative only for VPN/LAN clients (via split-horizon DNS) so dock-prod's Traefik stays the WAN path and Athena doesn't become a second copy of the same public-facing config to maintain
+	- [ ] Alternative: split-horizon DNS alone, routing Tailscale clients to dock-prod's IP instead of Athena's, so VPN traffic just takes the same path as everyone else (no new Traefik instance, but internal traffic loops out through dock-prod oddly)
+- [x] SOPS-encrypt Semaphore's `.env` (`./scripts/sops-migrate.sh semaphore`) — first real service through the SOPS workflow (also fixed a real bug in the script itself: missing `--filename-override` meant it never matched any creation rule for any service, ever)
 - [ ] Actually configure Semaphore: SSH key, point at Gitea repo, inventory, task templates
 - [ ] Watch one more Gitea Actions CI run go green to confirm the runner is solid, not a one-off
 - [ ] Update `terraform/bind9/credentials.tfvars` with the new TSIG key (regenerated tonight, old one deferred)
