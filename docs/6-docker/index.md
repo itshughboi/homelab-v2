@@ -53,6 +53,16 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 > If you add a new Athena-hosted service that needs a `*.hughboi.cc` hostname, it goes there,
 > not in that service's own compose labels — Docker labels on an Athena compose file are silently
 > inert since Traefik never sees them.
+>
+> **Known gap — VPN/Tailscale clients:** `gitea.hughboi.cc`/`semaphore.hughboi.cc` resolve to
+> Athena's IP (`10.10.10.8`) for everyone, including VPN clients. Public clients reach that IP
+> only via dock-prod's Traefik (which terminates TLS and proxies to Athena) — but a Tailscale
+> client has direct subnet-router access to the `10.10.10.0/24` VLAN, so it connects straight to
+> `10.10.10.8:443`, bypassing Traefik entirely. Nothing listens on 443 on Athena itself
+> (`Connection refused`), even though the same URL works fine for anyone off-VPN. **Workaround:**
+> use the direct IP:port when on the VPN — `http://10.10.10.8:3000` (Gitea),
+> `http://10.10.10.8:3001` (Semaphore) — instead of the public hostname. Real fix would be
+> running Traefik (or a lightweight proxy) on Athena too; not done yet.
 
 ---
 
