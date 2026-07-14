@@ -2,7 +2,7 @@ $TTL    3d                                                          ; 3 day TTL 
 
                                                                     ; **State of Authority** (SOA) = metadata for the zone 
 @       IN      SOA     ns1.hughboi.cc. admin.hughboi.cc. (
-                        2026060501  ; Serial (YYYYMMDDNN)           ; change every time I edit zone
+                        2026071401  ; Serial (YYYYMMDDNN)           ; change every time I edit zone
                         1w          ; Refresh (1 week)              ; checks updates from secondary DNS server at this interval
                         1d          ; Retry (1 day)                 ; if refresh fails, retry daily
                         4w          ; Expire (4 weeks)              ; if no refresh succeeds for 4 weeks, discard data
@@ -27,6 +27,8 @@ pbs                 IN      A       10.10.10.6                      ; Port 8007 
 postgres            IN      A       10.10.10.7                      ; Port 5432
 athena              IN      A       10.10.10.8                      ; Ansible, Gitea, Semaphore, Bind9
 bind9               IN      A       10.10.10.8                      ; alias — Bind9 lives on Athena
+gitea               IN      A       10.10.10.8                      ; Gitea lives on Athena, not dock-prod — wildcard would send it to Traefik's IP, which is wrong
+semaphore           IN      A       10.10.10.8                      ; Semaphore lives on Athena too
 dock-prod           IN      A       10.10.10.10                     ; Docker host, Traefik
 
                                                                     ; test dig/nslookup
