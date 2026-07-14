@@ -87,7 +87,11 @@ services:
         condition: service_started
     environment:
       - CONFIG_FILE=/config.yml
-      - GITEA_INSTANCE_URL=https://gitea.hughboi.cc
+      # Same-host routing gap: gitea.hughboi.cc resolves to Athena itself, but nothing
+      # listens on 443 here — only dock-prod's Traefik terminates TLS for that hostname.
+      # Reach Gitea over the Docker network by service name instead (both containers
+      # share the 'gitea' network), skipping the public hostname/TLS hop entirely.
+      - GITEA_INSTANCE_URL=http://gitea:3000
       - GITEA_RUNNER_REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
       - GITEA_RUNNER_NAME=Hermes
     volumes:
