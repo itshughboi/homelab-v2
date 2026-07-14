@@ -1,7 +1,7 @@
 ---
 secrets:
   cf_api_token:
-    file: /home/hughboi/data/traefik/cf_api_token.txt   # create and paste CF API token
+    file: /home/hughboi/traefik/cf_api_token.txt   # create and paste CF API token
 
 services:
   traefik:
@@ -28,10 +28,10 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/hughboi/code/traefik/data/traefik.yml:/traefik.yml:ro
-      - /home/hughboi/data/traefik/data/acme.json:/acme.json
-      - /home/hughboi/code/traefik/data/config.yml:/config.yml:ro
-      - /home/hughboi/data/traefik/logs:/var/log/traefik
+      - /home/hughboi/traefik/data/traefik.yml:/traefik.yml:ro
+      - /home/hughboi/traefik/data/acme.json:/acme.json
+      - /home/hughboi/traefik/data/config.yml:/config.yml:ro
+      - /home/hughboi/traefik/logs:/var/log/traefik
     ports:
       - "80:80"
       - "443:443"

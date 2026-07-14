@@ -17,8 +17,13 @@ entryPoints:
     http:
       middlewares:
         - crowdsec-bouncer@file
-        
-
+    # No read/write/idle timeout — needed for long-lived connections (large
+    # media transfers, websockets) through services like Immich/Jellyfin.
+    transport:
+      respondingTimeouts:
+        readTimeout: "0s"
+        writeTimeout: "0s"
+        idleTimeout: "0s"
 
 serversTransport:
   insecureSkipVerify: true
@@ -33,7 +38,7 @@ providers:
 certificatesResolvers:
   cloudflare:
     acme:
-      email: ### ADD EMAIL (EMAIL ASSOCIATED TO CLOUDFLARE) HERE
+      email: cloudflare@hughboi.cc
       storage: acme.json
       caServer: https://acme-v02.api.letsencrypt.org/directory # prod (default)
       #caServer: https://acme-staging-v02.api.letsencrypt.org/directory # staging
