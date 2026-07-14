@@ -1,5 +1,16 @@
 Documentation: https://docs.gitea.com/
 
+## Routing (Athena, not dock-prod)
+
+Gitea runs on Athena, but Traefik runs on dock-prod — Traefik's Docker-label discovery only
+sees containers on its own host, so `compose.yaml` publishes port 3000 directly and the
+`gitea.hughboi.cc` route lives as a static entry in
+[`apps/docker/traefik/data/config.yml`](../traefik/data/config.yml) on dock-prod instead of
+labels here. See [6-docker/index.md](../../../docs/6-docker/index.md) for the full explanation.
+If `gitea.hughboi.cc` ever 404s/times out after this container is confirmed healthy, that
+static route (or Traefik's reachability to `10.10.10.8:3000` across the VLAN firewall) is
+the first place to check — not this compose file.
+
 ## SSH Keys
 1. On gitea... -> Profile -> SSH -? Add Key -> upload public key
 2. On client, e.g. MacOS, test ssh using port 222. 

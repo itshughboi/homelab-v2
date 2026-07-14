@@ -43,6 +43,16 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 
 > Traefik (the reverse proxy for `*.hughboi.cc`) runs **only on dock-prod** — it fronts the
 > Athena-hosted services (Gitea, Semaphore) over the network. Athena itself does not run Traefik.
+>
+> **How this actually works:** Traefik's Docker-label routing (`traefik.http.routers.*` labels)
+> only discovers containers on the *same host* as Traefik — it can't see across hosts. So
+> Athena-hosted services are **not** labeled; they publish their ports directly
+> (`gitea: ports: ["3000:3000"]`) and get a **static route** in Traefik's file provider instead:
+> [`apps/docker/traefik/data/config.yml`](../../apps/docker/traefik/data/config.yml) has a
+> hand-written `http.routers`/`http.services` block pointing at `10.10.10.8:<port>` for each one.
+> If you add a new Athena-hosted service that needs a `*.hughboi.cc` hostname, it goes there,
+> not in that service's own compose labels — Docker labels on an Athena compose file are silently
+> inert since Traefik never sees them.
 
 ---
 

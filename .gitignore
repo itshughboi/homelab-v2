@@ -53,6 +53,13 @@ data/
 volumes/
 secrets/
 
+# Traefik's hand-authored routing config lives under data/ alongside runtime
+# state (acme.json, logs) that data/ is meant to exclude — track just these two.
+!apps/docker/traefik/data/
+apps/docker/traefik/data/*
+!apps/docker/traefik/data/traefik.yml
+!apps/docker/traefik/data/config.yml
+
 # ── Netboot large binaries (download fresh via web UI, never commit) ───────────
 bootstrap/netbootxyz/assets/proxmox/vmlinuz
 bootstrap/netbootxyz/assets/proxmox/initrd.img

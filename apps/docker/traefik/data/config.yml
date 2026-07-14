@@ -1,0 +1,37 @@
+http:
+  middlewares:
+    crowdsec-bouncer:
+      forwardauth:
+        address: http://bouncer-traefik:8080/api/v1/forwardAuth
+        trustForwardHeader: true
+    gitea-https-redirect:
+      redirectscheme:
+        scheme: https
+
+  # Gitea runs on Athena (10.10.10.8), not dock-prod — Traefik's Docker provider
+  # only discovers containers on this host, so it's routed here statically instead.
+  routers:
+    gitea-secure:
+      rule: "Host(`gitea.hughboi.cc`)"
+      entryPoints:
+        - https
+      service: gitea
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: hughboi.cc
+            sans:
+              - "*.hughboi.cc"
+    gitea:
+      rule: "Host(`gitea.hughboi.cc`)"
+      entryPoints:
+        - http
+      middlewares:
+        - gitea-https-redirect
+      service: gitea
+
+  services:
+    gitea:
+      loadBalancer:
+        servers:
+          - url: "http://10.10.10.8:3000"

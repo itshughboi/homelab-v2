@@ -32,20 +32,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "222:22"   # Git SSH — required for git push over SSH
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.gitea.entrypoints=http"
-      - "traefik.http.routers.gitea.rule=Host(`gitea.hughboi.cc`)"
-      - "traefik.http.middlewares.gitea-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.routers.gitea.middlewares=gitea-https-redirect"
-      - "traefik.http.routers.gitea-secure.entrypoints=https"
-      - "traefik.http.routers.gitea-secure.rule=Host(`gitea.hughboi.cc`)"
-      - "traefik.http.routers.gitea-secure.tls=true"
-      - "traefik.http.routers.gitea-secure.service=gitea"
-      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
-      - "traefik.docker.network=proxy"
+      - "3000:3000"   # HTTP — Traefik on dock-prod routes here by static IP (see traefik/data/config.yml)
     networks:
-      - proxy
       - gitea
 
   postgres:
@@ -108,14 +96,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - gitea
-      - proxy
+      - runner-egress
 
 
 volumes:
   db:
 
 networks:
-  proxy:
-    external: true
+  # internal: true — gitea/postgres talk to each other only; the gitea service's
+  # own ports: mapping (not this network) is how Traefik/SSH reach it from outside.
   gitea:
     internal: true
+  # The runner needs real internet/LAN egress to reach gitea.hughboi.cc over HTTPS
+  # and to pull images for CI jobs — it can't be internal like the other two.
+  runner-egress:
