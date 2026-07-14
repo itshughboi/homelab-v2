@@ -42,7 +42,21 @@ ansible-playbook ansible/playbooks/ubuntu/setup-athena/main.yaml \
   -i ansible/playbooks/ubuntu/setup-athena/inventory.yaml
 ```
 
-This installs Docker, OpenTofu, SOPS, age, and all management services on Athena. After it completes, Semaphore is the operator.
+This installs Docker, OpenTofu, SOPS, age, and all management services on Athena — including the
+**Loki Docker logging driver plugin**, which every app in `apps/docker/*/compose.yaml` requires
+(`logging: driver: loki`). After it completes, Semaphore is the operator.
+
+> [!WARNING]
+> **If you ever run `docker compose up` on Athena manually** (outside this playbook — e.g. bringing
+> up a single app by hand), and the plugin isn't installed yet, you'll hit:
+> `error looking up logging plugin loki: plugin "loki" not found`. Fix once with:
+>
+> ```sh
+> sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+> ```
+>
+> This bit us cutting bind9 over from a loose dock-prod-era deploy to the repo's compose file —
+> the plugin had only ever been installed on dock-prod, never on Athena.
 
 ---
 

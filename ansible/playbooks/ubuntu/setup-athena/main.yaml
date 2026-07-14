@@ -86,6 +86,15 @@
         groups: docker
         append: yes
 
+    # Required before any compose stack starts — every app in apps/docker/ uses
+    # `logging: driver: loki`, and container creation fails outright without this.
+    - name: Install Loki Docker logging driver plugin
+      community.docker.docker_plugin:
+        plugin_name: grafana/loki-docker-driver:latest
+        alias: loki
+        state: present
+        enable_timeout: 30
+
     # ── OpenTofu ──────────────────────────────────────────────────────────────
 
     - name: Install OpenTofu
