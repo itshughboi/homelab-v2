@@ -58,6 +58,28 @@ This installs Docker, OpenTofu, SOPS, age, and all management services on Athena
 > This bit us cutting bind9 over from a loose dock-prod-era deploy to the repo's compose file —
 > the plugin had only ever been installed on dock-prod, never on Athena.
 
+> [!WARNING]
+> **Pin Athena's own DNS resolver to bind9 explicitly — DHCP-supplied server order isn't reliable.**
+> Athena gets `10.10.10.8, 10.10.10.10, 9.9.9.9` from DHCP with no explicit preference, and
+> systemd-resolved doesn't consistently pick `10.10.10.8` (itself/bind9) as `Current DNS Server` —
+> it picked `9.9.9.9` (Quad9) in practice, which obviously can't resolve internal-only hostnames
+> like `gitea.hughboi.cc`. This breaks anything on Athena doing a plain hostname lookup (git, curl,
+> etc.) with a confusing "does not have any RR of the requested type" error, even though
+> `dig @10.10.10.8 <host>` (bypassing the system resolver) works fine the whole time.
+>
+> Fix by adding an explicit `nameservers:` block to Athena's netplan config
+> (`/etc/netplan/*.yaml`), forcing bind9 first regardless of DHCP order:
+>
+> ```yaml
+>       nameservers:
+>         addresses:
+>           - 10.10.10.8
+>           - 9.9.9.9
+> ```
+>
+> Then `sudo netplan apply`. Verify with `resolvectl status eth0` — `Current DNS Server` should
+> show `10.10.10.8`.
+
 ---
 
 ## SOPS + Age (Secrets Before Anything Else)
@@ -98,12 +120,25 @@ dig @10.10.10.8 proxmox.hughboi.cc
 
 ## Git Handoff to Gitea
 
+From your laptop or any other client, `origin` should point at Gitea directly:
+
 ```sh
-git remote add gitea https://gitea.hughboi.cc/hughboi/homelab.git
-git push gitea main
+git remote add origin https://gitea.hughboi.cc/hughboi/homelab.git
+git push origin main
 ```
 
-GitHub is a push mirror (auto-synced from Gitea). GitHub links in docs are valid and intentional — Gitea is primary.
+GitHub is a push mirror (auto-synced from Gitea, configured under the repo's Mirror Settings). GitHub links in docs are valid and intentional — Gitea is primary.
+
+> [!WARNING]
+> **From Athena itself, use `http://10.10.10.8:3000/hughboi/homelab.git`, not the public hostname.**
+> `gitea.hughboi.cc` resolves to Athena's own IP (`10.10.10.8`) — DNS has no way to know the
+> request originated on Athena vs. anywhere else, so it points at the same address either way.
+> But nothing listens on port 443 on Athena; TLS termination and the `gitea.hughboi.cc` routing
+> only exist on dock-prod's Traefik. A plain `git pull` against the public hostname from Athena
+> fails with `Couldn't connect to server` (port 443, nothing there) even after DNS resolves fine.
+> Use the direct IP:port instead — no TLS needed for same-host traffic anyway. This will bite any
+> future Athena-hosted service the same way if it tries to reach another Athena-hosted service (or
+> itself) by its public hostname instead of `10.10.10.8:<port>` directly.
 
 ---
 
