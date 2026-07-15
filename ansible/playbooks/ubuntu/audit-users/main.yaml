@@ -100,7 +100,7 @@
         cmd: |
           python3 -c "
           import subprocess
-          expected = set({{ expected_sudo_users | to_json }})
+          expected = set({{ expected_sudo_users }})
           result = subprocess.run(['getent', 'group', 'sudo'], capture_output=True, text=True)
           members_str = result.stdout.strip().split(':')[-1] if result.stdout else ''
           members = set(m for m in members_str.split(',') if m)
