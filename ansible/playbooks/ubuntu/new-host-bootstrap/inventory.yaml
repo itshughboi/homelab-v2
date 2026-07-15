@@ -5,7 +5,7 @@
 all:
   vars:
     ansible_user: hughboi
-    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+    ansible_ssh_private_key_file: ~/.ssh/homelab-athena_id_ed25519
     # On a brand-new VM you may need to use root and password auth for the first run:
     # ansible_user: root
     # ansible_password: "changeme"

@@ -3,4 +3,4 @@ all:
     athena:
       ansible_host: 10.10.10.8
       ansible_user: hughboi
-      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      ansible_ssh_private_key_file: ~/.ssh/homelab-athena_id_ed25519
