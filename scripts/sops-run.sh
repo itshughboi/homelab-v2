@@ -73,15 +73,18 @@ if [[ -f "$SOPS_FILE" ]]; then
     exit 1
   fi
 
-  echo "→ [$SERVICE] sops exec-env + docker compose $*"
-  # exec-env decrypts .env.sops and injects vars directly into the child process env.
-  # Docker Compose reads ${VAR} substitutions from the shell environment when no .env
-  # file is present — so this works without writing anything to disk.
-  exec sops exec-env \
-    --config "$SOPS_CONFIG" \
-    --input-type dotenv \
-    "$SOPS_FILE" \
-    -- docker compose -f "$COMPOSE_FILE" "$@"
+  echo "→ [$SERVICE] sops decrypt + docker compose $*"
+  # `sops exec-env` doesn't reliably honor --input-type for dotenv files (tested against
+  # sops 3.9.0: it falls back to JSON parsing and fails with "Error unmarshalling input
+  # json" regardless of the flag) — so decrypt explicitly and export into this shell's
+  # environment instead. `set -a` exports every var sourced below; Docker Compose reads
+  # ${VAR} substitutions from the shell environment when no .env file is present, so this
+  # still never writes plaintext to disk.
+  set -a
+  # shellcheck disable=SC1090
+  source <(sops --decrypt --config "$SOPS_CONFIG" --input-type dotenv --output-type dotenv "$SOPS_FILE")
+  set +a
+  exec docker compose -f "$COMPOSE_FILE" "$@"
 
 else
   # No .env.sops — service either has no secrets or hasn't been migrated yet
