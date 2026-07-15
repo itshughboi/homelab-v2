@@ -41,6 +41,7 @@
             members=$(getent group "$grp" 2>/dev/null | cut -d: -f4)
             [ -n "$members" ] && echo "$grp: $members"
           done
+          true
       register: sudo_info
       changed_when: false
 
