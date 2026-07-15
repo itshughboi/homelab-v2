@@ -82,11 +82,19 @@ if [[ -f "$SOPS_FILE" ]]; then
   #
   # Exported one line at a time, not `source <(...)`: a service's .env can legitimately
   # define UID= (common for matching a container's user to the host's), which collides
-  # with bash's own readonly $UID and would abort a straight `source`. Skip lines bash
-  # won't let us export — the shell's own UID/EUID already equal the real values anyway.
+  # with bash's own readonly $UID/$EUID. Under `set -e`, a failed export from a readonly
+  # name aborts the whole script silently — a trailing `|| ...` fallback does NOT reliably
+  # catch it in this while/process-substitution context (tested: confirmed the || is not
+  # honored here). So check the name against the known-reserved list *before* exporting,
+  # rather than trying to catch the failure after the fact.
   while IFS= read -r line; do
     [[ -z "$line" || "$line" == \#* ]] && continue
-    export "$line" 2>/dev/null || echo "  (skipping read-only shell var: ${line%%=*})"
+    key="${line%%=*}"
+    if [[ "$key" == "UID" || "$key" == "EUID" ]]; then
+      echo "  (skipping shell-reserved var: $key — real \$$key already matches)"
+      continue
+    fi
+    export "$line"
   done < <(sops --decrypt --config "$SOPS_CONFIG" --input-type dotenv --output-type dotenv "$SOPS_FILE")
   exec docker compose -f "$COMPOSE_FILE" "$@"
 
