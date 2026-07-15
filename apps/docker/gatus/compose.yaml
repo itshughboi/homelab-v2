@@ -56,7 +56,7 @@ services:
       - POSTGRES_ENDPOINT=postgres:5432
       - DISCORD_WEBHOOK=${DISCORD_WEBHOOK}
     volumes:
-      - /home/hughboi/code/gatus/config:/config:ro
+      - /home/hughboi/homelab/apps/docker/gatus/config:/config:ro
     dns:
       - "10.10.10.8"
       - "10.10.10.10"
