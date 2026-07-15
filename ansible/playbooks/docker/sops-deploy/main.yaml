@@ -1,0 +1,98 @@
+---
+# Deploy a Docker Compose service on a remote host, with SOPS-encrypted secrets
+# decrypted on the controller (Athena) only — the private age key never leaves
+# Athena, and the target host never needs sops/age installed at all.
+#
+# Equivalent of running `./scripts/sops-run.sh <service> up -d` by hand on the
+# target host, but driven from Semaphore over SSH — no manual server access.
+#
+# Usage (Semaphore Task Template — prompt for `service` as an extra var):
+#   ansible-playbook -i inventory.yaml main.yaml -e service=gatus
+#
+# Requires: apps/docker/<service>/.env.sops must already exist (run
+# ./scripts/sops-migrate.sh <service> once, from a machine with the age key,
+# before the first sops-deploy run for a given service).
+
+- name: Deploy a Docker Compose service with SOPS secrets
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+
+  vars:
+    # Both happen to be the same path today, but kept as separate vars —
+    # one means "on the target host" (dock-prod), the other "on the
+    # controller" (Athena, where this playbook actually runs, since
+    # Semaphore lives there). Don't collapse these into one var: the
+    # decrypt tasks below are all delegate_to: localhost, i.e. Athena,
+    # even though most other tasks in this play run on the target host.
+    remote_repo_dir: /home/hughboi/homelab
+    controller_repo_dir: /home/hughboi/homelab
+    sops_config: "{{ controller_repo_dir }}/.sops.yaml"
+
+  tasks:
+    - name: Fail fast if no service was specified
+      ansible.builtin.fail:
+        msg: "Pass -e service=<name> (matches apps/docker/<name>/), e.g. -e service=gatus"
+      when: service is not defined
+      run_once: true
+      delegate_to: localhost
+
+    - name: Pull latest repo on target host
+      ansible.builtin.git:
+        repo: https://gitea.hughboi.cc/hughboi/homelab.git
+        dest: "{{ remote_repo_dir }}"
+        version: main
+        update: true
+      become: false
+
+    - name: Check for .env.sops on the controller (Athena)
+      ansible.builtin.stat:
+        path: "{{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: sops_file
+
+    - name: Fail if the service has never been migrated to SOPS
+      ansible.builtin.fail:
+        msg: >
+          apps/docker/{{ service }}/.env.sops doesn't exist. Run
+          ./scripts/sops-migrate.sh {{ service }} once from a machine with the
+          age private key (e.g. Athena) first, then commit + push .env.sops.
+      when: not sops_file.stat.exists
+      run_once: true
+      delegate_to: localhost
+
+    # Decrypt on the controller and parse into JSON in one step — a small inline
+    # Python script, not a hand-rolled Jinja filter chain. (Ansible's own
+    # docker_compose_v2 `environment:` param wants a plain dict; Python's json
+    # module round-trips that far more predictably than string-splitting in
+    # Jinja2, which is easy to get subtly wrong and hard to unit-test.)
+    - name: Decrypt .env.sops and parse into JSON on the controller
+      ansible.builtin.command:
+        cmd: >
+          sops --decrypt --config {{ sops_config }}
+          --input-type dotenv --output-type json
+          {{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: decrypted_env
+      changed_when: false
+      no_log: true
+
+    - name: Parse decrypted JSON into a fact
+      ansible.builtin.set_fact:
+        service_env: "{{ decrypted_env.stdout | from_json }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      no_log: true
+
+    - name: Deploy via docker compose on the target host
+      community.docker.docker_compose_v2:
+        project_src: "{{ remote_repo_dir }}/apps/docker/{{ service }}"
+        state: present
+        pull: always
+      environment: "{{ service_env }}"
+      no_log: true
