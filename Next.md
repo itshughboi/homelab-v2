@@ -7,10 +7,8 @@
 
 Tomorrow:
 
-- [ ] Decide + implement real fix for VPN/Tailscale bypassing Traefik on Athena-hosted services (gitea.hughboi.cc, semaphore.hughboi.cc resolve straight to 10.10.10.8:443 over Tailscale, nothing listens there)
-	- [ ] Keep IP:port as the fallback regardless — even if gitea.hughboi.cc works reliably, direct :3000/:3001 access should stay usable if dock-prod's Traefik itself is ever down (already true today, worth preserving)
-	- [ ] Weigh: Traefik on Athena, made authoritative only for VPN/LAN clients (via split-horizon DNS) so dock-prod's Traefik stays the WAN path and Athena doesn't become a second copy of the same public-facing config to maintain
-	- [ ] Alternative: split-horizon DNS alone, routing Tailscale clients to dock-prod's IP instead of Athena's, so VPN traffic just takes the same path as everyone else (no new Traefik instance, but internal traffic loops out through dock-prod oddly)
+- [x] Fixed VPN/Tailscale bypassing Traefik on Athena-hosted services — pointed gitea/semaphore.hughboi.cc's A records at dock-prod (10.10.10.10) instead of Athena directly, so every client (LAN/VPN/public/Athena-itself) routes through Traefik uniformly. IP:port (10.10.10.8:3000/:3001) still works as a fallback if Traefik is ever down. Hit and fixed two real bugs along the way: (1) hand-edited zone files with `update-policy` set are "dynamic" and silently ignore plain `rndc reload` — needs freeze/reload/thaw, see Terraform Bind9.md; (2) Athena's DNS resolver preference (bind9 first) was set via netplan, which cloud-init wipes on every reboot — moved to a systemd-resolved drop-in instead
+	- [ ] Add the systemd-resolved DNS drop-in to the `setup-athena` Ansible playbook so a rebuilt Athena gets it automatically instead of needing this manual step again
 - [x] SOPS-encrypt Semaphore's `.env` (`./scripts/sops-migrate.sh semaphore`) — first real service through the SOPS workflow (also fixed a real bug in the script itself: missing `--filename-override` meant it never matched any creation rule for any service, ever)
 - [ ] Actually configure Semaphore: SSH key, point at Gitea repo, inventory, task templates
 - [ ] Watch one more Gitea Actions CI run go green to confirm the runner is solid, not a one-off
