@@ -36,7 +36,11 @@ services:
     container_name: semaphore
     image: docker.io/semaphoreui/semaphore:v2.18.4
     restart: unless-stopped
-    user: "${UID}:${GID}"
+    # COMPOSE_UID/COMPOSE_GID, not UID/GID: UID is a bash readonly built-in and always
+    # equals the real host user's ID — sops-run.sh can't export a differing value for it
+    # (see apps/docker/semaphore/README.md). This image needs UID 1001 specifically,
+    # which is never your real host UID, so it needs its own variable name.
+    user: "${COMPOSE_UID}:${COMPOSE_GID}"
     security_opt:
       - no-new-privileges:true
     logging:

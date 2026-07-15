@@ -44,7 +44,7 @@ Gitea. See [6-docker/index.md](../../../docs/6-docker/index.md) for the full exp
 | `SEMAPHORE_ADMIN_EMAIL` | Admin account email |
 | `SEMAPHORE_ADMIN_NAME` | Admin display name |
 | `SEMAPHORE_ACCESS_KEY_ENCRYPTION` | Key for encrypting stored SSH/vault passwords — **back this up** |
-| `UID` / `GID` | Run as this user — **must be `1001:0`**, not the usual `1000:1000` Docker convention. The `semaphoreui/semaphore` image's built-in user is UID 1001 (`/etc/passwd` inside the image), and `/tmp/semaphore` is created at image-build time owned by that UID. Running as `1000:1000` gets a valid-but-wrong user that can't write there — `mkdir /tmp/semaphore/project_1: permission denied` at task-run time, not at container start. |
+| `COMPOSE_UID` / `COMPOSE_GID` | Run as this user — **must be `1001:0`**, not the usual `1000:1000` Docker convention. The `semaphoreui/semaphore` image's built-in user is UID 1001 (`/etc/passwd` inside the image), and `/tmp/semaphore` is created at image-build time owned by that UID. Running as `1000:1000` gets a valid-but-wrong user that can't write there — `mkdir /tmp/semaphore/project_1: permission denied` at task-run time, not at container start. Named `COMPOSE_UID`, not `UID` — `UID` is a bash readonly built-in that `sops-run.sh` can't override to a value other than your real host UID (see `scripts/sops-run.sh`'s comments), so a service needing a *different* UID needs its own variable name. |
 
 ---
 
