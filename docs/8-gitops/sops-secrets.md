@@ -100,7 +100,11 @@ Docker Compose interpolates `${VAR}` in compose files from two sources (in prior
 1. Shell environment variables
 2. `.env` file in the same directory
 
-`sops exec-env .env.sops -- docker compose up -d` decrypts the secrets and injects them as shell environment variables before Docker Compose starts. Docker Compose reads them from the environment. **No file is written to disk.**
+`sops-run.sh` decrypts `.env.sops` and exports each variable into its own shell environment
+before calling `docker compose`, which then reads them from the environment. **No file is
+written to disk.** (Originally implemented via `sops exec-env` — dropped after testing showed
+it doesn't reliably honor `--input-type dotenv` against sops 3.9.0 and fails outright; the
+script decrypts explicitly and exports line-by-line instead, same result.)
 
 ---
 
@@ -115,8 +119,8 @@ brew install sops age
 # Ubuntu/Debian
 apt install age
 # SOPS: no apt package, download binary:
-SOPS_VERSION=$(curl -s https://api.github.com/repos/getsentry/sops/releases/latest | grep tag_name | cut -d'"' -f4)
-curl -Lo /usr/local/bin/sops "https://github.com/getsentry/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
+SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep tag_name | cut -d'"' -f4)
+curl -Lo /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
 chmod +x /usr/local/bin/sops
 ```
 
@@ -207,6 +211,16 @@ Not yet migrated (.env.sops missing):
 # Dry run — see the resolved compose file with vars substituted:
 ./scripts/sops-run.sh vaultwarden config
 ```
+
+> [!IMPORTANT] Use `sudo -E`, not plain `sudo`, if the Docker commands need root
+> `sops-run.sh` decrypts and exports the secrets into its *own* shell's environment before
+> calling `docker compose`. Plain `sudo` starts a fresh environment and loses everything the
+> script just exported — Compose falls back to empty values. `-E` preserves the environment
+> across the privilege escalation:
+>
+> ```bash
+> sudo -E ./scripts/sops-run.sh semaphore up -d
+> ```
 
 ---
 
@@ -512,6 +526,16 @@ The service hasn't been migrated yet.
 ```bash
 ./scripts/sops-migrate.sh <service>
 ```
+
+### `sops-run.sh` exits silently with no output, no error
+
+Almost certainly a `.env` with `UID=` in it (common Docker pattern for matching a container's
+user to the host's). `UID`/`EUID` are readonly bash built-ins — `sops-run.sh` skips them by
+design (the script's own `$UID` already equals the real value, so nothing is lost), but if
+you're troubleshooting a *modified* copy of the script, know that a failed `export` of a
+readonly name under `set -e` aborts silently — a trailing `|| ...` fallback does **not**
+reliably catch it in this context, tested and confirmed against bash. The name has to be
+checked and skipped *before* attempting the export, not caught after.
 
 ### A key exists in `.env.sops` but with an empty value
 

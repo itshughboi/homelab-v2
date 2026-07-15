@@ -1,6 +1,6 @@
 # Scripts
 
-Secrets management tooling for the Docker stack. All scripts use [SOPS](https://github.com/getsentry/sops) with [age](https://github.com/FiloSottile/age) encryption to store `.env` secrets safely in Git.
+Secrets management tooling for the Docker stack. All scripts use [SOPS](https://github.com/getsops/sops) with [age](https://github.com/FiloSottile/age) encryption to store `.env` secrets safely in Git.
 
 ---
 
