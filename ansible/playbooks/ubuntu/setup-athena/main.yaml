@@ -61,6 +61,30 @@
         state: started
         enabled: true
 
+    # ── DNS resolver ──────────────────────────────────────────────────────────
+    # Pin bind9 (10.10.10.8, this host) as the preferred DNS server. DHCP hands out
+    # a correctly-ordered list (bind9 first), but systemd-resolved doesn't reliably
+    # treat DHCP's order as a strict preference — it picked Quad9 in practice, which
+    # can't resolve internal-only hostnames like gitea.hughboi.cc. A netplan
+    # nameservers: override doesn't survive reboot (cloud-init regenerates
+    # 50-cloud-init.yaml every boot); a systemd-resolved drop-in does, since
+    # cloud-init doesn't touch that path.
+    - name: Create systemd-resolved drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Pin bind9 as the preferred DNS resolver
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/dns.conf
+        mode: "0644"
+        content: |
+          [Resolve]
+          DNS=10.10.10.8
+          FallbackDNS=9.9.9.9
+      notify: Restart systemd-resolved
+
     # ── Docker ────────────────────────────────────────────────────────────────
 
     - name: Install Docker
@@ -156,3 +180,9 @@
           - "4. Enable TOTP on Gitea admin account"
           - "5. Set SIGNUPS_ALLOWED=false in Vaultwarden after it's deployed"
           - "6. Run terraform init -migrate-state once Gitea is confirmed running"
+
+  handlers:
+    - name: Restart systemd-resolved
+      ansible.builtin.service:
+        name: systemd-resolved
+        state: restarted
