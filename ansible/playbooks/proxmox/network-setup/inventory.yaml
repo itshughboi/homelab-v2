@@ -6,6 +6,7 @@
 all:
   vars:
     ansible_user: root
+    ansible_become: false  # Proxmox has no sudo binary; play-level become:true would fail outright
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
     # Corosync VLAN 20 IPs — populate before cluster creation
     # Leave blank to skip (Corosync uses management IP by default)
