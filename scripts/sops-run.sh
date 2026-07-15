@@ -77,13 +77,17 @@ if [[ -f "$SOPS_FILE" ]]; then
   # `sops exec-env` doesn't reliably honor --input-type for dotenv files (tested against
   # sops 3.9.0: it falls back to JSON parsing and fails with "Error unmarshalling input
   # json" regardless of the flag) — so decrypt explicitly and export into this shell's
-  # environment instead. `set -a` exports every var sourced below; Docker Compose reads
-  # ${VAR} substitutions from the shell environment when no .env file is present, so this
-  # still never writes plaintext to disk.
-  set -a
-  # shellcheck disable=SC1090
-  source <(sops --decrypt --config "$SOPS_CONFIG" --input-type dotenv --output-type dotenv "$SOPS_FILE")
-  set +a
+  # environment instead. Docker Compose reads ${VAR} substitutions from the shell
+  # environment when no .env file is present, so this still never writes plaintext to disk.
+  #
+  # Exported one line at a time, not `source <(...)`: a service's .env can legitimately
+  # define UID= (common for matching a container's user to the host's), which collides
+  # with bash's own readonly $UID and would abort a straight `source`. Skip lines bash
+  # won't let us export — the shell's own UID/EUID already equal the real values anyway.
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    export "$line" 2>/dev/null || echo "  (skipping read-only shell var: ${line%%=*})"
+  done < <(sops --decrypt --config "$SOPS_CONFIG" --input-type dotenv --output-type dotenv "$SOPS_FILE")
   exec docker compose -f "$COMPOSE_FILE" "$@"
 
 else
