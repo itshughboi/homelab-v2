@@ -22,7 +22,7 @@ services:
     volumes:
       - /home/hughboi/code/gatus/config:/config:ro
     dns:
-      - "10.10.10.9"
+      - "10.10.10.8"
       - "10.10.10.10"
     labels:
       - "traefik.enable=true"

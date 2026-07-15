@@ -81,7 +81,7 @@ endpoints:
 
   - name: bind9 - tcp
     <<: *server
-    url: "tcp://10.10.10.9:53"  
+    url: "tcp://10.10.10.8:53"
 
   - name: HAPostgres VIP - icmp
     <<: *server

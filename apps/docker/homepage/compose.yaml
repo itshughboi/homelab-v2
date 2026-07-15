@@ -45,7 +45,7 @@ services:
       # - /var/run/docker.sock:/var/run/docker.sock  # Uncomment for docker integrations
     dns:
       - 10.10.10.10
-      - 10.10.10.9
+      - 10.10.10.8
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.home.entrypoints=http"

@@ -12,7 +12,7 @@ Docker services split across two hosts: **Athena** (management stack) and **dock
 overall stack is strong (100% pinned images, `no-new-privileges` everywhere, Loki logging).
 
 **Quick wins**
-- [ ] **gatus + homepage** — DNS `10.10.10.9` → `10.10.10.8` (Bind9 runs on Athena `.8`; `.9` is bogus). traefik is already on `.8`; the stragglers are gatus (`compose.yaml` + `config/config.yaml`), homepage (`compose.yaml`), and the bind9 zone `db.hughboi.vip` self-record.
+- [x] **gatus + homepage** — DNS `10.10.10.9` → `10.10.10.8` (Bind9 runs on Athena `.8`; `.9` is bogus, a leftover from before Bind9 moved to Athena). Fixed in gatus (`compose.yaml` + `config/config.yaml` — the latter is a live health check that had silently been probing the wrong IP for bind9's own uptime), homepage (`compose.yaml`), the bind9 zone `db.hughboi.vip` self-record, both READMEs (also mislabeled `.10` as "AdGuard" — it's dock-prod; AdGuard runs in k3s via MetalLB, no static `10.10.10.x` address at all), and dock-prod's own OS-level resolver (`/etc/cloud/cloud.cfg.d/90-installer-network.cfg` + a systemd-resolved drop-in, since a netplan-only fix doesn't survive reboot — same lesson as Athena's DNS fix).
 - [ ] **bind9** — move off the `_beta` image tag (foundational DNS shouldn't run a beta).
 
 **Medium**

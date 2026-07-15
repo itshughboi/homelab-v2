@@ -67,7 +67,7 @@ All are passed as `HOMEPAGE_VAR_*` and referenced in `services.yaml` as `{{HOMEP
 
 ## DNS
 
-The container uses `10.10.10.10` and `10.10.10.9` (AdGuard) as DNS so it can resolve internal service hostnames for widget health checks.
+The container uses `10.10.10.10` (dock-prod, this host) and `10.10.10.8` (Bind9, on Athena) as DNS so it can resolve internal service hostnames for widget health checks.
 
 ## Upgrade Notes
 

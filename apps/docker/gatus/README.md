@@ -13,7 +13,7 @@ Single container. No built-in database dependency in this compose — persistenc
 
 Config lives at `/home/hughboi/code/gatus/config` (mounted `:ro`). This is where all endpoints, alert rules, and thresholds are defined. Changes to config require a container restart to take effect.
 
-DNS for the container is set to `10.10.10.9` and `10.10.10.10` (AdGuard) so that internal hostnames resolve correctly when checking internal services.
+DNS for the container is set to `10.10.10.8` (Bind9, on Athena) and `10.10.10.10` (dock-prod, this host) so that internal hostnames resolve correctly when checking internal services.
 
 ## Volumes
 
@@ -52,7 +52,7 @@ Configure alert providers in the config YAML. Options: Discord, ntfy, PagerDuty,
 
 **Service shows as down but is actually up:**
 - Check the DNS resolution from inside the container: `docker exec gatus nslookup service.hughboi.cc`
-- The container uses AdGuard as DNS (10.10.10.9/10.10.10.10). If AdGuard is down, all internal checks will fail.
+- The container uses Bind9 and dock-prod's own resolver as DNS (10.10.10.8/10.10.10.10). If Bind9 is down, all internal checks will fail.
 
 **Config changes not taking effect:**
 - Gatus reads config only at startup. Restart the container after any config file change: `docker restart gatus`
