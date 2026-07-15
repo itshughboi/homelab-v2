@@ -7,7 +7,12 @@ Uptime and health monitoring dashboard. Pings services on a configured schedule,
 
 ## Stack
 
-Single container. No built-in database dependency in this compose — persistence is handled either by SQLite (embedded) or by pointing to an external Postgres via the config file. The env vars `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` are passed in and referenced inside the Gatus config YAML.
+Two containers: `gatus` and its own dedicated `gatus-postgres` (not a shared/external
+Postgres — same one-database-per-app pattern as Gitea/Semaphore). `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, `POSTGRES_DB` are passed to both; `POSTGRES_ENDPOINT` is fixed
+to `postgres:5432` (the Postgres container's name on the internal `gatus` Docker
+network) and set directly in `compose.yaml`, not `.env` — it's not something you'd
+ever need to change.
 
 ## Config
 

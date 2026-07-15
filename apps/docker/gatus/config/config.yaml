@@ -1,6 +1,6 @@
 storage:
   type: postgres
-  path: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_ENDPOING}/${POSTGRES_DB}?sslmode=require"
+  path: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_ENDPOINT}/${POSTGRES_DB}?sslmode=disable"
 
 
 alerting:
@@ -82,10 +82,6 @@ endpoints:
   - name: bind9 - tcp
     <<: *server
     url: "tcp://10.10.10.8:53"
-
-  - name: HAPostgres VIP - icmp
-    <<: *server
-    url: "icmp://10.10.10.7"
 
   - name: automation Athena
     <<: *server
