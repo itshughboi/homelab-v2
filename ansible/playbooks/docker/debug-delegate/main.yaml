@@ -26,3 +26,31 @@
         msg:
           - "first: {{ first_result.stdout | default('MISSING') }}"
           - "second: {{ second_result.stdout | default('MISSING') }}"
+
+    - name: Real sops decrypt command, same as sops-deploy
+      ansible.builtin.command:
+        cmd: >
+          sops --decrypt --config {{ (playbook_dir + '/../../../..') | realpath }}/.sops.yaml
+          --input-type dotenv --output-type dotenv
+          --output /tmp/debug-sops-test.env
+          {{ (playbook_dir + '/../../../..') | realpath }}/apps/docker/gatus/.env.sops
+      delegate_to: localhost
+      changed_when: false
+      register: sops_result
+
+    - name: Show sops result
+      ansible.builtin.debug:
+        msg:
+          - "rc: {{ sops_result.rc | default('MISSING') }}"
+          - "stdout: {{ sops_result.stdout | default('MISSING') }}"
+          - "stderr: {{ sops_result.stderr | default('MISSING') }}"
+
+    - name: Check if the output file exists
+      ansible.builtin.stat:
+        path: /tmp/debug-sops-test.env
+      delegate_to: localhost
+      register: output_check
+
+    - name: Show whether file exists
+      ansible.builtin.debug:
+        msg: "output file exists: {{ output_check.stat.exists }}"
