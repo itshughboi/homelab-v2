@@ -67,21 +67,23 @@
         update: true
       become: false
 
+    # Combined check-and-fail into one task (failed_when, not a separate fail:
+    # task) — a standalone `ansible.builtin.fail` task gated by `when:` on this
+    # stat's result, run via delegate_to: localhost right before another
+    # delegate_to: localhost task, reproducibly caused Semaphore (not plain
+    # ansible-playbook) to silently skip the *next* task with no error at all.
+    # Root cause not fully understood — something in Semaphore's own execution
+    # layer around consecutive delegated tasks — worked around structurally by
+    # not having two delegate_to: localhost tasks in a row with a when: between
+    # them. If this task fails, it means apps/docker/{{ service }}/.env.sops
+    # doesn't exist — run ./scripts/sops-migrate.sh {{ service }} first.
     - name: Check for .env.sops on the controller (Athena)
       ansible.builtin.stat:
         path: "{{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops"
       delegate_to: localhost
       become: false
       register: sops_file
-
-    - name: Fail if the service has never been migrated to SOPS
-      ansible.builtin.fail:
-        msg: >
-          apps/docker/{{ service }}/.env.sops doesn't exist. Run
-          ./scripts/sops-migrate.sh {{ service }} once from a machine with the
-          age private key (e.g. Athena) first, then commit + push .env.sops.
-      when: not sops_file.stat.exists
-      delegate_to: localhost
+      failed_when: not sops_file.stat.exists
 
     # Decrypt straight to a file, dotenv-to-dotenv (docker compose's env_files
     # param reads a real .env file natively — no JSON/dict conversion needed at
