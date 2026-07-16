@@ -4,8 +4,10 @@ services:
     container_name: n8n
     image: n8nio/n8n:2.22.0
     restart: unless-stopped
+    user: "1000:1000"
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     logging:
       driver: loki
       options:
@@ -74,6 +76,5 @@ services:
 
 networks:
   n8n:
-    internal: true
   proxy:
     external: true
