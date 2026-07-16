@@ -11,8 +11,12 @@ services:
       - SETGID
       - SETUID
       - FOWNER
+    # apparmor:unconfined — dock-prod runs AppArmor in enforce mode by default,
+    # which conflicts with the CHOWN/SETUID/etc. caps above (needed for
+    # searxng's first-run file ownership setup as root).
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     logging:
       driver: loki
       options:
@@ -27,7 +31,8 @@ services:
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
     volumes:
-      - /home/hughboi/data/searxng:/etc/searxng:rw
+      - searxng-config:/etc/searxng:rw
+      - searxng-cache:/var/cache/searxng
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
@@ -44,6 +49,10 @@ services:
     networks:
       - proxy
 
+
+volumes:
+  searxng-config:
+  searxng-cache:
 
 networks:
   proxy:
