@@ -19,14 +19,20 @@
   become: true
 
   vars:
-    # Both happen to be the same path today, but kept as separate vars —
-    # one means "on the target host" (dock-prod), the other "on the
-    # controller" (Athena, where this playbook actually runs, since
-    # Semaphore lives there). Don't collapse these into one var: the
-    # decrypt tasks below are all delegate_to: localhost, i.e. Athena,
-    # even though most other tasks in this play run on the target host.
+    # remote_repo_dir: fixed path on the target host (dock-prod) — that's a real,
+    # permanent clone we manage.
+    #
+    # controller_repo_dir: NOT a fixed path. When Semaphore runs this playbook, the
+    # "controller" (wherever delegate_to: localhost actually lands — Athena, since
+    # that's where Semaphore/Ansible run) is Semaphore's own per-task checkout, at
+    # a path like /tmp/semaphore/project_1/repository_1_template_2/ — a different,
+    # unpredictable directory every run, NOT /home/hughboi/homelab. (Confirmed the
+    # hard way: hardcoding /home/hughboi/homelab here made the "check .env.sops
+    # exists" task silently check the wrong path — it reported ok, but against a
+    # repo clone that doesn't exist inside Semaphore's container at all.) Derive it
+    # from playbook_dir, which Ansible sets correctly regardless of checkout path.
     remote_repo_dir: /home/hughboi/homelab
-    controller_repo_dir: /home/hughboi/homelab
+    controller_repo_dir: "{{ (playbook_dir + '/../../../..') | realpath }}"
     sops_config: "{{ controller_repo_dir }}/.sops.yaml"
 
   tasks:

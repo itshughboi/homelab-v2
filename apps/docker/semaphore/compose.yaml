@@ -73,6 +73,21 @@ services:
       - /home/hughboi/data/semaphore/inventory/:/inventory:ro
       - /home/hughboi/data/semaphore/authorized-keys/:/authorized-keys:ro
       - /home/hughboi/data/semaphore/config/:/etc/semaphore:rw
+      # For playbooks/scripts/docker/sops-deploy: sops/age must be *statically linked*
+      # binaries — Semaphore's image is Alpine/musl, and Athena's apt-installed `age`
+      # is dynamically linked against glibc and won't run here (confirmed: exec fails
+      # silently with no useful error). Use the static release binaries from
+      # github.com/FiloSottile/age/releases and github.com/getsops/sops/releases,
+      # not whatever `apt`/`age-setup.sh`'s dependency check happens to find first.
+      - /usr/local/bin/sops:/usr/local/bin/sops:ro
+      - /usr/local/bin/age:/usr/local/bin/age:ro
+      - /usr/local/bin/age-keygen:/usr/local/bin/age-keygen:ro
+      # Age private key — moved out of ~/.config (chmod 750 on $HOME blocks traversal
+      # for any UID that isn't hughboi or in the hughboi group) to /etc/sops/age, which
+      # is world-traversable (755). Key itself is hughboi:root 640 — this container
+      # runs as 1001:0 (COMPOSE_GID=0, see below), so group 0 is what actually needs
+      # read access, not a semaphore-specific group.
+      - /etc/sops/age/keys.txt:/home/semaphore/.config/sops/age/keys.txt:ro
     ports:
       - "3001:3000"   # HTTP — Traefik on dock-prod routes here by static IP (see traefik/data/config.yml). 3001 to avoid clashing with Gitea's 3000 on the same host.
     networks:
