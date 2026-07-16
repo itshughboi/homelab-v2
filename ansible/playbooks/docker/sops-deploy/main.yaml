@@ -142,11 +142,20 @@
       changed_when: false
       when: sops_config_files.matched > 0
 
+    # mode 0644, not 0600: unlike .env (read briefly by root/compose, then
+    # deleted), config-secret files are bind-mounted into the container and
+    # read continuously by the service's own process, which is rarely root
+    # (e.g. mailrise runs as a non-root image user) — 0600 root-owned caused
+    # "Permission denied" reading /etc/mailrise.conf inside the container,
+    # even though the copy task itself reported success. World-readable is
+    # an acceptable tradeoff here since host access is already restricted to
+    # hughboi via SSH; the whole point of this playbook is these files never
+    # touch the target host except as this one already-decrypted copy.
     - name: Copy decrypted config-secret files to the target host
       ansible.builtin.copy:
         src: "/tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}"
         dest: "{{ remote_repo_dir }}/apps/docker/{{ service }}/{{ item.path | basename | replace('.sops', '') }}"
-        mode: "0600"
+        mode: "0644"
       loop: "{{ sops_config_files.files | default([]) }}"
       loop_control:
         label: "{{ item.path | basename }}"
