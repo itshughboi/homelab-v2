@@ -31,14 +31,20 @@
     remote_repo_dir: /home/hughboi/homelab
     controller_repo_dir: "{{ (playbook_dir + '/../../../..') | realpath }}"
     sops_config: "{{ controller_repo_dir }}/.sops.yaml"
-    # Decrypted secrets never pass through a `register`'d Ansible variable at all —
-    # `no_log: true` on a task whose result Ansible actually needs internally
-    # (not just for display) reproducibly broke execution when run via Semaphore
-    # specifically (confirmed: identical playbook via `ansible-playbook` from a
-    # plain shell worked every time; via Semaphore it failed every time, with the
-    # next task seeing empty input — a real bug in how Semaphore streams/handles
-    # censored task results, not fixable from our side). Writing straight to a file
-    # sidesteps the whole problem: nothing sensitive ever becomes a registered var.
+    # Decrypted secrets never pass through a `register`'d Ansible variable at all.
+    # Two separate real bugs led here, both specific to running via Semaphore (an
+    # identical playbook via plain `ansible-playbook` from a shell worked every
+    # time in both cases):
+    #   1. no_log: true on a task whose result Ansible needs internally broke
+    #      execution — the next task saw empty input instead of the real value.
+    #   2. Even with no_log removed, run_once: true + delegate_to: localhost on
+    #      a task following an earlier skipped task caused Semaphore to skip it
+    #      too, with no error — Ansible's own `-vv` output confirmed this never
+    #      happens outside Semaphore.
+    # Both point at something in Semaphore's own execution/streaming layer, not
+    # our playbook logic — worked around by removing run_once entirely (no
+    # practical benefit with a single host anyway) and never registering
+    # anything sensitive in the first place.
     controller_env_file: "/tmp/sops-deploy-{{ service }}.env"
     # docker_compose_v2's env_files param resolves relative to project_src, and by
     # default docker compose already looks for exactly this filename there — so
@@ -51,7 +57,6 @@
       ansible.builtin.fail:
         msg: "Pass -e service=<name> (matches apps/docker/<name>/), e.g. -e service=gatus"
       when: service is not defined
-      run_once: true
       delegate_to: localhost
 
     - name: Pull latest repo on target host
@@ -67,7 +72,6 @@
         path: "{{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops"
       delegate_to: localhost
       become: false
-      run_once: true
       register: sops_file
 
     - name: Fail if the service has never been migrated to SOPS
@@ -77,7 +81,6 @@
           ./scripts/sops-migrate.sh {{ service }} once from a machine with the
           age private key (e.g. Athena) first, then commit + push .env.sops.
       when: not sops_file.stat.exists
-      run_once: true
       delegate_to: localhost
 
     # Decrypt straight to a file, dotenv-to-dotenv (docker compose's env_files
@@ -92,7 +95,6 @@
           {{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops
       delegate_to: localhost
       become: false
-      run_once: true
       changed_when: false
 
     - name: Copy decrypted env file to the target host
@@ -118,4 +120,3 @@
         state: absent
       delegate_to: localhost
       become: false
-      run_once: true
