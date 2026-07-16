@@ -7,12 +7,21 @@ no manual SSH into the target host required.
 2. Decrypts `apps/docker/<service>/.env.sops` **on the controller (Athena)** — the
    private age key never leaves Athena, the target host never needs `sops`/`age`
    installed at all
-3. Runs `docker compose up -d` on the target host, with the decrypted values passed
-   in as environment variables over the SSH connection — never written to disk on
-   the target host
+3. Copies the decrypted `.env` to the target host (mode `0600`), runs
+   `docker compose up -d`, then deletes the decrypted copy from both the target
+   host and the controller
 
 Equivalent of `./scripts/sops-run.sh <service> up -d` run by hand, but from
 Semaphore instead of a manual SSH session.
+
+## Gotchas
+
+**Never run this via Semaphore's "Dry Run" option.** Dry run puts Ansible in
+check mode, and `ansible.builtin.command` (used for the `sops` decrypt step)
+doesn't support check mode — it silently reports "skipping" instead of running,
+which cascades into the next task failing with "Could not find or access
+`/tmp/sops-deploy-<service>.env` on the Ansible Controller". This looks like a
+playbook bug but isn't one — a normal (non-dry-run) run works fine.
 
 ## Requirements
 

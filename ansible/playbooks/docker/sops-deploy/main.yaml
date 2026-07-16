@@ -12,6 +12,15 @@
 # Requires: apps/docker/<service>/.env.sops must already exist (run
 # ./scripts/sops-migrate.sh <service> once, from a machine with the age key,
 # before the first sops-deploy run for a given service).
+#
+# Do NOT run this via Semaphore's "Dry Run" option. Dry run = Ansible check
+# mode, and ansible.builtin.command (used for the sops decrypt task) doesn't
+# support check mode — it just reports "skipping" with no error, which then
+# cascades into "Copy decrypted env file to the target host" failing with
+# "Could not find or access '/tmp/sops-deploy-<service>.env' on the Ansible
+# Controller". A normal (non-dry-run) task run works fine. Cost a long
+# debugging session before the cause was traced to dry-run mode rather than
+# anything in this playbook.
 
 - name: Deploy a Docker Compose service with SOPS secrets
   hosts: docker_hosts
@@ -31,20 +40,9 @@
     remote_repo_dir: /home/hughboi/homelab
     controller_repo_dir: "{{ (playbook_dir + '/../../../..') | realpath }}"
     sops_config: "{{ controller_repo_dir }}/.sops.yaml"
-    # Decrypted secrets never pass through a `register`'d Ansible variable at all.
-    # Two separate real bugs led here, both specific to running via Semaphore (an
-    # identical playbook via plain `ansible-playbook` from a shell worked every
-    # time in both cases):
-    #   1. no_log: true on a task whose result Ansible needs internally broke
-    #      execution — the next task saw empty input instead of the real value.
-    #   2. Even with no_log removed, run_once: true + delegate_to: localhost on
-    #      a task following an earlier skipped task caused Semaphore to skip it
-    #      too, with no error — Ansible's own `-vv` output confirmed this never
-    #      happens outside Semaphore.
-    # Both point at something in Semaphore's own execution/streaming layer, not
-    # our playbook logic — worked around by removing run_once entirely (no
-    # practical benefit with a single host anyway) and never registering
-    # anything sensitive in the first place.
+    # Decrypted secrets never pass through a `register`'d Ansible variable at all
+    # — decrypt straight to a file on disk, so nothing sensitive is ever held in
+    # a fact that Semaphore's log streaming could capture.
     controller_env_file: "/tmp/sops-deploy-{{ service }}.env"
     # docker_compose_v2's env_files param resolves relative to project_src, and by
     # default docker compose already looks for exactly this filename there — so
@@ -67,16 +65,8 @@
         update: true
       become: false
 
-    # Combined check-and-fail into one task (failed_when, not a separate fail:
-    # task) — a standalone `ansible.builtin.fail` task gated by `when:` on this
-    # stat's result, run via delegate_to: localhost right before another
-    # delegate_to: localhost task, reproducibly caused Semaphore (not plain
-    # ansible-playbook) to silently skip the *next* task with no error at all.
-    # Root cause not fully understood — something in Semaphore's own execution
-    # layer around consecutive delegated tasks — worked around structurally by
-    # not having two delegate_to: localhost tasks in a row with a when: between
-    # them. If this task fails, it means apps/docker/{{ service }}/.env.sops
-    # doesn't exist — run ./scripts/sops-migrate.sh {{ service }} first.
+    # If this task fails, it means apps/docker/{{ service }}/.env.sops doesn't
+    # exist — run ./scripts/sops-migrate.sh {{ service }} first.
     - name: Check for .env.sops on the controller (Athena)
       ansible.builtin.stat:
         path: "{{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops"
