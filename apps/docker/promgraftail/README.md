@@ -121,6 +121,14 @@ Grafana Alloy is the next-gen OTel collector replacing Promtail. It can ingest l
 
 ## Troubleshooting
 
+**⚠️ Known issue (unresolved):** `promtail` was observed crash-looping (`Restarting`) on
+dock-prod during the SOPS migration session, unrelated to anything changed that night — root
+cause not yet investigated. This stack is deliberately **not yet SOPS-migrated**, both because of
+this crash loop and because Loki here is a dependency for every other service's
+`logging: driver: loki` — a broken Loki doesn't just lose this stack's own logs, it silently
+drops shipped logs fleet-wide. Diagnose and fix the crash loop (`docker logs promtail`) before
+attempting any path/secrets migration on this stack.
+
 **Grafana can't connect to Prometheus:**
 - Both must be on the `promgraftail` network. Verify: `docker network inspect promgraftail | grep -A2 prometheus`
 - Test from Grafana container: `docker exec grafana wget -qO- http://prometheus:9090/-/ready`

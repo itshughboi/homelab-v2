@@ -39,10 +39,13 @@ packer/proxmox-iso-ubuntu/proxmox-iso-ubuntu.pkr.hcl
 packer/proxmox-iso-ubuntu/proxmox.pkrvars.sh
 
 # SOPS-encrypted secrets ARE safe to commit — un-ignore them.
-# .env.sops files have age/AES256-GCM-encrypted values.
+# .env.sops files have age/AES256-GCM-encrypted values, as does any other
+# *.sops file (config-as-secret services, e.g. mailrise.conf.sops — see
+# ansible/playbooks/docker/sops-deploy/README.md).
 # See scripts/README.md for the full SOPS workflow.
 !*.env.sops
 !*.sops.yaml
+!*.sops
 !*.sops.tfvars
 
 # ── OS ─────────────────────────────────────────────────────────────────────────

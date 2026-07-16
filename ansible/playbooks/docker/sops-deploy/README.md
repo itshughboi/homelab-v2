@@ -23,6 +23,22 @@ which cascades into the next task failing with "Could not find or access
 `/tmp/sops-deploy-<service>.env` on the Ansible Controller". This looks like a
 playbook bug but isn't one — a normal (non-dry-run) run works fine.
 
+**Services with anonymous (unnamed) Docker volumes can silently attach to the
+wrong data.** This playbook's deploy task (`community.docker.docker_compose_v2`)
+doesn't set an explicit `project_name` — it defaults to the basename of
+`project_src` (i.e. `apps/docker/<service>`), same as plain `docker compose`.
+If a service's `compose.yaml` has anonymous volumes (`volumes: data:` with no
+`name:` key), Compose prefixes them with that project name at runtime. This is
+fine as long as the project name never changes — but if it ever does (a
+directory rename, or an explicit `project_name` ever gets added to this
+playbook), Compose creates **brand-new empty volumes** instead of attaching to
+the service's real data, with no error. Before the *first* `sops-deploy` run
+for any service holding real data, verify: `cd apps/docker/<service> &&
+docker compose config | tail -5` should show the volume names you expect
+already exist (`docker volume ls`). See
+[docs/Backup-Recovery.md](../../../../docs/Backup-Recovery.md#ad-hoc-back-up-a-docker-named-volume-before-a-risky-change)
+for the full pre-cutover check-and-backup pattern.
+
 ## Requirements
 
 The service must already be migrated to SOPS — `apps/docker/<service>/.env.sops`

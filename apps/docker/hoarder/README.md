@@ -24,6 +24,20 @@ Chrome needs internet access to browse and archive URLs. The `hoarder` network i
 | `data` (named volume) | All bookmark data, screenshots, archived content |
 | `meilisearch` (named volume) | Search index |
 
+> [!WARNING]
+> These are **anonymous** named volumes (`volumes: data: / meilisearch:` with no explicit
+> `name:` in `compose.yaml`) — Docker Compose auto-prefixes them with the **compose project
+> name**, which defaults to the basename of the directory you run `docker compose`/`sops-deploy`
+> from. As long as that's `apps/docker/hoarder/` (project name `hoarder`), the real volumes are
+> `hoarder_data`/`hoarder_meilisearch` and everything lines up. But if this ever gets deployed
+> from a differently-named directory, or the Ansible `docker_compose_v2` module ever sets an
+> explicit different `project_name`, Compose will silently create **brand-new empty volumes**
+> instead of attaching to your real bookmark data — no error, no warning. Before any deploy from
+> a new/different path, verify first: `docker compose config | tail -5` should show
+> `hoarder_data`/`hoarder_meilisearch`. See
+> [docs/Backup-Recovery.md](../../../docs/Backup-Recovery.md#ad-hoc-back-up-a-docker-named-volume-before-a-risky-change)
+> for the full check + backup pattern used when this was originally migrated.
+
 ## Environment Variables (`.env`)
 
 | Variable | Purpose |

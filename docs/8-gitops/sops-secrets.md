@@ -88,11 +88,23 @@ Key names (`DOMAIN=`, `ADMIN_TOKEN=`) are visible. Values are encrypted. This is
 ```yaml
 # .sops.yaml at repo root
 creation_rules:
-  - path_regex: apps/docker/.*\.env\.sops$
+  - path_regex: apps/docker/.*\.sops$
     age: age1qyq...   ← your public key (safe to commit)
 ```
 
-Any file matching `apps/docker/**/.env.sops` is encrypted with that public key. SOPS reads this config automatically when you run it from anywhere in the repo.
+Any file matching `apps/docker/**/*.sops` is encrypted with that public key — not just
+`.env.sops`. This also covers **config-as-secret** files, for services that bake secrets
+directly into a config file instead of reading them from env vars (e.g. `mailrise.conf.sops`) —
+see "Config-as-secret services" under
+[`ansible/playbooks/docker/sops-deploy/README.md`](../../ansible/playbooks/docker/sops-deploy/README.md#config-as-secret-services-no-separate-env)
+for the full pattern. SOPS reads this config automatically when you run it from anywhere in the repo.
+
+> [!NOTE]
+> The rule intentionally does **not** try to distinguish `.env.sops` from other `*.sops` files —
+> both need the same age key, and an earlier attempt to exclude `.env.sops` via a regex
+> lookbehind (`(?<!\.env)\.sops$`) failed outright: SOPS uses Go's RE2 regex engine, which
+> doesn't support lookaround assertions at all (`can not compile regexp: invalid or unsupported
+> Perl syntax`). One broad rule is simpler and works.
 
 ### How Docker Compose gets the secrets
 

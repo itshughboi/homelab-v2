@@ -85,6 +85,8 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 
 **Immich version pinning:** `immich/home` and `immich/eros` must run the same `IMMICH_VERSION` in their `.env` files. Mismatched versions corrupt the database.
 
+**CrowdSec bouncer is a hard ingress dependency:** Traefik's `crowdsec-bouncer` forwardAuth middleware is applied globally to every entrypoint, and fails **closed** — if `bouncer-traefik` isn't reachable, every Traefik-routed request gets a 403, homelab-wide, including Gitea and Semaphore. Never stop `crowdsec`/`bouncer-traefik` without a replacement already running. See `apps/docker/crowdsec/README.md`.
+
 ---
 
 ## Athena — Management Stack
