@@ -85,7 +85,7 @@
       run_once: true
       register: decrypted_env
       changed_when: false
-      no_log: false  # TEMP: debugging Semaphore-vs-manual discrepancy, revert before commit
+      no_log: true
 
     - name: Parse decrypted JSON into a fact
       ansible.builtin.set_fact:
