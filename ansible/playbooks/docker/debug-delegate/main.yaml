@@ -5,12 +5,34 @@
 - name: Debug consecutive delegate_to localhost
   hosts: docker_hosts
   gather_facts: false
+  become: true
+
+  vars:
+    controller_repo_dir: "{{ (playbook_dir + '/../../../..') | realpath }}"
+    sops_config: "{{ controller_repo_dir }}/.sops.yaml"
 
   tasks:
+    - name: Pull latest repo on target host
+      ansible.builtin.git:
+        repo: https://gitea.hughboi.cc/hughboi/homelab.git
+        dest: /home/hughboi/homelab
+        version: main
+        update: true
+      become: false
+
+    - name: Check for .env.sops on the controller (Athena)
+      ansible.builtin.stat:
+        path: "{{ controller_repo_dir }}/apps/docker/gatus/.env.sops"
+      delegate_to: localhost
+      become: false
+      register: sops_file
+      failed_when: not sops_file.stat.exists
+
     - name: First delegated task
       ansible.builtin.command:
         cmd: echo "first task ran"
       delegate_to: localhost
+      become: false
       changed_when: false
       register: first_result
 
@@ -18,6 +40,7 @@
       ansible.builtin.command:
         cmd: echo "second task ran"
       delegate_to: localhost
+      become: false
       changed_when: false
       register: second_result
 
@@ -35,6 +58,7 @@
           --output /tmp/debug-sops-test.env
           {{ (playbook_dir + '/../../../..') | realpath }}/apps/docker/gatus/.env.sops
       delegate_to: localhost
+      become: false
       changed_when: false
       register: sops_result
 
@@ -49,6 +73,7 @@
       ansible.builtin.stat:
         path: /tmp/debug-sops-test.env
       delegate_to: localhost
+      become: false
       register: output_check
 
     - name: Show whether file exists
