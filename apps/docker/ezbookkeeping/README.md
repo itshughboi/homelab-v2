@@ -139,3 +139,15 @@ docker exec -it ezbookkeeping-mysql mysql -u ezbookkeeping -p ezbookkeeping
 ```
 - Or recreate the account if data loss is acceptable
 
+**Container crash-loops with "permission denied" on `./log/ezbookkeeping.log` or `./storage`:**
+- On first deploy to a host, Docker auto-creates `./log` and `./storage` (relative
+  bind mounts) as `root:root` if they don't already exist — but the app runs as
+  UID/GID `1000:1000` inside the container and can't write to a root-owned
+  directory. Fix once per host:
+  ```sh
+  sudo chown -R 1000:1000 apps/docker/ezbookkeeping/log apps/docker/ezbookkeeping/storage
+  docker compose restart ezbookkeeping
+  ```
+- After the first successful boot this won't recur, since the directories already
+  exist with the right owner.
+
