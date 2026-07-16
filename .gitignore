@@ -2,6 +2,10 @@
 *.env
 .env
 
+# Personal local-only checklist of secrets pasted in plaintext during a chat
+# session, kept for the user's own credential-rotation follow-up — never commit.
+ROTATE_CREDENTIALS.md
+
 # Config-as-secret files decrypted onto a target host by sops-deploy — same
 # pattern as .env/.env.example. The tracked placeholder is
 # apps/docker/mailrise/mailrise.conf.example; this only excludes the real
