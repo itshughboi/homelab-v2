@@ -6,22 +6,21 @@
 Docker management UI. Browse containers, volumes, networks, images, logs, and exec into containers from a browser. Useful for quick inspection without SSH.
 
 > [!WARNING]
-> **Slated for decommission, pending a Grafana replacement.** Now that most Docker services
-> deploy via `ansible/playbooks/docker/sops-deploy/` (encrypted secrets, driven from Semaphore),
-> Portainer's redeploy/recreate actions are actively dangerous for any SOPS-migrated service —
-> the decrypted `.env` only exists on disk briefly during a `sops-deploy` run and is deleted
-> afterward, so a Portainer-triggered container **recreation** (not a plain restart — Compose
+> **Never redeploy/recreate a SOPS-migrated service through Portainer.** Now that most Docker
+> services deploy via `ansible/playbooks/docker/sops-deploy/` (encrypted secrets, driven from
+> Semaphore), the decrypted `.env` only exists on disk briefly during a `sops-deploy` run and is
+> deleted afterward. A Portainer-triggered container **recreation** (not a plain restart — Compose
 > "redeploy"/stop+remove+up) would start the container with blank secrets instead of failing
-> loudly. **Never use Portainer to redeploy, recreate, or edit the compose stack of any migrated
-> service — only `sops-deploy` should do that.** A plain `docker restart` (via Portainer or the
-> CLI) is still safe, since it reuses the already-running container's existing environment.
+> loudly. **Only `sops-deploy` should redeploy, recreate, or edit the compose stack of a migrated
+> service.** A plain `docker restart` (via Portainer or the CLI) is still safe, since it reuses
+> the already-running container's existing environment.
 >
-> Plan: enable cAdvisor (already in `apps/docker/promgraftail/compose.yaml`, currently commented
-> out) and build a Grafana dashboard for container status/resource usage — Portainer's other two
-> real uses (console/exec access, restart button) are covered by a `dexec()` shell helper on
-> dock-prod and `docker restart <name>` respectively. Once the dashboard's proven out, remove
-> Portainer entirely — one fewer path to accidentally deploy something outside the SOPS/Semaphore
-> pipeline.
+> Otherwise, Portainer stays — it's still genuinely useful for image/volume/network browsing +
+> pruning, quick console access, and managing non-SOPS hosts via Portainer agents (staging boxes,
+> anything not on the encrypted-secrets pipeline, where the risk above doesn't apply). A `dexec()`
+> shell helper was added to dock-prod as a lighter console-access option
+> (see `docs/6-docker/index.md`), but that's a convenience, not a replacement — no plan to remove
+> Portainer.
 
 ## Stack
 

@@ -147,8 +147,9 @@ dexec() {
 }
 ```
 Usage: `dexec hoard` finds and shells into `hoarder` without needing the exact name or a
-`docker ps | grep` round-trip first. Added as part of moving off Portainer's console-exec
-feature — see `apps/docker/portainer/README.md` for the full reasoning.
+`docker ps | grep` round-trip first. A lighter alternative to Portainer's console-exec feature
+for quick SSH-session use — not a replacement, Portainer's still around (see
+`apps/docker/portainer/README.md`).
 
 ---
 
