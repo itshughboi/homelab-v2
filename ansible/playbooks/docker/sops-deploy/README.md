@@ -50,12 +50,19 @@ file (other than `.env.sops`) straight to its real filename
 equivalent exists yet — encrypt by hand:
 
 ```sh
-sops --encrypt --config .sops.yaml apps/docker/<service>/<filename>.<ext> \
+sops --encrypt --config .sops.yaml \
+  --filename-override apps/docker/<service>/<filename>.<ext>.sops \
+  apps/docker/<service>/<filename>.<ext> \
   > apps/docker/<service>/<filename>.<ext>.sops
 git add apps/docker/<service>/<filename>.<ext>.sops
 git commit -m "chore(<service>): add SOPS-encrypted <filename>"
 git push
 ```
+
+`--filename-override` is required — SOPS matches `.sops.yaml`'s creation rules
+against the *input* file path by default, and the real input here
+(`mailrise.conf`, no `.sops` in the name) won't match `apps/docker/.*\.sops$` on
+its own. `sops-migrate.sh` does the same thing for `.env` under the hood.
 
 Unlike `.env`, decrypted config-secret files are **not** deleted from the target
 host after deploy — services like mailrise read their config continuously from
