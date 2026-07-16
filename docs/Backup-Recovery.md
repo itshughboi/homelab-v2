@@ -37,6 +37,51 @@ in progress). See [storage 3-2-1](4-storage/index.md#backup-strategy-3-2-1).
 
 ---
 
+## Ad-hoc: back up a Docker named volume before a risky change
+
+Not part of the automated layers above — this is the manual safety net to run **before**
+cutting a Docker Compose service over to a new deploy path/host, when the service holds real
+data in a named volume (not a bind mount to `apps/docker/<service>/`, which is already visible
+on disk). Used during the SOPS migration whenever a service's data mattered (e.g. `hoarder`'s
+bookmarks/search index in `hoarder_data`/`hoarder_meilisearch`).
+
+```sh
+# 1. Find the real volume name(s) — docker compose config | grep -A2 '^volumes:'
+#    or docker inspect <container> --format '{{json .Mounts}}'
+docker volume ls | grep <service>
+
+# 2. Tar the volume's contents to a host path (read-only mount, container never modifies it)
+mkdir -p /home/hughboi/backups
+docker run --rm -v <volume_name>:/data -v /home/hughboi/backups:/backup alpine \
+  tar czf /backup/<volume_name>_$(date +%Y%m%d_%H%M%S).tar.gz -C /data .
+
+# 3. Confirm it's non-trivial in size before proceeding with anything destructive
+ls -la /home/hughboi/backups/
+```
+
+**To restore** (into a fresh or existing empty volume):
+```sh
+docker run --rm -v <volume_name>:/data -v /home/hughboi/backups:/backup alpine \
+  tar xzf /backup/<the-backup-file>.tar.gz -C /data
+```
+
+Before trusting a cutover to a new compose file (different directory/project name), verify the
+**volume name Docker will actually use** matches the existing one — Compose derives it from the
+project name (the compose directory's basename by default) plus the volume's short name in
+`volumes:`. A mismatch silently creates a new empty volume instead of attaching to existing data,
+with no error. Check first, non-destructively:
+```sh
+cd apps/docker/<service> && docker compose config | tail -5     # shows resolved volume names
+```
+If the resolved name matches what `docker volume ls` already shows, the deploy is safe to
+attach to existing data.
+
+These tarballs are **not** covered by any automated backup layer above — they're a manual,
+point-in-time safety net for a single risky operation. Delete them once the cutover is confirmed
+working, or move them into the Restic path above if you want them retained longer-term.
+
+---
+
 ## The drill (run quarterly; automate the health-check daily)
 
 For each system: **(1) confirm a recent successful backup, (2) restore it somewhere throwaway,
