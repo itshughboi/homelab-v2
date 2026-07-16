@@ -17,7 +17,7 @@ services:
         mode: "non-blocking"
     env_file: .env
     volumes:
-      - /home/hughboi/data/pocket-id:/app/data
+      - /home/hughboi/data/pocket_id/data:/app/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.pocket.entrypoints=http"
