@@ -95,13 +95,16 @@ docs:
 
 | Scope | Files | Status | Doc |
 | --- | --- | --- | --- |
-| **Docker** | `apps/docker/**/.env` → `.env.sops` | Rule present; **inactive** (placeholder key) | [sops-secrets.md](sops-secrets.md) |
-| **Ansible / Terraform** | `secrets.yaml`, `terraform.tfvars` → `.sops` versions | Rules present; **inactive** (placeholder key) | [Secrets_SOPS.md](Secrets_SOPS.md) |
+| **Docker** | `apps/docker/**/.env` → `.env.sops` | **Active** — real age key, services actively migrating | [sops-secrets.md](sops-secrets.md) |
+| **Ansible / Terraform** | `secrets.yaml`, `terraform.tfvars` → `.sops` versions | Rule present, real key — no files encrypted yet | [Secrets_SOPS.md](Secrets_SOPS.md) |
 
-> [!IMPORTANT] Not active until the age key is set
-> `.sops.yaml` still ships `AGE_PUBLIC_KEY_PLACEHOLDER` — SOPS encrypts nothing until you run
-> `./scripts/age-setup.sh` on Athena (audit finding **C2**). Until then, secrets like
-> `terraform.tfvars` are just gitignored plaintext on disk, **not** encrypted-and-committed.
+> [!NOTE] Docker is live; Ansible/Terraform is wired up but unused
+> `.sops.yaml` has a real age public key across all three creation rules (Docker, Ansible,
+> Terraform) — `age-setup.sh` has already been run on Athena. The Docker side is genuinely
+> active: services are being migrated from plaintext `.env` to encrypted `.env.sops` on an
+> ongoing basis, deployed via `ansible/playbooks/docker/sops-deploy/`. The Ansible/Terraform
+> rule is configured and ready but no `secrets.sops.yaml` or `.sops.tfvars` file exists yet —
+> those secrets are still gitignored plaintext on disk, just not yet moved onto SOPS.
 
 Setup, encrypt/decrypt, multi-machine, rotation, and recovery are documented in the two scope
 docs above — not duplicated here.

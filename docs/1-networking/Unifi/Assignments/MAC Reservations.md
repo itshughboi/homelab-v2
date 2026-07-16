@@ -77,8 +77,8 @@ VIPs are MetalLB / control-plane virtual IPs, not pinned to a node.
 | k3s-longhorn-3   | 10.10.30.53 | pve-srv-4 | Longhorn storage node                                                                                                         |
 | k3s-api-vip      | 10.10.30.30 | —         | Control-plane VIP                                                                                                             |
 | k3s-longhorn-vip | 10.10.30.50 | —         | Longhorn VIP                                                                                                                  |
-| traefik-vip      | 10.10.30.65 | —         | MetalLB — ingress                                                                                                             |
-| adguard-vip      | 10.10.30.69 | —         | AdGuard on k3s (planned) — DNS filter for WiFi/IoT/guest; see [DNS.md](../Networks/DNS.md) + [7-k3s](../../../7-k3s/index.md) |
+| adguard-vip      | 10.10.30.65 | —         | AdGuard on k3s (planned) — DNS filter for WiFi/IoT/guest; see [DNS.md](../Networks/DNS.md) + [7-k3s](../../../7-k3s/index.md) |
+| traefik-vip      | 10.10.30.75 | —         | MetalLB — ingress                                                                                                             |
 
 **MetalLB pool:** `10.10.30.60`–`10.10.30.99`.
 
@@ -113,7 +113,7 @@ POTENTIAL_MISMATCH_FIX_THIS: Synology needs to have this too
 
 | Name                    | IP           | Node      | Role |
 | ----------------------- | ------------ | --------- | ---- |
-| vpn-gateway (tailscale) | 10.10.80.254 | pve-srv-1 | Tailscale subnet router only |
+| vpn-gateway (tailscale) | 10.10.80.10 | pve-srv-1 | Tailscale subnet router only |
 
 ---
 

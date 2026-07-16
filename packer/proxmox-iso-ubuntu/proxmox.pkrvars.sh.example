@@ -11,7 +11,7 @@ export PROXMOX_NODE="pve-srv-1"                         # Proxmox node to build 
 export SKIP_TLS_VERIFY="true"                           # self-signed cert
 
 # ── VM template settings ───────────────────────────────────────────────────────
-export VM_ID="9000"                                     # Terraform clones from this ID
+export VM_ID="9999"                                     # Terraform clones from this ID
 export IMAGE_NAME="ubuntu-server-noble"
 export VM_DESCRIPTION="Ubuntu Server Noble (24.04) — k3s base image"
 
