@@ -20,12 +20,24 @@ SMTP gateway that converts incoming emails into Apprise notifications. Any devic
 
 ## Config
 
-Config lives at `./mailrise.conf` (mounted `:ro`). Example structure:
+Config lives at `./mailrise.conf` (mounted `:ro`) — it's **not** a plain env-driven
+service; the notification URLs (Discord webhook, ntfy credentials) are baked directly
+into this file, so the file itself is the secret. It's encrypted with SOPS as
+`mailrise.conf.sops` (see the repo's `mailrise.conf.example` for the structure) and
+deployed via the `sops-deploy` Ansible playbook, which decrypts it straight onto the
+target host — see [ansible/playbooks/docker/sops-deploy/README.md](../../../ansible/playbooks/docker/sops-deploy/README.md#config-as-secret-services-no-separate-env)
+for how config-as-secret services work.
+
+Unlike `.env`-based services, the decrypted `mailrise.conf` is **not** cleaned up
+after each deploy — mailrise reads it continuously from disk, not just at
+container-start.
+
+Example structure:
 ```yaml
 configs:
-  notify:
+  "*":
     urls:
-      - ntfys://ntfy.hughboi.cc/homelab
+      - ntfys://user:pass@ntfy.hughboi.cc/apprise
       - discord://webhook_id/webhook_token
 ```
 

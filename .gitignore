@@ -1,6 +1,12 @@
 # ── Secrets — never commit ─────────────────────────────────────────────────────
 *.env
 .env
+
+# Config-as-secret files decrypted onto a target host by sops-deploy — same
+# pattern as .env/.env.example. The tracked placeholder is
+# apps/docker/mailrise/mailrise.conf.example; this only excludes the real
+# decrypted copy from ever being accidentally committed on a deploy target.
+apps/docker/mailrise/mailrise.conf
 vault_pass.txt
 *.key
 *.pem

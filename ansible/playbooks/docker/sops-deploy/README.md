@@ -39,6 +39,29 @@ git commit -m "chore(<service>): add SOPS-encrypted .env"
 git push
 ```
 
+### Config-as-secret services (no separate .env)
+
+Some services (e.g. `mailrise`) bake secrets directly into a config file instead
+of reading them from env vars — there's no `.env` to encrypt, the config file
+itself is the secret. For those, commit `<filename>.<ext>.sops` instead of (or
+alongside) `.env.sops` — this playbook auto-detects and decrypts any `*.sops`
+file (other than `.env.sops`) straight to its real filename
+(`mailrise.conf.sops` → `mailrise.conf`) on the target host. No migrate-script
+equivalent exists yet — encrypt by hand:
+
+```sh
+sops --encrypt --config .sops.yaml apps/docker/<service>/<filename>.<ext> \
+  > apps/docker/<service>/<filename>.<ext>.sops
+git add apps/docker/<service>/<filename>.<ext>.sops
+git commit -m "chore(<service>): add SOPS-encrypted <filename>"
+git push
+```
+
+Unlike `.env`, decrypted config-secret files are **not** deleted from the target
+host after deploy — services like mailrise read their config continuously from
+disk, not just at container-start, so it needs to stay in place. Keep the plaintext
+copy out of `.gitignore` exceptions for that service directory regardless.
+
 ## Usage
 
 ```sh

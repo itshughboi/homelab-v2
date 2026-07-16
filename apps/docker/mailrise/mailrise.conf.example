@@ -1,0 +1,5 @@
+configs:
+  "*":
+    urls:
+      - discord://REPLACE_ME_WEBHOOK_ID/REPLACE_ME_WEBHOOK_TOKEN
+      - ntfys://REPLACE_ME_USER:REPLACE_ME_PASS@ntfy.hughboi.cc/apprise

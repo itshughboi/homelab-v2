@@ -13,6 +13,16 @@
 # ./scripts/sops-migrate.sh <service> once, from a machine with the age key,
 # before the first sops-deploy run for a given service).
 #
+# Some services (e.g. mailrise) bake secrets directly into a config file
+# instead of reading them from env vars — for those, apps/docker/<service>/
+# has one or more <filename>.<ext>.sops files instead of (or alongside)
+# .env.sops, and this playbook decrypts each straight to <filename>.<ext> on
+# the target host (strips the trailing ".sops" only — mailrise.conf.sops ->
+# mailrise.conf). There's no migrate-script equivalent for this yet —
+# encrypt by hand with:
+#   sops --encrypt --config .sops.yaml apps/docker/<service>/<filename>.<ext> \
+#     > apps/docker/<service>/<filename>.<ext>.sops
+#
 # Do NOT run this via Semaphore's "Dry Run" option. Dry run = Ansible check
 # mode, and ansible.builtin.command (used for the sops decrypt task) doesn't
 # support check mode — it just reports "skipping" with no error, which then
@@ -49,6 +59,7 @@
     # this doubles as "the normal .env docker compose reads" and "the thing we
     # clean up after," no env_files: param needed on the deploy task at all.
     remote_env_file: "{{ remote_repo_dir }}/apps/docker/{{ service }}/.env"
+    service_dir: "{{ controller_repo_dir }}/apps/docker/{{ service }}"
 
   tasks:
     - name: Fail fast if no service was specified
@@ -65,35 +76,81 @@
         update: true
       become: false
 
-    # If this task fails, it means apps/docker/{{ service }}/.env.sops doesn't
-    # exist — run ./scripts/sops-migrate.sh {{ service }} first.
     - name: Check for .env.sops on the controller (Athena)
       ansible.builtin.stat:
-        path: "{{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops"
+        path: "{{ service_dir }}/.env.sops"
       delegate_to: localhost
       become: false
-      register: sops_file
-      failed_when: not sops_file.stat.exists
+      register: sops_env_file
 
-    # Decrypt straight to a file, dotenv-to-dotenv (docker compose's env_files
-    # param reads a real .env file natively — no JSON/dict conversion needed at
-    # all this way). Output is on disk, never captured as a task result/fact.
+    # Config-as-secret services (e.g. mailrise) commit <filename>.<ext>.sops
+    # instead of .env.sops — find any of those for this service. Excludes
+    # .env.sops itself (handled separately above) via the patterns regex.
+    - name: Check for *.sops config files on the controller (Athena)
+      ansible.builtin.find:
+        paths: "{{ service_dir }}"
+        patterns: '^(?!\.env\.sops$).*\.sops$'
+        use_regex: true
+      delegate_to: localhost
+      become: false
+      register: sops_config_files
+
+    - name: Fail if neither .env.sops nor a *.sops config file exists
+      ansible.builtin.fail:
+        msg: >
+          No apps/docker/{{ service }}/.env.sops and no *.sops config file
+          found. Run ./scripts/sops-migrate.sh {{ service }} (for a plain
+          .env) or encrypt a config file by hand (see comment at top of this
+          playbook) first.
+      delegate_to: localhost
+      when: not sops_env_file.stat.exists and sops_config_files.matched == 0
+
     - name: Decrypt .env.sops to a temp file on the controller
       ansible.builtin.command:
         cmd: >
           sops --decrypt --config {{ sops_config }}
           --input-type dotenv --output-type dotenv
           --output {{ controller_env_file }}
-          {{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops
+          {{ service_dir }}/.env.sops
       delegate_to: localhost
       become: false
       changed_when: false
+      when: sops_env_file.stat.exists
 
     - name: Copy decrypted env file to the target host
       ansible.builtin.copy:
         src: "{{ controller_env_file }}"
         dest: "{{ remote_env_file }}"
         mode: "0600"
+      when: sops_env_file.stat.exists
+
+    # Decrypt each *.sops config file straight to its real filename (strip
+    # the trailing ".sops" — mailrise.conf.sops -> mailrise.conf) on the
+    # controller, then copy it out to the same relative path on the target
+    # host. Loops so a service can have more than one.
+    - name: Decrypt config-secret files to the controller
+      ansible.builtin.command:
+        cmd: >
+          sops --decrypt --config {{ sops_config }}
+          --output /tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}
+          {{ item.path }}
+      loop: "{{ sops_config_files.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      when: sops_config_files.matched > 0
+
+    - name: Copy decrypted config-secret files to the target host
+      ansible.builtin.copy:
+        src: "/tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}"
+        dest: "{{ remote_repo_dir }}/apps/docker/{{ service }}/{{ item.path | basename | replace('.sops', '') }}"
+        mode: "0600"
+      loop: "{{ sops_config_files.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: sops_config_files.matched > 0
 
     - name: Deploy via docker compose on the target host
       community.docker.docker_compose_v2:
@@ -105,6 +162,7 @@
       ansible.builtin.file:
         path: "{{ remote_env_file }}"
         state: absent
+      when: sops_env_file.stat.exists
 
     - name: Remove decrypted env file from the controller
       ansible.builtin.file:
@@ -112,3 +170,20 @@
         state: absent
       delegate_to: localhost
       become: false
+      when: sops_env_file.stat.exists
+
+    - name: Remove decrypted config-secret files from the controller
+      ansible.builtin.file:
+        path: "/tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}"
+        state: absent
+      loop: "{{ sops_config_files.files | default([]) }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      delegate_to: localhost
+      become: false
+      when: sops_config_files.matched > 0
+
+    # Config-secret files stay decrypted on the target host between deploys
+    # (mailrise reads its config from disk continuously, unlike .env which
+    # docker compose only reads at container-start time) — not cleaned up
+    # after deploy the way .env is.
