@@ -10,8 +10,15 @@
   vars:
     controller_repo_dir: "{{ (playbook_dir + '/../../../..') | realpath }}"
     sops_config: "{{ controller_repo_dir }}/.sops.yaml"
+    controller_env_file: "/tmp/debug-sops-test-{{ service }}.env"
 
   tasks:
+    - name: Fail fast if no service was specified
+      ansible.builtin.fail:
+        msg: "Pass -e service=<name>"
+      when: service is not defined
+      delegate_to: localhost
+
     - name: Pull latest repo on target host
       ansible.builtin.git:
         repo: https://gitea.hughboi.cc/hughboi/homelab.git
@@ -22,7 +29,7 @@
 
     - name: Check for .env.sops on the controller (Athena)
       ansible.builtin.stat:
-        path: "{{ controller_repo_dir }}/apps/docker/gatus/.env.sops"
+        path: "{{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops"
       delegate_to: localhost
       become: false
       register: sops_file
@@ -53,10 +60,10 @@
     - name: Real sops decrypt command, same as sops-deploy
       ansible.builtin.command:
         cmd: >
-          sops --decrypt --config {{ (playbook_dir + '/../../../..') | realpath }}/.sops.yaml
+          sops --decrypt --config {{ sops_config }}
           --input-type dotenv --output-type dotenv
-          --output /tmp/debug-sops-test.env
-          {{ (playbook_dir + '/../../../..') | realpath }}/apps/docker/gatus/.env.sops
+          --output {{ controller_env_file }}
+          {{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops
       delegate_to: localhost
       become: false
       changed_when: false
@@ -71,7 +78,7 @@
 
     - name: Check if the output file exists
       ansible.builtin.stat:
-        path: /tmp/debug-sops-test.env
+        path: "{{ controller_env_file }}"
       delegate_to: localhost
       become: false
       register: output_check
