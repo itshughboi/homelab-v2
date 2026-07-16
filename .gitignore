@@ -11,6 +11,9 @@ ROTATE_CREDENTIALS.md
 # apps/docker/mailrise/mailrise.conf.example; this only excludes the real
 # decrypted copy from ever being accidentally committed on a deploy target.
 apps/docker/mailrise/mailrise.conf
+# Same pattern — apps/docker/fasten-health/config.yaml.example is the tracked
+# placeholder; the real file has a live JWT signing key.
+apps/docker/fasten-health/config.yaml
 vault_pass.txt
 *.key
 *.pem

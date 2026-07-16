@@ -26,5 +26,4 @@ jwt:
   issuer:
     # you should ABSOLUTELY change this value before deploying Fasten.
     # TODO: in future versions, this will be generated on first run with a random value, and stored as a System Setting.
-    key: "supersecretkeyhere
-"
+    key: "supersecretkeyhere"

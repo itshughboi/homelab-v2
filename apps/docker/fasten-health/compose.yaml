@@ -6,6 +6,9 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
+    env_file:
+      - .env
     logging:
       driver: loki
       options:
@@ -16,9 +19,12 @@ services:
         keep-file: "true"
         mode: "non-blocking"
     volumes:
-      - /home/hughboi/data/fasten-health/db:/opt/fasten/db
-      - /home/hughboi/fastenhealth/config.yaml:/opt/fasten/config/config.yaml:ro
-      - cache:/opt/fasten/cache
+      - /home/hughboi/data/fastenhealth/db:/opt/fasten/db
+      - /home/hughboi/data/fastenhealth/cache:/opt/fasten/cache
+      - /home/hughboi/data/fastenhealth/certs:/opt/fasten/certs/shared
+      - ./config.yaml:/opt/fasten/config/config.yaml:ro
+    ports:
+      - "8061:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.fastenhealth.entrypoints=http"
@@ -32,10 +38,6 @@ services:
       - "traefik.docker.network=proxy"
     networks:
       - proxy
-
-
-volumes:
-  cache:
 
 networks:
   proxy:
