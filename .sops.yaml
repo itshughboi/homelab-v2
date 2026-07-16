@@ -9,12 +9,12 @@
 # Once the placeholder is replaced with your real public key, commit this file.
 
 creation_rules:
-  # Docker app env files
-  - path_regex: apps/docker/.*\.env\.sops$
-    age: age1e77n2z4af6f3q9cq7n0855xuqwnzst0aezras5e5nypzgys2jglsv5h2lm
-  # Docker app config files that bake secrets in directly (no separate .env) —
-  # e.g. mailrise.conf.sops. Naming convention: <original-filename> + .sops
-  - path_regex: apps/docker/.*(?<!\.env)\.sops$
+  # Docker app secrets — both .env.sops and config-as-secret files (e.g.
+  # mailrise.conf.sops, for services that bake secrets directly into a
+  # config file instead of a separate .env). Naming convention for the
+  # latter: <original-filename> + .sops. Same age key either way, so one
+  # rule covers both — no need to distinguish them here.
+  - path_regex: apps/docker/.*\.sops$
     age: age1e77n2z4af6f3q9cq7n0855xuqwnzst0aezras5e5nypzgys2jglsv5h2lm
   # Ansible provisioning secrets (UniFi credentials, service API keys)
   - path_regex: .*secrets\.sops\.yaml$
