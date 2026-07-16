@@ -116,12 +116,20 @@ script decrypts explicitly and exports line-by-line instead, same result.)
 # macOS
 brew install sops age
 
-# Ubuntu/Debian
-apt install age
-# SOPS: no apt package, download binary:
+# Ubuntu/Debian — do NOT use `apt install age`. apt's build is dynamically linked
+# against glibc; it silently fails to exec inside any musl-based container (Alpine —
+# e.g. Semaphore's own image). Neither sops nor age have an apt package worth using;
+# get both as static release binaries:
+AGE_VERSION=1.2.0
+curl -fsSL "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz" \
+  | sudo tar -xz --strip-components=1 -C /usr/local/bin age/age age/age-keygen
+
 SOPS_VERSION=$(curl -s https://api.github.com/repos/getsops/sops/releases/latest | grep tag_name | cut -d'"' -f4)
 curl -Lo /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
 chmod +x /usr/local/bin/sops
+
+# Verify both are actually static (should say "statically linked", not "dynamically linked"):
+file /usr/local/bin/age /usr/local/bin/sops
 ```
 
 ### Generate your age key and configure the repo
@@ -166,6 +174,45 @@ AGE-SECRET-KEY-1ABCDEF...
 ```
 
 Copy the entire contents to a Vaultwarden secure note named something like `homelab / sops-age-key / docker-host`. This is the only recovery path if the machine is lost.
+
+---
+
+## Deploying from Semaphore (no manual SSH)
+
+`ansible/playbooks/docker/sops-deploy/` decrypts a service's `.env.sops` **on the
+controller** (Athena, wherever Semaphore/Ansible actually run) and deploys it to a
+target host over SSH — equivalent of `sops-run.sh <service> up -d`, but triggered
+from Semaphore's UI instead of a manual shell session. See that playbook's own
+README for usage.
+
+**The age private key exists in two places on Athena**, both required, kept in sync
+by hand:
+
+| Path | Used by |
+|---|---|
+| `~/.config/sops/age/keys.txt` | You, running `scripts/*.sh` by hand from your own shell |
+| `/etc/sops/age/keys.txt` | Mounted into the Semaphore container for `sops-deploy` |
+
+Why two copies instead of one: `~/.config` lives under `$HOME`, which is `chmod 750`
+— any UID besides `hughboi` (or a member of the `hughboi` group) can't even
+traverse into it, regardless of the key file's own permissions. Semaphore's
+container runs as a different UID (`1001`, image-specific — see
+`apps/docker/semaphore/README.md`), so it needs the key somewhere world-traversable.
+`/etc/sops/age/` is `755`; the key file itself stays restricted (`640`, owned
+`hughboi:root` — `root`/GID `0` because that's what Semaphore's container actually
+runs as, not a made-up group).
+
+**If you ever rotate the age key, update both copies** — nothing currently
+automates keeping them in sync. Small, deliberate tradeoff: key rotation is rare
+enough that building sync automation for it isn't worth the complexity right now.
+
+```bash
+# After generating a new key (age-setup.sh writes to ~/.config/sops/age/keys.txt):
+sudo cp ~/.config/sops/age/keys.txt /etc/sops/age/keys.txt
+sudo chown hughboi:root /etc/sops/age/keys.txt
+sudo chmod 640 /etc/sops/age/keys.txt
+cd apps/docker/semaphore && sudo -E ../../../scripts/sops-run.sh semaphore up -d  # picks up the new key on next task run
+```
 
 ---
 

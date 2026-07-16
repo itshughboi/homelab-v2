@@ -100,11 +100,21 @@ once in [8-gitops/Secrets_SOPS.md](../8-gitops/Secrets_SOPS.md). The **Athena-sp
 > **Run `age-setup.sh` on Athena, not your laptop.** The private key must live on the machine
 > that decrypts secrets at runtime — Athena, since Semaphore runs all playbooks there. Running
 > it on your laptop means Semaphore can't decrypt anything. The `setup-athena` playbook installs
-> `age` for you.
+> the static `age`/`age-keygen` binaries to `/usr/local/bin` for you — **never** `apt install age`
+> by hand as a substitute: apt's build is dynamically linked against glibc and silently fails to
+> exec inside musl-based containers (Alpine — e.g. Semaphore's own image). Verify with
+> `file /usr/local/bin/age` — should say "statically linked."
 
 SSH into Athena after `setup-athena` completes, then run `./scripts/age-setup.sh` from the repo
 clone. It generates the keypair (`~/.config/sops/age/keys.txt`), patches `.sops.yaml`, and tells
 you to commit the **public** key.
+
+> [!NOTE]
+> **Semaphore needs its own copy of the private key**, at `/etc/sops/age/keys.txt` — not
+> `~/.config/sops/age/keys.txt` — since `$HOME` is `chmod 750` and Semaphore's container runs
+> as a different UID that can't traverse into it. See "Deploying from Semaphore" in
+> [sops-secrets.md](../8-gitops/sops-secrets.md) for the copy command. The two copies are not
+> kept in sync automatically — update both if you ever rotate the key.
 
 > [!DANGER]
 > **Back up the private key off-box immediately** — losing it makes every encrypted secret

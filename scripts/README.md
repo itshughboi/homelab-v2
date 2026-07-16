@@ -145,9 +145,17 @@ rm apps/docker/myservice/.env
 | File | Location | Commit to Git? |
 |------|----------|----------------|
 | age public key | `.sops.yaml` (in repo) | Yes |
-| age private key | `~/.config/sops/age/keys.txt` | **Never** |
+| age private key (for running scripts by hand) | `~/.config/sops/age/keys.txt` | **Never** |
+| age private key (for Semaphore's `sops-deploy` playbook) | `/etc/sops/age/keys.txt` — a separate copy, see below | **Never** |
 | Backup of private key | Vaultwarden secure note | Stored in Vaultwarden |
 | `.env.sops` files | `apps/docker/<service>/` | Yes |
 | `.env` files (plaintext) | `apps/docker/<service>/` | **Never** (in `.gitignore`) |
 
 If the private key is ever lost, the `.env.sops` files become permanently unreadable — there is no recovery path. Keep the Vaultwarden backup current.
+
+**Why the key exists in two places on Athena:** `~/.config` lives under `$HOME`, which is
+`chmod 750` — Semaphore's container runs as a different UID (image-specific, not your host
+user) and can't traverse into `$HOME` at all, regardless of the key file's own permissions.
+`/etc/sops/age/` is world-traversable (`755`) with the key itself still restricted (`640`,
+`hughboi:root`). **Not kept in sync automatically** — if you rotate the key, update both copies.
+See "Deploying from Semaphore" in [docs/8-gitops/sops-secrets.md](../docs/8-gitops/sops-secrets.md).

@@ -29,7 +29,7 @@ check_dep() {
   fi
 }
 
-check_dep age-keygen age "apt install age  OR  download from https://github.com/FiloSottile/age/releases"
+check_dep age-keygen age "download the static binary from https://github.com/FiloSottile/age/releases — NOT 'apt install age': apt's build is dynamically linked against glibc and silently fails to exec inside musl-based containers (e.g. Semaphore's own Alpine image)"
 check_dep sops sops "snap install sops  OR  download from https://github.com/getsops/sops/releases"
 
 # ── Key generation ─────────────────────────────────────────────────────────────
@@ -103,3 +103,9 @@ echo "  ./scripts/sops-migrate.sh vaultwarden"
 echo ""
 echo "Or check what's left to migrate:"
 echo "  ./scripts/sops-check.sh"
+echo ""
+echo "If this is Athena: Semaphore's container also needs a copy of this key at"
+echo "/etc/sops/age/keys.txt (a separate, world-traversable path — \$HOME is chmod"
+echo "750, which blocks the container's UID from reaching ~/.config at all). See"
+echo "'Deploying from Semaphore' in docs/8-gitops/sops-secrets.md for the full copy"
+echo "command — the two copies are NOT kept in sync automatically."
