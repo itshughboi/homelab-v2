@@ -52,6 +52,27 @@ What it does:
 
 ---
 
+### Editing an existing secret (already-encrypted `.env.sops`)
+
+Don't manually decrypt-edit-re-encrypt — `sops` has a built-in edit mode that does it in one
+step, with no intermediate plaintext file ever touching disk:
+
+```bash
+sops apps/docker/<service>/.env.sops
+```
+
+This opens the decrypted contents in `$EDITOR` (a temp file, not the real `.env`), and
+re-encrypts automatically on save/exit. If `$EDITOR` isn't set, `sops` falls back to `vi`. Only
+works on a machine with the private age key available (e.g. Athena).
+
+To just view a decrypted value without editing:
+
+```bash
+sops --decrypt apps/docker/<service>/.env.sops
+```
+
+---
+
 ### `sops-run.sh` — start a service with secrets injected
 
 Decrypts `.env.sops` in memory and runs Docker Compose without writing plaintext to disk:
