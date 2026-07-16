@@ -1,0 +1,28 @@
+---
+# TEMPORARY debug playbook — isolating a Semaphore-specific bug where a
+# delegate_to: localhost task immediately following another delegate_to:
+# localhost task gets silently skipped. Delete once understood.
+- name: Debug consecutive delegate_to localhost
+  hosts: docker_hosts
+  gather_facts: false
+
+  tasks:
+    - name: First delegated task
+      ansible.builtin.command:
+        cmd: echo "first task ran"
+      delegate_to: localhost
+      changed_when: false
+      register: first_result
+
+    - name: Second delegated task
+      ansible.builtin.command:
+        cmd: echo "second task ran"
+      delegate_to: localhost
+      changed_when: false
+      register: second_result
+
+    - name: Show both results
+      ansible.builtin.debug:
+        msg:
+          - "first: {{ first_result.stdout | default('MISSING') }}"
+          - "second: {{ second_result.stdout | default('MISSING') }}"
