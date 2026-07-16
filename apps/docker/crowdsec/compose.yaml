@@ -19,10 +19,10 @@ services:
       - GID=${GID:-1000}
       - COLLECTIONS=crowdsecurity/linux crowdsecurity/traefik
     volumes:
-      - /home/hughboi/code/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml
-      - /home/hughboi/data/crowdsec/config:/etc/crowdsec/
-      - /home/hughboi/data/crowdsec/db:/var/lib/crowdsec/data/
-      - /home/hughboi/data/traefik/logs:/var/log/traefik/:ro
+      - ./acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - crowdsec-config:/etc/crowdsec/
+      - crowdsec-db:/var/lib/crowdsec/data/
+      - /home/hughboi/traefik/logs:/var/log/traefik/:ro
     ports:
       - "127.0.0.1:6060:6060"   # Prometheus metrics
     labels:
@@ -47,6 +47,10 @@ services:
     networks:
       - proxy
 
+
+volumes:
+  crowdsec-config:
+  crowdsec-db:
 
 networks:
   proxy:
