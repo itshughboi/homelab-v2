@@ -38,6 +38,11 @@ Chrome needs internet access to browse and archive URLs. The `hoarder` network i
 > [docs/Backup-Recovery.md](../../../docs/Backup-Recovery.md#ad-hoc-back-up-a-docker-named-volume-before-a-risky-change)
 > for the full check + backup pattern used when this was originally migrated.
 
+**Status:** migrated to SOPS and deployed via `sops-deploy`/Semaphore — confirmed healthy and
+confirmed attached to the pre-existing `hoarder_data`/`hoarder_meilisearch` volumes (verified
+`docker compose config | tail -5` showed the right names *before* cutover, and `docker volume ls`
+showed the same two volumes, unchanged, after). No manual SSH needed for the deploy itself.
+
 ## Environment Variables (`.env`)
 
 | Variable | Purpose |
@@ -83,3 +88,15 @@ Set `INFERENCE_TEXT_MODEL` and `INFERENCE_IMAGE_MODEL` to the Ollama model names
 **AI tags not appearing:**
 - Confirm `OPENAI_API_KEY` is set and valid
 - Check logs for rate limit or auth errors from the AI provider
+
+**Forgot which account/email you registered with:**
+- Hoarder stores users in its own internal SQLite DB (`db.db` inside the `data` volume) — no
+  separate user-management UI or CLI command ships with the image. Copy the DB out (never query
+  the live file directly) and inspect it read-only:
+  ```sh
+  docker cp hoarder:/data/db.db /tmp/hoarder-db-readonly.db
+  sqlite3 /tmp/hoarder-db-readonly.db "SELECT id, email, name FROM user;"
+  rm /tmp/hoarder-db-readonly.db   # don't leave a copy of the user table lying around
+  ```
+  If `sqlite3` isn't installed on the host, `sudo apt install sqlite3` (Ubuntu) first. This same
+  copy-out-then-query pattern works for any SQLite-backed container, not just this one.

@@ -159,6 +159,7 @@ Ordered by impact:
 ## Related
 
 - [Firewall lockout recovery](1-networking/Unifi/Firewall/Recovery.md)
+- [Docker network pool incident](6-docker/Docker-Network-Pool-Incident.md)
 - [Corosync / cluster quorum](2-proxmox/pve/Corosync.md)
 - [DNS target design](1-networking/Unifi/Networks/DNS.md)
 - [Network inventory (authoritative IPs/placement)](1-networking/Unifi/Assignments/MAC%20Reservations.md)

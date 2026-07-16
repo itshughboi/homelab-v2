@@ -1,0 +1,92 @@
+---
+# Reclaim disk space from Docker images, safely: only removes images that are
+# (a) dangling (no tag at all — always safe, these can't be run by name) or
+# (b) never backed any container, running or stopped, ever.
+#
+# Deliberately does NOT use a time-based cutoff (e.g. "unused for 30 days") —
+# Docker doesn't track true last-used timestamps for images, only creation
+# time, so a time filter risks removing an image you pulled deliberately and
+# plan to run again soon. "Has this image ever been used by a container" is a
+# more conservative, more accurate signal than "how old is it."
+#
+# Safe to run as a scheduled Semaphore job — read-only report + prune, no
+# container/volume/network changes.
+
+- name: Prune unused Docker images safely
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+
+  tasks:
+    - name: Prune unused Docker images
+      block:
+        - name: Remove dangling images (no tag at all)
+          community.docker.docker_prune:
+            images: true
+            images_filters:
+              dangling: true
+          register: dangling_prune
+
+        # Match on image ID (docker ps -a --filter ancestor= resolves tags to IDs
+        # internally, and IDs are stable/unambiguous, unlike matching repo:tag
+        # strings by hand — a container created from a since-retagged or
+        # digest-referenced image would silently break naive string matching).
+        - name: Find images never referenced by any container (running or stopped)
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              docker images --format '{{ "{{.Repository}}:{{.Tag}}\t{{.ID}}" }}' | while IFS=$'\t' read -r repo_tag image_id; do
+                if [ "$(docker ps -a --filter "ancestor=${image_id}" --format '{{ "{{.ID}}" }}' | wc -l)" -eq 0 ]; then
+                  echo "$repo_tag"
+                fi
+              done
+          args:
+            executable: /bin/bash
+          register: never_used_images
+          changed_when: false
+
+        - name: Remove images never referenced by any container
+          community.docker.docker_image:
+            name: "{{ item }}"
+            state: absent
+            force_absent: true
+          loop: "{{ never_used_images.stdout_lines }}"
+          register: never_used_prune
+          when: never_used_images.stdout_lines | length > 0
+
+        - name: Get disk space reclaimed summary
+          ansible.builtin.command:
+            cmd: docker system df
+          register: df_after
+          changed_when: false
+
+        - name: Notify success via ntfy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker image prune: {{ inventory_hostname }}"
+              Priority: low
+              Tags: wastebasket
+            body: |
+              Dangling images removed: {{ dangling_prune.images.deleted | default([]) | length }}
+              Never-used tagged images removed: {{ never_used_prune.results | selectattr('changed') | list | length if never_used_prune.results is defined else 0 }}
+              {{ df_after.stdout }}
+          delegate_to: localhost
+
+      rescue:
+        - name: Notify failure via ntfy
+          ansible.builtin.uri:
+            url: "{{ ntfy_url }}"
+            method: POST
+            headers:
+              Title: "Docker image prune FAILED: {{ inventory_hostname }}"
+              Priority: urgent
+              Tags: rotating_light
+            body: |
+              Image prune playbook failed on {{ inventory_hostname }}
+              Failed task: {{ ansible_failed_task.name | default('unknown') }}
+          delegate_to: localhost

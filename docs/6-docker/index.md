@@ -87,6 +87,69 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 
 **CrowdSec bouncer is a hard ingress dependency:** Traefik's `crowdsec-bouncer` forwardAuth middleware is applied globally to every entrypoint, and fails **closed** — if `bouncer-traefik` isn't reachable, every Traefik-routed request gets a 403, homelab-wide, including Gitea and Semaphore. Never stop `crowdsec`/`bouncer-traefik` without a replacement already running. See `apps/docker/crowdsec/README.md`.
 
+**Docker network address pool exhaustion:** dock-prod runs enough Compose projects (~30+, each usually creating its own bridge network) that Docker's *default* address pool eventually runs out, failing new `docker compose up`s with `all predefined address pools have been fully subnetted` — creates no containers, so it's safe/non-destructive, just blocks the deploy. Two-part fix:
+
+1. **Prune true orphans first** — networks with zero attached containers, left behind by removed/renamed services:
+   ```sh
+   docker network ls --format '{{.Name}}' | while read net; do
+     count=$(docker network inspect "$net" --format '{{len .Containers}}' 2>/dev/null)
+     echo "$net: $count containers"
+   done
+   # then, for confirmed-0-container networks only (never blanket `docker network prune`
+   # without checking first — some 0-container networks may be `external: true` ones a
+   # compose file expects to already exist, not real orphans):
+   docker network rm <name> <name> ...
+   ```
+2. **Widen the pool** (dock-prod is on `172.17.0.0/16`, 256 `/24` networks, in `/etc/docker/daemon.json`) so this stops recurring:
+   ```sh
+   sudo tee /etc/docker/daemon.json > /dev/null <<'JSONEOF'
+   {
+     "default-address-pools": [
+       { "base": "172.17.0.0/16", "size": 24 }
+     ]
+   }
+   JSONEOF
+   sudo systemctl restart docker
+   ```
+   Only affects *new* networks going forward — existing networks keep their current subnet,
+   nothing gets renumbered.
+
+> [!CAUTION]
+> **Picking a new base is not just "pick anything unused-looking."** The first widening attempt
+> here used `172.20.0.0/17` — which looked reasonable (clear of the Torrent VLAN's
+> `172.16.20.0/24`) but turned out to directly collide with a pre-existing legacy Docker network
+> already sitting on `172.20.0.0/16`, and **broke Docker entirely** — `systemctl restart docker`
+> failed because Docker's own default `bridge` network re-creation hit the same exhausted-pool
+> error, taking down every container on the host for several minutes. Before picking a base,
+> enumerate every subnet already in use (`ip -4 addr show | grep -A1 'br-'` — works even with
+> `dockerd` down, since bridge interfaces persist at the kernel level independent of the daemon)
+> and confirm zero overlap. Full incident writeup, including the recovery steps and why
+> `172.17.0.0/16` was chosen instead:
+> [Docker Network Pool Incident](Docker-Network-Pool-Incident.md).
+
+**Quick container shell access without hunting for IDs:** add this to `~/.bashrc` on dock-prod
+(fuzzy-matches container names, falls back cleanly if nothing matches):
+
+```sh
+dexec() {
+  if [ -z "$1" ]; then
+    echo "Usage: dexec <container-name-or-partial-match>"
+    return 1
+  fi
+  local match
+  match=$(docker ps --format '{{.Names}}' | grep -i "$1" | head -1)
+  if [ -z "$match" ]; then
+    echo "No running container matching '$1'"
+    return 1
+  fi
+  echo "→ $match"
+  docker exec -it "$match" sh
+}
+```
+Usage: `dexec hoard` finds and shells into `hoarder` without needing the exact name or a
+`docker ps | grep` round-trip first. Added as part of moving off Portainer's console-exec
+feature — see `apps/docker/portainer/README.md` for the full reasoning.
+
 ---
 
 ## Athena — Management Stack
