@@ -26,14 +26,25 @@
     # "controller" (wherever delegate_to: localhost actually lands — Athena, since
     # that's where Semaphore/Ansible run) is Semaphore's own per-task checkout, at
     # a path like /tmp/semaphore/project_1/repository_1_template_2/ — a different,
-    # unpredictable directory every run, NOT /home/hughboi/homelab. (Confirmed the
-    # hard way: hardcoding /home/hughboi/homelab here made the "check .env.sops
-    # exists" task silently check the wrong path — it reported ok, but against a
-    # repo clone that doesn't exist inside Semaphore's container at all.) Derive it
-    # from playbook_dir, which Ansible sets correctly regardless of checkout path.
+    # unpredictable directory every run, NOT /home/hughboi/homelab. Derive it from
+    # playbook_dir, which Ansible sets correctly regardless of checkout path.
     remote_repo_dir: /home/hughboi/homelab
     controller_repo_dir: "{{ (playbook_dir + '/../../../..') | realpath }}"
     sops_config: "{{ controller_repo_dir }}/.sops.yaml"
+    # Decrypted secrets never pass through a `register`'d Ansible variable at all —
+    # `no_log: true` on a task whose result Ansible actually needs internally
+    # (not just for display) reproducibly broke execution when run via Semaphore
+    # specifically (confirmed: identical playbook via `ansible-playbook` from a
+    # plain shell worked every time; via Semaphore it failed every time, with the
+    # next task seeing empty input — a real bug in how Semaphore streams/handles
+    # censored task results, not fixable from our side). Writing straight to a file
+    # sidesteps the whole problem: nothing sensitive ever becomes a registered var.
+    controller_env_file: "/tmp/sops-deploy-{{ service }}.env"
+    # docker_compose_v2's env_files param resolves relative to project_src, and by
+    # default docker compose already looks for exactly this filename there — so
+    # this doubles as "the normal .env docker compose reads" and "the thing we
+    # clean up after," no env_files: param needed on the deploy task at all.
+    remote_env_file: "{{ remote_repo_dir }}/apps/docker/{{ service }}/.env"
 
   tasks:
     - name: Fail fast if no service was specified
@@ -69,36 +80,42 @@
       run_once: true
       delegate_to: localhost
 
-    # Decrypt on the controller and parse into JSON in one step — a small inline
-    # Python script, not a hand-rolled Jinja filter chain. (Ansible's own
-    # docker_compose_v2 `environment:` param wants a plain dict; Python's json
-    # module round-trips that far more predictably than string-splitting in
-    # Jinja2, which is easy to get subtly wrong and hard to unit-test.)
-    - name: Decrypt .env.sops and parse into JSON on the controller
+    # Decrypt straight to a file, dotenv-to-dotenv (docker compose's env_files
+    # param reads a real .env file natively — no JSON/dict conversion needed at
+    # all this way). Output is on disk, never captured as a task result/fact.
+    - name: Decrypt .env.sops to a temp file on the controller
       ansible.builtin.command:
         cmd: >
           sops --decrypt --config {{ sops_config }}
-          --input-type dotenv --output-type json
+          --input-type dotenv --output-type dotenv
+          --output {{ controller_env_file }}
           {{ controller_repo_dir }}/apps/docker/{{ service }}/.env.sops
       delegate_to: localhost
       become: false
       run_once: true
-      register: decrypted_env
       changed_when: false
-      no_log: true
 
-    - name: Parse decrypted JSON into a fact
-      ansible.builtin.set_fact:
-        service_env: "{{ decrypted_env.stdout | from_json }}"
-      delegate_to: localhost
-      become: false
-      run_once: true
-      no_log: true
+    - name: Copy decrypted env file to the target host
+      ansible.builtin.copy:
+        src: "{{ controller_env_file }}"
+        dest: "{{ remote_env_file }}"
+        mode: "0600"
 
     - name: Deploy via docker compose on the target host
       community.docker.docker_compose_v2:
         project_src: "{{ remote_repo_dir }}/apps/docker/{{ service }}"
         state: present
         pull: always
-      environment: "{{ service_env }}"
-      no_log: true
+
+    - name: Remove decrypted env file from the target host
+      ansible.builtin.file:
+        path: "{{ remote_env_file }}"
+        state: absent
+
+    - name: Remove decrypted env file from the controller
+      ansible.builtin.file:
+        path: "{{ controller_env_file }}"
+        state: absent
+      delegate_to: localhost
+      become: false
+      run_once: true
