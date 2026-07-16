@@ -85,6 +85,21 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 
 **Immich version pinning:** `immich/home` and `immich/eros` must run the same `IMMICH_VERSION` in their `.env` files. Mismatched versions corrupt the database.
 
+**A broken bind mount can silently run for months with zero symptoms:** pocket-id's production
+compose file had a stray trailing `"` baked into its volumes line
+(`/app/data"` instead of `/app/data`) — Docker mounted the host path to a *literally-quoted*
+destination inside the container, a path Pocket-ID's own process never wrote to. Its real
+database lived entirely in the container's ephemeral writable layer since April 2026 (confirmed
+by matching `docker inspect .Created` against the host directory's `stat` birth time), invisible
+because `docker restart` preserves that layer — only a `docker compose down`/`rm` + `up` (i.e.
+exactly what a routine redeploy does) would have destroyed it, with no warning. Caught while
+migrating to SOPS (per-service `docker inspect .Mounts` review is now standard practice for that
+process). **Lesson:** a working container is not proof a bind mount is working — verify the
+*data* is actually landing on the host (`ls` the host path directly, don't just trust
+`docker inspect`'s reported mount) before trusting any bind-mount-backed service, especially
+ones you don't restart/redeploy often enough to notice data isn't surviving. See
+`apps/docker/pocket-id/README.md` and commit `6b1daf6`.
+
 **CrowdSec bouncer is a hard ingress dependency:** Traefik's `crowdsec-bouncer` forwardAuth middleware is applied globally to every entrypoint, and fails **closed** — if `bouncer-traefik` isn't reachable, every Traefik-routed request gets a 403, homelab-wide, including Gitea and Semaphore. Never stop `crowdsec`/`bouncer-traefik` without a replacement already running. See `apps/docker/crowdsec/README.md`.
 
 **Docker network address pool exhaustion:** dock-prod runs enough Compose projects (~30+, each usually creating its own bridge network) that Docker's *default* address pool eventually runs out, failing new `docker compose up`s with `all predefined address pools have been fully subnetted` — creates no containers, so it's safe/non-destructive, just blocks the deploy. Two-part fix:
