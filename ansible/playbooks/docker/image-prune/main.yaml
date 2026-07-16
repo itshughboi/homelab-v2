@@ -76,6 +76,7 @@
               Never-used tagged images removed: {{ never_used_prune.results | selectattr('changed') | list | length if never_used_prune.results is defined else 0 }}
               {{ df_after.stdout }}
           delegate_to: localhost
+          become: false
 
       rescue:
         - name: Notify failure via ntfy
@@ -90,3 +91,4 @@
               Image prune playbook failed on {{ inventory_hostname }}
               Failed task: {{ ansible_failed_task.name | default('unknown') }}
           delegate_to: localhost
+          become: false
