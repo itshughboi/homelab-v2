@@ -160,10 +160,14 @@ missing two entire scrape jobs the live config has: `unbound_logs` and `bind9` (
    incident in this repo's history for why skipping this step is dangerous).
 4. Re-pin `grafana`/`prometheus` to explicit versions matching what's actually intended to run,
    not what happens to be cached on the host right now.
+5. Add long-term uptime/history monitoring via this stack (e.g. Blackbox exporter scraped by
+   Prometheus, visualized in Grafana) — Uptime Kuma was sunset 2026-07-17 in favor of Gatus, but
+   Gatus only covers current status + a short window, not the historical uptime %/incident-timeline
+   view Kuma provided. This is the intended replacement for that gap, not Gatus itself.
 
 This is intentionally scoped as one combined future session (crash-loop fix + path/convention
-migration + SOPS migration + optional node_exporter addition for host metrics), not a quick fix —
-see the main homelab todo list.
+migration + SOPS migration + optional node_exporter addition for host metrics, plus the Blackbox
+exporter addition above), not a quick fix — see the main homelab todo list.
 
 **Grafana can't connect to Prometheus:**
 - Both must be on the `promgraftail` network. Verify: `docker network inspect promgraftail | grep -A2 prometheus`
