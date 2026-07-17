@@ -121,8 +121,19 @@ Source: `apps/docker/promgraftail/` — **read-only reference, do not modify liv
 | Loki | Retire | Replaced by k3s Loki |
 | AlertManager | Retire | Replaced by k3s AlertManager |
 | **Alloy** | **Keep** | Ships dock-prod logs to k3s Loki |
-| **Telegraf** | **Keep** | SNMP + Proxmox metrics (no k8s push equivalent) |
-| **InfluxDB** | **Keep** | Receives Telegraf + Proxmox native push; add as Grafana data source |
+| **Telegraf** | **Keep for SNMP** | SNMP metrics have no k8s push equivalent — keep for that path specifically |
+| **InfluxDB** | **Superseded, not yet cut over** | See note below — a newer in-cluster path exists for the Proxmox-metrics portion of this, but neither the old nor new path has actually been verified live yet |
+
+> [!NOTE] InfluxDB's fate has a newer, conflicting plan
+> This table said "Keep" InfluxDB because Proxmox metrics (via Telegraf's `inputs.proxmox` push)
+> had no k8s equivalent when it was written. That's no longer true —
+> `apps/kubernetes/k3s/apps/prometheus-pve-exporter/` exists specifically to replace that path,
+> scraping Proxmox directly into k3s Prometheus instead, and its own README has a full
+> "Decommissioning Docker InfluxDB" runbook. **Neither the k3s monitoring stack nor this exporter
+> has been deployed/tested yet** (as of this note) — the Docker stack, InfluxDB included, is still
+> the only thing actually running. Don't treat "Keep" above as current without checking whether
+> the pve-exporter path has since gone live; if it has, InfluxDB (and this whole table) needs
+> another pass.
 
 ### Add InfluxDB to k3s Grafana
 

@@ -1,14 +1,18 @@
 # Secrets (SOPS + Age) — Ansible & Terraform
 
 SOPS for the **Ansible / Terraform layer** — provisioning secrets Athena needs at runtime. The
-**Docker** side (`.env.sops`) is the live, fully-documented one: [sops-secrets.md](sops-secrets.md).
+**Docker** side (`.env.sops`) is further along in practice — real services are actively
+migrated onto it today: [sops-secrets.md](sops-secrets.md). This layer's encryption rule is
+equally live, just not yet used for a real secret (see below).
 Kubernetes app secrets use **Sealed Secrets**, a separate tool: [index.md](index.md#secrets-in-kubernetes).
 
-> [!IMPORTANT] Planned — not yet configured
-> Today `.sops.yaml` has **only** the Docker rule (`apps/docker/**/.env.sops`) and still ships
-> `AGE_PUBLIC_KEY_PLACEHOLDER` (audit **C2**). So `secrets.yaml` / `terraform.tfvars` are
-> currently just **gitignored plaintext on disk**, not SOPS-encrypted-and-committed. This doc is
-> the plan for wiring that up.
+> [!NOTE] Rule is live, no files encrypted yet
+> `.sops.yaml` has a real age public key (age-setup.sh has been run on Athena) across all three
+> creation rules, including this one — the Ansible/Terraform rule is not a placeholder. What's
+> still pending is actually moving a real `secrets.yaml` / `terraform.tfvars` onto it: no
+> `secrets.sops.yaml` or `.sops.tfvars` file exists in the repo yet, so those secrets are
+> currently just **gitignored plaintext on disk**. This doc is the plan for wiring that up —
+> the encryption mechanism is ready, it just hasn't been used here yet.
 
 ---
 

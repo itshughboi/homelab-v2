@@ -12,7 +12,7 @@ Security here is layered, not bolted on at the end:
 
 - **Network layer** — VLAN segmentation isolates traffic by purpose (done in step 2)
 - **Host layer** — SSH hardening, fail2ban, UFW on every Ubuntu host
-- **Secrets layer** — Vaultwarden is the source of truth; SOPS+Age (provisioning files) and Sealed Secrets (k8s) are the encryption targets — both **staged but not yet active** (see [8-gitops](../8-gitops/index.md))
+- **Secrets layer** — Vaultwarden is the source of truth; SOPS+Age (Docker/provisioning files) and Sealed Secrets (k8s) are the encryption targets. SOPS+Age is **active** for Docker (services are being migrated onto it now) and configured-but-unused for Ansible/Terraform; Sealed Secrets is still **staged, not yet active** (see [8-gitops](../8-gitops/index.md))
 - **Runtime layer** — CrowdSec on k3s ingress, Wazuh SIEM across the fleet
 - **CI layer** — gitleaks and Trivy scan every PR before it merges
 
@@ -75,7 +75,7 @@ Secrets for k8s) is documented once in **[8-gitops/Secrets_SOPS.md](../8-gitops/
 ## Tailscale VPN
 
 Zero-config mesh VPN for remote access without exposing ports publicly. Runs as a **subnet
-router** (not an exit node) on a **dedicated VLAN-80 VM** (`vpn-gateway`, `10.10.80.254`) — *not*
+router** (not an exit node) on a **dedicated VLAN-80 VM** (`vpn-gateway`, `10.10.80.10`) — *not*
 on Athena. Full rationale, the `tailscale up` flags, and the required UniFi static route are in
 **[Tailscale.md](Tailscale.md)**.
 

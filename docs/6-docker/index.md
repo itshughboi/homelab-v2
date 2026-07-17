@@ -12,7 +12,8 @@ Docker services split across two hosts: **Athena** (management stack) and **dock
 overall stack is strong (100% pinned images, `no-new-privileges` everywhere, Loki logging).
 
 **Quick wins**
-- [x] **gatus + homepage** — DNS `10.10.10.9` → `10.10.10.8` (Bind9 runs on Athena `.8`; `.9` is bogus, a leftover from before Bind9 moved to Athena). Fixed in gatus (`compose.yaml` + `config/config.yaml` — the latter is a live health check that had silently been probing the wrong IP for bind9's own uptime), homepage (`compose.yaml`), the bind9 zone `db.hughboi.vip` self-record, both READMEs (also mislabeled `.10` as "AdGuard" — it's dock-prod; AdGuard runs in k3s via MetalLB, no static `10.10.10.x` address at all), and dock-prod's own OS-level resolver (`/etc/cloud/cloud.cfg.d/90-installer-network.cfg` + a systemd-resolved drop-in, since a netplan-only fix doesn't survive reboot — same lesson as Athena's DNS fix).
+- [x] **gatus + homepage** — DNS `10.10.10.9` → `10.10.10.8` (Bind9 runs on Athena `.8`; `.9` is bogus, a leftover from before Bind9 moved to Athena). Fixed in gatus (`compose.yaml` + `config/config.yaml` — the latter is a live health check that had silently been probing the wrong IP for bind9's own uptime), homepage (`compose.yaml`), the bind9 zone `db.hughboi.vip` self-record, both READMEs (also mislabeled `.10` as "AdGuard" — it's dock-prod, which is where the real, live AdGuard actually runs, see below), and dock-prod's own OS-level resolver (`/etc/cloud/cloud.cfg.d/90-installer-network.cfg` + a systemd-resolved drop-in, since a netplan-only fix doesn't survive reboot — same lesson as Athena's DNS fix).
+  > As of this session's full-repo audit: the k3s AdGuard (via MetalLB) is **not yet live** — LAN clients resolve through the Docker AdGuard on dock-prod. A k3s AdGuard exists for testing/eventual use (e.g. a separate instance for family use while the Docker one stays primary), but isn't the canonical DNS resolver today. Don't treat any doc note describing k3s AdGuard as "the real one" as current without checking this note's date.
 - [ ] **bind9** — move off the `_beta` image tag (foundational DNS shouldn't run a beta).
 
 **Medium**
@@ -84,6 +85,21 @@ Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git se
 **Wazuh startup time:** The Wazuh OpenSearch indexer takes 2-3 minutes to initialize. Expect connection errors in the dashboard for a few minutes after `docker compose up` — this is normal.
 
 **Immich version pinning:** `immich/home` and `immich/eros` must run the same `IMMICH_VERSION` in their `.env` files. Mismatched versions corrupt the database.
+
+**A broken bind mount can silently run for months with zero symptoms:** pocket-id's production
+compose file had a stray trailing `"` baked into its volumes line
+(`/app/data"` instead of `/app/data`) — Docker mounted the host path to a *literally-quoted*
+destination inside the container, a path Pocket-ID's own process never wrote to. Its real
+database lived entirely in the container's ephemeral writable layer since April 2026 (confirmed
+by matching `docker inspect .Created` against the host directory's `stat` birth time), invisible
+because `docker restart` preserves that layer — only a `docker compose down`/`rm` + `up` (i.e.
+exactly what a routine redeploy does) would have destroyed it, with no warning. Caught while
+migrating to SOPS (per-service `docker inspect .Mounts` review is now standard practice for that
+process). **Lesson:** a working container is not proof a bind mount is working — verify the
+*data* is actually landing on the host (`ls` the host path directly, don't just trust
+`docker inspect`'s reported mount) before trusting any bind-mount-backed service, especially
+ones you don't restart/redeploy often enough to notice data isn't surviving. See
+`apps/docker/pocket-id/README.md` and commit `6b1daf6`.
 
 **CrowdSec bouncer is a hard ingress dependency:** Traefik's `crowdsec-bouncer` forwardAuth middleware is applied globally to every entrypoint, and fails **closed** — if `bouncer-traefik` isn't reachable, every Traefik-routed request gets a 403, homelab-wide, including Gitea and Semaphore. Never stop `crowdsec`/`bouncer-traefik` without a replacement already running. See `apps/docker/crowdsec/README.md`.
 
@@ -269,7 +285,7 @@ done
 | Change Detection | dock-prod | https://cd.hughboi.cc | Website change monitor |
 | SearXNG | dock-prod | https://search.hughboi.cc | Private search engine |
 | Glances | dock-prod | — | Host metrics dashboard/API (**status TBD** — pending dock-prod's future) |
-| promgraftail | dock-prod | — | dock-prod monitoring stack: Grafana + Loki + Prometheus/Telegraf (**status TBD**; see [7-k3s/Monitoring](../7-k3s/Monitoring.md)) |
+| promgraftail | dock-prod | — | dock-prod monitoring stack: Grafana + Loki + Prometheus/Telegraf. **Still fully live and in active use** — the k3s replacement (kube-prometheus-stack + Loki + Alloy, see [7-k3s/Monitoring](../7-k3s/Monitoring.md)) has not been deployed/tested yet, so no retirement has started. Also has its own real config-drift issue, see `apps/docker/promgraftail/README.md`. |
 
 ---
 

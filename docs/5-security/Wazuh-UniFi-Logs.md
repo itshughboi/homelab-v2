@@ -157,7 +157,7 @@ metadata:
   name: wazuh-syslog
   namespace: wazuh
   annotations:
-    metallb.universe.tf/loadBalancerIPs: 10.10.30.68   # a free IP in the MetalLB pool (.60–.99); not .65 traefik / .69 adguard
+    metallb.universe.tf/loadBalancerIPs: 10.10.30.68   # a free IP in the MetalLB pool (.60–.99); not .75 traefik / .65 adguard
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local        # preserve UniFi's real source IP

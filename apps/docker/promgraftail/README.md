@@ -129,6 +129,42 @@ this crash loop and because Loki here is a dependency for every other service's
 drops shipped logs fleet-wide. Diagnose and fix the crash loop (`docker logs promtail`) before
 attempting any path/secrets migration on this stack.
 
+**⚠️ Bigger finding (full-repo audit, confirmed on the live host):** every bind-mount source path
+in `compose.yaml` claims `/home/hughboi/code/promgraftail/...` — **this directory doesn't exist
+on dock-prod at all.** The actual live containers are mounted from a third, different path
+entirely: `/home/hughboi/promgraftail/<service>/...` (confirmed directly, e.g.
+`docker inspect loki --format '{{json .Mounts}}'` shows
+`/home/hughboi/promgraftail/loki/config/config.yaml`, not the repo's claimed path). This means
+`compose.yaml` has not actually driven a real deploy of this stack in some time — it's an
+aspirational/hand-edited "should be" file, not what's running. Corroborating evidence: the live
+`grafana` and `prometheus` containers are running `:main`/`:latest` respectively, not the pinned
+`13.0.1`/`v3.11.3` versions `compose.yaml` specifies.
+
+The repo's tracked config files (`loki/config.yaml`, `prometheus/*.yml`, `telegraf/telegraf.conf`,
+`promtail/config.yaml`) are themselves **stale relative to the live host versions**, not the other
+way around — e.g. the repo's `promtail/config.yaml` uses old `dock-prod_*` job-name labels (the
+live version uses `ubnt-prod_*`, suggesting a hostname rename that was never synced back) and is
+missing two entire scrape jobs the live config has: `unbound_logs` and `bind9` (syslog receiver).
+
+**Before touching this stack's mounts/paths at all**, the full-repo audit (July 2026) recommends:
+1. Diff every one of the 6 services' actual live config (via `docker inspect <name> --format
+   '{{json .Mounts}}'` to find the true `Source:`, then `cat`/`diff` its contents) against the
+   repo's tracked copy — assume the **live host is the source of truth**, not the repo, given the
+   evidence above.
+2. Decide the target convention once, for the whole stack: `/home/hughboi/homelab/apps/docker/promgraftail/...`
+   (the convention every other SOPS-migrated service now uses) is the natural choice, but this is
+   a real decision, not a given.
+3. Update the repo's tracked config files from the live (correct) versions where they've drifted,
+   *then* update `compose.yaml`'s mounts, *then* redeploy and verify — the same careful
+   diff-first discipline used for every other migration this session (see the `pocket-id`
+   incident in this repo's history for why skipping this step is dangerous).
+4. Re-pin `grafana`/`prometheus` to explicit versions matching what's actually intended to run,
+   not what happens to be cached on the host right now.
+
+This is intentionally scoped as one combined future session (crash-loop fix + path/convention
+migration + SOPS migration + optional node_exporter addition for host metrics), not a quick fix —
+see the main homelab todo list.
+
 **Grafana can't connect to Prometheus:**
 - Both must be on the `promgraftail` network. Verify: `docker network inspect promgraftail | grep -A2 prometheus`
 - Test from Grafana container: `docker exec grafana wget -qO- http://prometheus:9090/-/ready`

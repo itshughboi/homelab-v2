@@ -1,6 +1,19 @@
 ### Initial Setup
 1. Go to https://pocket.hughboi.cc/setup for initial setup
 
+> [!WARNING]
+> **Verify the bind mount is actually landing on the host after any compose change.**
+> Production ran for months (since April 2026) with a broken mount — a stray trailing `"` in
+> `compose.yaml`'s volumes line meant the container's real database (`pocket-id.db`) was writing
+> to its own ephemeral layer, not the bind-mounted host path at all. `docker restart` preserves
+> that layer so nothing looked wrong day-to-day, but a `docker compose down`+`up` (any normal
+> redeploy) would have destroyed the entire SSO database with zero warning. Caught and fixed
+> during the SOPS migration (commit `6b1daf6`) — real data was rescued via `docker cp
+> pocket-id:/app/data ...` before the fix landed. If you ever touch this compose file's
+> `volumes:` line again: after redeploying, confirm real files exist at
+> `/home/hughboi/data/pocket_id/data/` on the **host** (not just inside the container) —
+> `ls -la /home/hughboi/data/pocket_id/data/` should show `pocket-id.db`.
+
 ### App Connection
 1. Go to **Settings** -> **Administration** -> **OIDC Clients** -> **Add OIDC Client**
 2. Give it a name and put the **Client Launch URL** to be the URL of the FQDN App. Hit save

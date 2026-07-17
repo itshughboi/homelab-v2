@@ -397,7 +397,7 @@ Complete rebuild flow on a new or wiped Docker host:
 
 ```bash
 # 1. Clone the repo
-git clone https://gitea.hughboi.vip/hughboi/homelab.git
+git clone https://gitea.hughboi.cc/hughboi/homelab.git
 cd homelab
 
 # 2. Install tools
@@ -516,7 +516,7 @@ This is why the Vaultwarden backup is non-negotiable.
 
 ## How the CI check works
 
-The `.gitea/workflows/lint.yml` pipeline includes a `sops-coverage` job that runs on every push/PR. It:
+The `.gitea/workflows/ci.yaml` pipeline includes a `sops-coverage` job that runs on every push/PR. It:
 
 1. Finds every `apps/docker/**/.env.example` in the repo
 2. For each one, checks that a `.env.sops` file exists alongside it
@@ -660,4 +660,4 @@ sops --decrypt apps/docker/vaultwarden/.env.sops
 | `~/.config/sops/age/keys.txt` | Age private key (back up to Vaultwarden) |
 | `apps/docker/<svc>/.env.sops` | Encrypted secrets for each service (in Git) |
 | `apps/docker/<svc>/.env` | Plaintext secrets on disk (gitignored, still needed for first migration) |
-| `.gitea/workflows/lint.yml` | CI job: validates .env.sops key coverage |
+| `.gitea/workflows/ci.yaml` | CI job: validates .env.sops key coverage |

@@ -31,3 +31,9 @@ all:
       ansible_host: 10.10.30.2
     k3s-master-3:
       ansible_host: 10.10.30.3
+    k3s-longhorn-1:
+      ansible_host: 10.10.30.51
+    k3s-longhorn-2:
+      ansible_host: 10.10.30.52
+    k3s-longhorn-3:
+      ansible_host: 10.10.30.53

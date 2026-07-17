@@ -160,7 +160,7 @@ ArgoCD syncs changed manifests to the cluster
 ```
 
 **Renovate** (in-cluster CronJob) opens PRs weekly for image/chart updates.  
-**CI** (`.gitea/workflows/lint.yml`) runs YAML lint, kubeconform, Helm lint, and `terraform fmt` on every push.
+**CI** (`.gitea/workflows/ci.yaml`) runs YAML lint, kubeconform, Terraform validate, Ansible lint, secret scanning, and SOPS coverage on every push and PR.
 
 ---
 
@@ -230,4 +230,4 @@ Full app list: `apps/kubernetes/k3s/apps/`
 | `terraform/proxmox/README.md` | VM provisioning + state backend |
 | `ansible/README.md` | Inventory + vault setup |
 | `renovate.json` | Dependency update config |
-| `.gitea/workflows/lint.yml` | CI pipeline |
+| `.gitea/workflows/ci.yaml` | CI pipeline |
