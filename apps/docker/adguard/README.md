@@ -1,3 +1,17 @@
+# AdGuard Home + Unbound
+
+> [!NOTE] Real deployment path drift
+> Production runs this stack from `/home/hughboi/adguard/docker-compose.yaml` on
+> dock-prod, NOT from this repo checkout — this compose.yaml is a reference copy,
+> not what's actually deployed. Real mounts: `adguard_conf` named Docker volume
+> (not a bind mount), `/home/hughboi/adguard/adguard-data/work`, and
+> `/home/hughboi/adguard/unbound/*`. No SOPS migration was done for this service:
+> the only sensitive data is the admin login's bcrypt hash inside AdGuardHome.yaml
+> (in the named volume, not a mounted file), and this Docker instance is planned
+> to be replaced by the k3s AdGuard eventually — not worth the volume-to-bind-mount
+> conversion for something being retired. See docs/6-docker/index.md for current
+> AdGuard status (Docker instance is canonical today; k3s instance not yet live).
+
 ### Adguard Installation
 1. Remove stub listener on linux host
 ```sh

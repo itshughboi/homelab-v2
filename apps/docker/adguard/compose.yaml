@@ -2,7 +2,7 @@
 services:
   adguardhome:
     container_name: adguard
-    image: adguard/adguardhome:v0.107.74
+    image: adguard/adguardhome:v0.107.71
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -19,8 +19,8 @@ services:
       - TZ=America/Denver
       - ADGUARD_DNS_=192.168.100.10#5335   # IP of unbound on the unbound network
     volumes:
-      - ${DATA_ROOT}/adguard/work:/opt/adguardhome/work
-      - ${DATA_ROOT}/adguard/conf:/opt/adguardhome/conf
+      - /home/hughboi/adguard/adguard-data/work:/opt/adguardhome/work
+      - adguard_conf:/opt/adguardhome/conf
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -57,10 +57,10 @@ services:
       timeout: 10s
       retries: 3
     volumes:
-      - ${CODE_ROOT}/adguard/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro
-      - ${CODE_ROOT}/adguard/unbound/forward-records.conf:/opt/unbound/etc/unbound/forward-records.conf:ro
-      - ${CODE_ROOT}/adguard/unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
-      - ${DATA_ROOT}/adguard/unbound:/opt/unbound/etc/unbound/var
+      - /home/hughboi/adguard/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro
+      - /home/hughboi/adguard/unbound/forward-records.conf:/opt/unbound/etc/unbound/forward-records.conf:ro
+      - /home/hughboi/adguard/unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
+      - /home/hughboi/adguard/unbound:/opt/unbound/etc/unbound/var
     ports:
       - "5335:53/tcp"
       - "5335:53/udp"
@@ -68,6 +68,10 @@ services:
       unbound:
         ipv4_address: 192.168.100.10
 
+
+volumes:
+  adguard_conf:
+    external: true
 
 networks:
   unbound:
