@@ -45,6 +45,15 @@ while IFS= read -r sops_file; do
   fi
 done < <(find "$DOCKER_ROOT" -name ".env.sops" | sort)
 
+# Config-as-secret services (e.g. mailrise) commit <filename>.<ext>.sops
+# instead of .env.sops, and are invisible to the .env.example scan above —
+# surface them separately so they don't look unmigrated.
+while IFS= read -r sops_file; do
+  service_dir=$(dirname "$sops_file")
+  service_name="${service_dir#$DOCKER_ROOT/}"
+  SOPS_ONLY+=("·  $service_name  ($(basename "$sops_file") — config-as-secret, not .env-based)")
+done < <(find "$DOCKER_ROOT" -name "*.sops" ! -name ".env.sops" | sort)
+
 # ── Output ─────────────────────────────────────────────────────────────────────
 
 TOTAL=$(( ${#MIGRATED[@]} + ${#NOT_MIGRATED[@]} ))
