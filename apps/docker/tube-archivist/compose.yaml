@@ -107,12 +107,8 @@ services:
     expose:
       - "9200"
     pids_limit: 500
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-        reservations:
-          memory: 1g
+    mem_limit: 2g
+    mem_reservation: 1g
     networks:
       - archivist
 
