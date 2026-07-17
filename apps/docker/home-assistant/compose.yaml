@@ -21,7 +21,7 @@ services:
     environment:
       - TZ=America/Denver
     volumes:
-      - /config:/config
+      - ./config:/config
       - /etc/localtime:/etc/localtime:ro
     labels:
       - "traefik.enable=true"

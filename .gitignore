@@ -14,6 +14,9 @@ apps/docker/mailrise/mailrise.conf
 # Same pattern — apps/docker/fasten-health/config.yaml.example is the tracked
 # placeholder; the real file has a live JWT signing key.
 apps/docker/fasten-health/config.yaml
+# Same pattern — apps/docker/home-assistant/config/secrets.yaml.example is the
+# tracked placeholder; the real file has the live Postgres recorder credentials.
+apps/docker/home-assistant/config/secrets.yaml
 vault_pass.txt
 *.key
 *.pem

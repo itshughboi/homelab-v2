@@ -59,22 +59,11 @@ tts:
 #       state_class: "measurement"
 #       unique_id: "sensor.enviro_particulates_10"
 
-#homeassistant:
-#  auth_mfa_modules:
-#    - type: totp
-#  external_url: https://home-assistant.jimsgarage.co.uk
-#  internal_url: http://192.168.200.50:8123
-
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 10.10.10.10 # Add the IP address of the proxy server
-    - 10.10.10.0/24  # You may also provide the subnet mask
-    - 172.21.0.0/24 # Can be useful for Docker environments
-    - 172.23.0.20 #bouncer-traefik
-    - 172.23.0.22 # traefik
-    - 172.23.0.0/24
-    - 192.168.0.0/24
+    - 10.10.10.10 # dock-prod (Traefik)
+    - 10.10.10.0/24
   ip_ban_enabled: true
   login_attempts_threshold: 5
 
@@ -98,4 +87,5 @@ http:
 #     sender_name: Home Assistant Notification
 
 recorder:
-  db_url: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@homeassistant-db/homeassistant-db
+  db_url: !secret recorder_db_url
+  purge_keep_days: 30
