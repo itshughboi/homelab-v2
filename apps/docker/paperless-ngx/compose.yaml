@@ -52,12 +52,8 @@ services:
       - "traefik.http.services.paperless.loadbalancer.server.port=8000"
       - "traefik.docker.network=proxy"
     pids_limit: 300
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-        reservations:
-          memory: 512m
+    mem_limit: 2g
+    mem_reservation: 512m
     networks:
       - paperless
       - proxy
