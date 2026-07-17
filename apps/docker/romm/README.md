@@ -5,6 +5,30 @@
 
 ROM Manager. Organize, browse, and download game ROMs from a web interface. Pulls metadata, artwork, and descriptions from IGDB, SteamGridDB, Hasheous, and RetroAchievements.
 
+> [!NOTE] Real deployment drift (found 2026-07-17, not yet fixed)
+> Production runs this stack from `/home/hughboi/romm/docker-compose.yml` on
+> dock-prod, not from this repo checkout, and several mounts have drifted:
+> - `mysql` is actually a **named Docker volume** (`romm_mysql_data`) in
+>   production — the repo's `compose.yaml` declares it as a bind mount
+>   (`/home/hughboi/data/romm/mysql:/var/lib/mysql`) that doesn't exist and
+>   isn't tracked as a `volumes:` entry at all. This is the ROM metadata/user
+>   database — highest-stakes part of this drift.
+> - `assets`/`library` real paths are `/home/hughboi/romm/{assets,library}`,
+>   not the repo's `/home/hughboi/data/romm/{library,assets}`.
+> - `config.yml` real path is `/home/hughboi/romm/config/config.yml`, not the
+>   repo's `/home/hughboi/code/romm/config/config.yml`.
+> - The two already-named volumes (`romm_resources`, `romm_redis_data`) are
+>   real in production too, but prefixed with the project name twice
+>   (`romm_romm_resources`, `romm_romm_redis_data`) since the real compose
+>   project is also named `romm` — same class of prefix collision handled for
+>   tube-archivist and paperless-ngx (see their git history, 2026-07-17, for
+>   the volume-copy pattern to follow: stop stack, create correctly-named
+>   volumes, `docker run --rm -v old:/from -v new:/to alpine cp -a`, verify
+>   file counts match, redeploy, remove old volumes).
+> Not yet SOPS-migrated — do this reconciliation first, same diff-first
+> discipline as every other service this session (assume the live host is
+> the source of truth, not the repo).
+
 ## Stack
 
 Two containers:
