@@ -83,14 +83,18 @@
       become: false
       register: sops_env_file
 
-    # Config-as-secret services (e.g. mailrise) commit <filename>.<ext>.sops
-    # instead of .env.sops — find any of those for this service. Excludes
-    # .env.sops itself (handled separately above) via the patterns regex.
+    # Config-as-secret services (e.g. mailrise, fasten-health) commit
+    # <filename>.<ext>.sops instead of .env.sops — find any of those for this
+    # service. Excludes .env.sops itself (handled separately above) via the
+    # patterns regex. recurse: true because some services nest theirs under a
+    # subdirectory (e.g. home-assistant's config/secrets.yaml.sops, since the
+    # whole config/ dir is what's bind-mounted into the container).
     - name: Check for *.sops config files on the controller (Athena)
       ansible.builtin.find:
         paths: "{{ service_dir }}"
         patterns: '^(?!\.env\.sops$).*\.sops$'
         use_regex: true
+        recurse: true
       delegate_to: localhost
       become: false
       register: sops_config_files
@@ -127,12 +131,16 @@
     # Decrypt each *.sops config file straight to its real filename (strip
     # the trailing ".sops" — mailrise.conf.sops -> mailrise.conf) on the
     # controller, then copy it out to the same relative path on the target
-    # host. Loops so a service can have more than one.
+    # host. Loops so a service can have more than one. relative_path keeps
+    # any subdirectory (e.g. config/secrets.yaml.sops for home-assistant,
+    # since the whole config/ dir is bind-mounted into the container) —
+    # the /tmp staging filename is flattened (slashes -> __) since /tmp/
+    # itself has no matching subdirectory to write into.
     - name: Decrypt config-secret files to the controller
       ansible.builtin.command:
         cmd: >
           sops --decrypt --config {{ sops_config }}
-          --output /tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}
+          --output /tmp/sops-deploy-{{ service }}-{{ (item.path | relpath(service_dir) | replace('.sops', '')) | replace('/', '__') }}
           {{ item.path }}
       loop: "{{ sops_config_files.files | default([]) }}"
       loop_control:
@@ -153,8 +161,8 @@
     # touch the target host except as this one already-decrypted copy.
     - name: Copy decrypted config-secret files to the target host
       ansible.builtin.copy:
-        src: "/tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}"
-        dest: "{{ remote_repo_dir }}/apps/docker/{{ service }}/{{ item.path | basename | replace('.sops', '') }}"
+        src: "/tmp/sops-deploy-{{ service }}-{{ (item.path | relpath(service_dir) | replace('.sops', '')) | replace('/', '__') }}"
+        dest: "{{ remote_repo_dir }}/apps/docker/{{ service }}/{{ item.path | relpath(service_dir) | replace('.sops', '') }}"
         mode: "0644"
       loop: "{{ sops_config_files.files | default([]) }}"
       loop_control:
@@ -183,7 +191,7 @@
 
     - name: Remove decrypted config-secret files from the controller
       ansible.builtin.file:
-        path: "/tmp/sops-deploy-{{ service }}-{{ item.path | basename | replace('.sops', '') }}"
+        path: "/tmp/sops-deploy-{{ service }}-{{ (item.path | relpath(service_dir) | replace('.sops', '')) | replace('/', '__') }}"
         state: absent
       loop: "{{ sops_config_files.files | default([]) }}"
       loop_control:
