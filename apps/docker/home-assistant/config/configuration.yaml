@@ -62,8 +62,9 @@ tts:
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 10.10.10.10 # dock-prod (Traefik)
+    - 10.10.10.10 # dock-prod (Traefik LAN IP)
     - 10.10.10.0/24
+    - 172.23.0.0/16 # Traefik's real IP on the proxy Docker network (confirmed via docker inspect: 172.23.0.22)
   ip_ban_enabled: true
   login_attempts_threshold: 5
 
