@@ -5,6 +5,17 @@
 
 ---
 
+> [!NOTE] Looking for alternatives (2026-07-17)
+> Stopped (not removed) on dock-prod — the restock/price-tracking use case
+> hasn't been reliable in practice (accuracy drifts, breaks periodically),
+> and the extra value over a purpose-built tool (page snapshot archive)
+> isn't something needed for that use case. Evaluating **PriceBuddy**
+> (github.com/jez500/pricebuddy) as a dedicated replacement for restock/price
+> alerts specifically. Not sunsetting yet — config and data in
+> `/home/hughboi/data/change-detection` are untouched, this can be restarted
+> immediately if PriceBuddy doesn't work out. Revisit once PriceBuddy has
+> been tried.
+
 # changedetection.io
 
 **URL:** https://change.hughboi.cc
