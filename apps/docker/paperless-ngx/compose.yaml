@@ -108,7 +108,7 @@ services:
 
   tika:
     container_name: paperless-tika
-    image: ghcr.io/paperless-ngx/tika:2.20.15
+    image: ghcr.io/paperless-ngx/tika:latest
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
