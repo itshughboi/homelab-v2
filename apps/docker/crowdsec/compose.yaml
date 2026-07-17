@@ -26,7 +26,6 @@ services:
     ports:
       - "127.0.0.1:6060:6060"   # Prometheus metrics
     labels:
-      - "diun.enable=true"
     networks:
       - proxy
 
@@ -43,7 +42,6 @@ services:
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
       - CROWDSEC_AGENT_HOST=crowdsec:8080
     labels:
-      - "diun.enable=true"
     networks:
       - proxy
 

@@ -39,7 +39,6 @@ services:
       - "traefik.http.routers.adguard-secure.service=adguard"
       - "traefik.http.services.adguard.loadbalancer.server.port=80"
       - "traefik.docker.network=proxy"
-      - "diun.enable=true"
     networks:
       unbound:
         ipv4_address: 192.168.100.9

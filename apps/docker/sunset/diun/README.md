@@ -1,5 +1,18 @@
 # diun — Docker Image Update Notifier
 
+> [!NOTE] Sunset 2026-07-17
+> Removed from dock-prod — the notifications went unused and were more
+> annoying than useful in practice. Replaced by **Renovate**
+> (`renovate.json`), which already watches `apps/docker/*/compose.yaml` and
+> opens PRs for new image versions with sensible per-service automerge
+> rules, matching the desired workflow of "review/approve a PR, then deploy"
+> rather than a live notification stream. See
+> [issue #45](https://gitea.hughboi.cc/hughboi/homelab/issues/45) for the
+> remaining gap (PR merge doesn't yet auto-trigger a deploy) and
+> [docs/5-security/Security-Audit-2026-05.md](../../../docs/5-security/Security-Audit-2026-05.md)
+> for the original docker.sock-mount tradeoff that first raised
+> "Diun vs Renovate" as a question.
+
 Docs: https://crazymax.dev/diun/
 
 Diun watches all running containers on the host (via docker.sock) and sends a notification whenever an upstream image tag has a newer digest available. It does **not** pull or restart anything — it only notifies.

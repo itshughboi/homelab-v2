@@ -36,7 +36,6 @@ services:
       - "traefik.http.routers.change-secure.service=change"
       - "traefik.http.services.change.loadbalancer.server.port=5000"
       - "traefik.docker.network=proxy"
-      - "diun.enable=true"
     networks:
       - proxy
       - changedetection

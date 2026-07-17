@@ -40,7 +40,6 @@ services:
       - "traefik.http.routers.vaultwarden-secure.service=vaultwarden"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
       - "traefik.docker.network=proxy"
-      - "diun.enable=true"
     networks:
       - proxy
 

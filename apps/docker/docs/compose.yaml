@@ -38,7 +38,6 @@ services:
       - "traefik.http.routers.docs-secure.service=docs"
       - "traefik.http.services.docs.loadbalancer.server.port=80"
       - "traefik.docker.network=proxy"
-      - "diun.enable=false" # locally built, not a pulled image
     networks:
       - proxy
 
