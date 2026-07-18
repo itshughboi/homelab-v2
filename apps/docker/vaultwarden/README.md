@@ -2,6 +2,14 @@
 
 **URL:** https://vaultwarden.hughboi.cc/setup
 
+## Secrets (SOPS)
+
+`.env` (`.env.sops`) — `DOMAIN`, `ADMIN_TOKEN` (already an argon2id hash, not a raw token — see
+Admin Panel section below for how it's generated), and the 6 `SMTP_*` fields. `.env.example` also
+lists 5 `OIDC_*` fields, but they are **not currently set** in production — OIDC/PocketID login is
+configured as documented below but not active via env vars right now; don't assume it's live
+without checking `docker inspect vaultwarden --format '{{json .Config.Env}}'` first.
+
 ---
 
 # Security

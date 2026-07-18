@@ -1,21 +1,3 @@
-Not fully setup. Production has an encrypted database, so figure out how to do that before this is officially done. The config.yaml is new to me. I hadn't been running it the whole time but I should so that database can be encrypted. Current implementation doesn't even use the config.yaml file, but to fully setup in production, I should be using that <br>
-
-```sh
-database:
-  encryption:
-    enabled: false
-  #    key: ''
-```
-
-<br>
-^^ this will need to be changed to <br>
-
-```sh
-enabled: true
-```
-
----
-
 # Fasten Health
 
 **URL:** https://fastenhealth.hughboi.cc
@@ -25,34 +7,29 @@ Self-hosted personal health records aggregator. Connects to healthcare providers
 
 ## Stack
 
-Single container. SQLite database stored in `/opt/fasten/db` (mounted from host). Config at `/opt/fasten/config/config.yaml` (`:ro`).
+Single container. SQLite database stored in `/opt/fasten/db` (mounted from host). Config at `/opt/fasten/config/config.yaml` (`:ro`, mounted from this repo checkout).
 
 ## Volumes
 
 | Host Path | Container Path | Purpose |
 |---|---|---|
-| `/home/hughboi/data/fasten-health/db` | `/opt/fasten/db` | SQLite database — all health records |
-| `/home/hughboi/fastenhealth/config.yaml` | `/opt/fasten/config/config.yaml:ro` | Server config (encryption key, settings) |
-| `cache` (named volume) | `/opt/fasten/cache` | Provider metadata cache |
+| `/home/hughboi/data/fastenhealth/db` | `/opt/fasten/db` | SQLite database — all health records |
+| `/home/hughboi/data/fastenhealth/cache` | `/opt/fasten/cache` | Provider metadata cache |
+| `/home/hughboi/data/fastenhealth/certs` | `/opt/fasten/certs/shared` | Shared TLS certs (unused unless `web.https` is enabled) |
+| `./config.yaml` (this repo checkout) | `/opt/fasten/config/config.yaml:ro` | Server config — database, JWT signing key |
 
-## Config File
+## Secrets (SOPS)
 
-The config.yaml controls database encryption and other server settings. Must be set up before first run if using encryption:
+Two separate secret files, both SOPS-encrypted:
 
-```yaml
-database:
-  encryption:
-    enabled: true
-    key: 'YOUR_ENCRYPTION_KEY_HERE'
-```
+- `.env` (`.env.sops`) — `FASTEN_ENCRYPTION_KEY`, used by the app for at-rest encryption of certain fields
+- `config.yaml` (`config.yaml.sops`, config-as-secret pattern like mailrise) — contains the real `jwt.issuer.key` used to sign session tokens. Tracked placeholder is `config.yaml.example`.
 
-Generate a key: `openssl rand -hex 32`
-
-**Once the database is created with encryption enabled, the key cannot be changed without losing access to all records.**
+**Database encryption is intentionally disabled** (`database.encryption.enabled: false` in `config.yaml`) — this matches what's actually running in production; it was not silently left off, it's a deliberate choice made when this was migrated to SOPS in 2026-07. Revisit only as its own deliberate decision, since enabling it after the fact on an existing unencrypted SQLite DB is not just a config flip.
 
 ## First Run
 
-1. Create the config.yaml at `/home/hughboi/fastenhealth/config.yaml` with encryption enabled
+1. `git pull`, then decrypt secrets: `./scripts/sops-run.sh fasten-health config` to verify
 2. `docker compose up -d`
 3. Navigate to https://fastenhealth.hughboi.cc
 4. Create your account
@@ -68,6 +45,6 @@ Fasten supports hundreds of US healthcare providers via FHIR. The connection pro
 
 ## Upgrade Notes
 
-- The SQLite database in `/home/hughboi/data/fasten-health/db` holds all health records. Back it up before upgrading.
-- If encryption is enabled, the encryption key must be present in config.yaml for the app to start.
+- The SQLite database in `/home/hughboi/data/fastenhealth/db` holds all health records. Back it up before upgrading.
+- Image is pinned to `main-v1.1.3` — the bare `v1.1.3` tag does not exist on `ghcr.io/fastenhealth/fasten-onprem`; only `main-v1.1.3`/`sandbox-v1.1.3` style tags are published for this version. Confirm a new tag actually exists before bumping (`curl` the registry's tag list) rather than assuming semver-only tags will resolve.
 - Check the [Fasten Health releases](https://github.com/fastenhealth/fasten-onprem/releases) for migration notes.

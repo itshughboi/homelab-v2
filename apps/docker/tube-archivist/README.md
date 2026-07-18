@@ -27,7 +27,7 @@ Self-hosted YouTube archiver. Subscribe to channels, download videos (audio + vi
 | `redis` (named volume) | Redis data |
 | `es` (named volume) | Elasticsearch index |
 
-## Key Environment Variables (`.env`)
+## Key Environment Variables (`.env`, SOPS-encrypted as `.env.sops`)
 
 | Variable | Purpose |
 |---|---|
@@ -39,7 +39,7 @@ Self-hosted YouTube archiver. Subscribe to channels, download videos (audio + vi
 
 ## First Run
 
-1. Fill in `.env`
+1. `git pull`, decrypt secrets (Semaphore's `sops-deploy` Task Template, or `./scripts/sops-run.sh tube-archivist config` to verify locally)
 2. `docker compose up -d` (wait for Elasticsearch to become healthy — can take 60+ seconds)
 3. Navigate to https://yt.hughboi.cc
 4. Log in with `TA_USERNAME` and `TA_PASSWORD`

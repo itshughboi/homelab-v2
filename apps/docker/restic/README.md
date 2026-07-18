@@ -30,12 +30,23 @@ The restic repository lives at `/mnt/truenas/restic` on the host (NFS mount). Al
 | Keep weekly | 1 per week |
 | Keep monthly | 2 per month |
 
-## Key Environment Variables (`.env`)
+## Key Environment Variables (`.env`, SOPS-encrypted as `.env.sops`)
 
 | Variable | Purpose |
 |---|---|
 | `RESTIC_PASSWORD` | Encryption password for the repository — **never lose this** |
 | `TZ` | Timezone for cron scheduling (`America/Denver`) |
+
+## Incident History
+
+2026-07-17: the repository at `/mnt/truenas/restic` was found completely empty despite container
+logs showing a successful 96GiB backup as recently as two days prior — no ZFS snapshots existed
+to recover the lost history from. Root cause was never conclusively identified. Real source data
+(`/home/hughboi`) was independently verified intact throughout; only the backup archive itself was
+lost. A fresh full backup was taken and confirmed successful. See
+[Gitea issue #44](https://gitea.hughboi.cc/hughboi/homelab/issues/44) for the full writeup and
+open follow-up items (verify `restic-check`/`restic-prune` actually fire on schedule, investigate
+TrueNAS-side root cause if evidence still exists).
 
 ## Checking Backup Status
 

@@ -49,20 +49,22 @@ Document management system. Scan, OCR, tag, and search all paper documents. Repl
 5. OCR runs (Tesseract) and the document becomes searchable
 6. Apply tags, correspondents, and document types either manually or via rules
 
-## Key Environment Variables (`.env`)
+## Key Environment Variables (`.env`, SOPS-encrypted as `.env.sops`)
 
 | Variable | Purpose |
 |---|---|
 | `PAPERLESS_ADMIN_USER` | Admin account username |
 | `PAPERLESS_ADMIN_PASSWORD` | Admin account password |
 | `PAPERLESS_DBPASS` | Postgres password |
-| `PAPERLESS_SECRET_KEY` | Django secret key — generate with `openssl rand -base64 32` |
-| `PAPERLESS_OCR_LANGUAGES` | Languages to install for OCR (e.g. `eng deu`) |
-| `PAPERLESS_TIME_ZONE` | `America/Denver` |
+| `PAPERLESS_DBENGINE` | `postgresql` |
+| `PAPERLESS_CONSUMER_POLLING` | Seconds between consume-directory polls (`20`) — NFS mounts need polling, inotify doesn't reliably fire across NFS |
+| `PAPERLESS_CONSUMER_RECURSIVE` | `TRUE` — watch subdirectories of the consume directory too |
+| `PAPERLESS_FILENAME_FORMAT` | `{{ original_name }}` — without this, imported files get renamed to sequential IDs instead of keeping their original name |
+| `USERMAP_UID` / `USERMAP_GID` | Host UID/GID (`3001`) the container writes files as — must match the TrueNAS dataset's Mapall User for the consume share |
 
 ## First Run
 
-1. Fill in `.env`
+1. `git pull`, decrypt secrets (Semaphore's `sops-deploy` Task Template, or `./scripts/sops-run.sh paperless-ngx config` to verify locally)
 2. `docker compose up -d`
 3. Navigate to https://paperless.hughboi.cc
 4. Log in with `PAPERLESS_ADMIN_USER` and `PAPERLESS_ADMIN_PASSWORD`
