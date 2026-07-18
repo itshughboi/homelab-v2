@@ -77,8 +77,11 @@ services:
 
 volumes:
   romm_resources:
+    name: romm_resources
   romm_redis_data:
+    name: romm_redis_data
   romm_mysql_data:
+    name: romm_mysql_data
 
 networks:
   romm:
