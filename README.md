@@ -14,7 +14,7 @@ Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Pac
 
 ## Principles
 
-**Everything is code.** Network config, VM provisioning, k8s manifests, DNS records — all live in Git. Rebuilding from bare metal is a known, repeatable process.
+**Everything is code.** Network config, VM provisioning, k3s manifests, DNS records — all live in Git. Rebuilding from bare metal is a known, repeatable process.
 
 **Separation of planes.** Management never mixes with storage or workload traffic. VLANs enforce this at the switch, not just the firewall.
 
@@ -43,12 +43,13 @@ Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Pac
 │  pve-srv-2/3/4 → k3s cluster (NOT currently live)          │
 │    Masters: 10.10.30.1-3 (VIP 10.10.30.30)                 │
 │    Workers: 10.10.30.11-13, Longhorn: 10.10.30.51-53       │
-│    Target domain once live: *.hughboi.vip                  │
+│    Same domain (hughboi.cc) — per-service DNS record       │
+│    points at whichever Traefik currently serves it         │
 └──────────────────────────────────────────────────────────┘
           │
           ▼
   TrueNAS (NFS: media, backups, documents)
-```text
+```
 
 ---
 
@@ -69,7 +70,7 @@ homelab/
 ├── packer/                  # Ubuntu cloud-init template for Proxmox
 ├── bootstrap/                # PXE / netboot.xyz setup (provisioning-time only)
 └── docs/                    # Architecture notes, numbered setup guides
-```text
+```
 
 ---
 
@@ -93,12 +94,28 @@ does not mean it's deployed).
 | UniFi | Core network management (APs/switches). The k3s manifest could technically give it a stable IP via MetalLB, but this isn't the place to pilot the k3s migration pattern. |
 | Traefik, Bind9, CrowdSec, Gitea, Semaphore, promgraftail | Fixed network position or hard dependency for everything else (reverse proxy, canonical DNS, ingress security, static-IP-pinned routing, the log-shipping destination every other service points at). Each needs its own dedicated re-plumbing project before it can move. |
 
-**Good k3s candidates once the cluster is live** (21 services — small/self-contained state, no
-storage or network-position tie): change-detection, ezbookkeeping, fasten-health, freshrss,
-hoarder, mealie, n8n, ntfy, pocket-id, searxng, syncthing, vaultwarden, mailrise, gatus,
-home-assistant, homepage, tube-archivist, file-browser, plus Wazuh (never deployed on Docker at
-all — build fresh directly on k3s once it's live, since it's fleet-wide security monitoring that
-specifically shouldn't share a host with the things it watches).
+**Good k3s candidates once the cluster is live** (20 services — small/self-contained state, no storage or network-position tie):
+
+1. change-detection
+2. ezbookkeeping
+3. fasten-health
+4. freshrss
+5. hoarder
+6. mealie
+7. n8n
+8. ntfy
+9. pocket-id
+10. searxng
+11. syncthing
+12. vaultwarden
+13. mailrise
+14. gatus
+15. home-assistant
+16. homepage
+17. tube-archivist
+18. file-browser
+19. docs — the static Hugo site
+20. Wazuh — never deployed on Docker at all; build fresh directly on k3s once it's live, since it's fleet-wide security monitoring that specifically shouldn't share a host with the things it watches
 
 ---
 
@@ -142,10 +159,17 @@ This is a high-level summary, not a 1:1 map to `docs/QUICKSTART.md`'s numbered p
 
 ## DNS Strategy
 
-| Domain | Purpose | Resolver |
-|--------|---------|---------|
-| `*.hughboi.cc` | Docker services (current, canonical) | AdGuard (Docker) → Traefik (Docker) |
-| `*.hughboi.vip` | k3s services (target, not yet live) | Planned: AdGuard (k3s) → Traefik (k3s) |
+**One domain, `hughboi.cc`, for everything — no domain-per-platform split.** DNS resolves per
+hostname, not per domain: each service's own record (`jellyfin.hughboi.cc`,
+`vaultwarden.hughboi.cc`, etc.) points at whichever Traefik instance currently serves that
+service — dock-prod's Traefik (`10.10.10.10`) today, or k3s's Traefik/MetalLB IP
+(`10.10.30.75`) once a service has actually migrated. Migrating a service later is a single DNS
+record change, not a domain change.
+
+`apps/kubernetes/k3s/` currently has some manifests referencing a separate `*.hughboi.vip`
+domain from earlier planning — that convention is **not** the intended long-term design and
+should be updated to `hughboi.cc` as those manifests are actually put into use, not treated as
+the real target.
 
 Internal LAN DNS resolution is Bind9 on Athena, not AdGuard — AdGuard's Docker instance handles
 ad-blocking for browsing/guest traffic. See `apps/docker/adguard/README.md` for the real current
