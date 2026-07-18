@@ -32,9 +32,9 @@ services:
     volumes:
       - romm_resources:/romm/resources
       - romm_redis_data:/redis-data
-      - /home/hughboi/data/romm/library:/romm/library
-      - /home/hughboi/data/romm/assets:/romm/assets
-      - /home/hughboi/code/romm/config/config.yml:/romm/config/config.yml:ro
+      - /mnt/truenas/romm/library:/romm/library
+      - /home/hughboi/romm/assets:/romm/assets
+      - /home/hughboi/homelab/apps/docker/romm/config.yml:/romm/config/config.yml:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.romm.entrypoints=http"
@@ -70,7 +70,7 @@ services:
       - MYSQL_USER=romm-user
       - MYSQL_PASSWORD=${DB_PASSWD}
     volumes:
-      - /home/hughboi/data/romm/mysql:/var/lib/mysql
+      - romm_mysql_data:/var/lib/mysql
     networks:
       - romm
 
@@ -78,6 +78,7 @@ services:
 volumes:
   romm_resources:
   romm_redis_data:
+  romm_mysql_data:
 
 networks:
   romm:
