@@ -6,12 +6,18 @@ services:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-v2.7.5}
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
     command: [ "start.sh", "immich" ]
-    extends:
-      file: hwaccel.transcoding.yml
-      service: vaapi
+    # GPU transcoding: apparmor=unconfined + group_add render required for /dev/dri access
+    # (matches the working pattern already proven in immich/eros/compose.yaml — the
+    # hwaccel.transcoding.yml this used to extend doesn't exist anywhere in the repo.
+    # apparmor=unconfined and no-new-privileges:true are not combined here, matching
+    # eros exactly — eros's security_opt is apparmor=unconfined alone)
+    devices:
+      - /dev/dri:/dev/dri
+    security_opt:
+      - apparmor=unconfined
+    group_add:
+      - "993"   # render/video group on host: stat -c "%g" /dev/dri/renderD128
     logging:
       driver: loki
       options:
@@ -68,7 +74,7 @@ services:
         mode: "non-blocking"
     extends:
       file: hwaccel.ml.yml
-      service: hwaccel
+      service: openvino
     volumes:
       - immich-cache:/cache
     env_file:

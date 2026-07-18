@@ -14,7 +14,7 @@ Self-hosted photo and video library. Replaces Google Photos. Used for the main h
 | `immich_redis` | `valkey/valkey` | Job queue and session cache |
 | `immich_postgres` | `immich-app/postgres` | Database (PostgreSQL with pgvector for ML search) |
 
-Machine learning uses OpenVINO for Intel GPU acceleration (`SYS_ADMIN` cap + `apparmor=unconfined` required).
+Machine learning uses OpenVINO for Intel GPU acceleration (`SYS_ADMIN` cap + `apparmor=unconfined` required). The server itself also gets GPU access for video transcoding, directly via `/dev/dri` + the host's render group (GID `993`) — same pattern as `apps/docker/immich/eros`, the proven-working reference. Fixed 2026-07-18: this was previously broken (`extends: hwaccel.transcoding.yml`, a file that doesn't exist anywhere in the repo, and the ML service extended a nonexistent `hwaccel` service name instead of the real `openvino` one in `hwaccel.ml.yml`) — see [Gitea issue #48](https://gitea.hughboi.cc/hughboi/homelab/issues/48).
 
 ## Network Layout
 
