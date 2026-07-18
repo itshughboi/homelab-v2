@@ -63,8 +63,8 @@ Provision dock-prod (Terraform), then bring up in order: **Traefik → AdGuard �
 → [6-docker](6-docker/index.md)
 
 ## Phase 7 — k3s + GitOps 🔴 tomorrow
-Provision the 9 k3s VMs (Terraform) → `kubernetes/k3s/new` (kube-vip → MetalLB → Longhorn) →
-sealed-secrets controller → cert-manager → Traefik → ArgoCD (`kubectl apply -f root-app.yaml`).
+Provision the 9 k3s VMs (Terraform) → `ansible/playbooks/kubernetes/k3s/new` (kube-vip → MetalLB → Longhorn) →
+sealed-secrets controller → cert-manager → Traefik → ArgoCD (`kubectl apply -f apps/kubernetes/k3s/argocd/apps/root-app.yaml`).
 **Before ArgoCD:** add the `k3s → 10.10.10.8:3000` firewall allow so it can reach Gitea. → [7-k3s](7-k3s/index.md)
 
 ## Phase 8 — Backup validation

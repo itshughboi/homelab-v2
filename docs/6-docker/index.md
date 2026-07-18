@@ -40,7 +40,7 @@ overall stack is strong (100% pinned images, `no-new-privileges` everywhere, Lok
 | Athena | 10.10.10.8 | Management: **Gitea, Semaphore, Bind9** |
 | dock-prod | 10.10.10.10 | Production: **Traefik** + everything user-facing (AdGuard, CrowdSec, Vaultwarden, ntfy, Mailrise, apps) |
 
-Athena runs first (Phase 8) because dock-prod depends on Athena's DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.
+Athena runs first (Phase 3) because dock-prod depends on Athena's DNS and Git server. Once Semaphore is running on Athena, all remaining service startups can be triggered from the Semaphore UI.
 
 > Traefik (the reverse proxy for `*.hughboi.cc`) runs **only on dock-prod** — it fronts the
 > Athena-hosted services (Gitea, Semaphore) over the network. Athena itself does not run Traefik.
@@ -239,7 +239,7 @@ cd apps/docker/restic && docker compose up -d
 # 12. Everything else
 for svc in paperless-ngx romm mealie freshrss hoarder homepage \
            gatus change-detection searxng home-assistant \
-           diun syncthing file-browser \
+           syncthing file-browser \
            fasten-health ezbookkeeping unifi; do
   cd apps/docker/$svc && docker compose up -d && cd -
 done
@@ -279,12 +279,11 @@ done
 | Syncthing | dock-prod | https://sync.hughboi.cc | File sync |
 | File Browser | dock-prod | https://files.hughboi.cc | Web file manager |
 | UniFi Controller | dock-prod | https://unifi.hughboi.cc | Network controller |
-| Diun | dock-prod | — | Docker image update notifier |
 | Fasten Health | dock-prod | https://health.hughboi.cc | Health records |
 | EzBookkeeping | dock-prod | https://money.hughboi.cc | Finance tracker |
 | Change Detection | dock-prod | https://cd.hughboi.cc | Website change monitor |
 | SearXNG | dock-prod | https://search.hughboi.cc | Private search engine |
-| Glances | dock-prod | — | Host metrics dashboard/API (**status TBD** — pending dock-prod's future) |
+| Glances | dock-prod | 10.10.10.10:61208 (SSH tunnel) | Host metrics dashboard/API — fully deployed |
 | promgraftail | dock-prod | — | dock-prod monitoring stack: Grafana + Loki + Prometheus/Telegraf. **Still fully live and in active use** — the k3s replacement (kube-prometheus-stack + Loki + Alloy, see [7-k3s/Monitoring](../7-k3s/Monitoring.md)) has not been deployed/tested yet, so no retirement has started. Also has its own real config-drift issue, see `apps/docker/promgraftail/README.md`. |
 
 ---

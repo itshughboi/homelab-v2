@@ -1,7 +1,3 @@
-
-To-Do: Update "CHANGEME" password in /conf/ezbookkeeping.ini
-
-
 Health
 - Doctor Visit
 - Dental Visit

@@ -15,14 +15,20 @@ See [loki/README.md](loki/README.md) for detailed Loki + Promtail setup.
 | `promtail` | `grafana/promtail` | — (no UI) | Log shipping to Loki |
 | `influxdb` | `influxdb` | https://influxdb.hughboi.cc | Time-series DB for Telegraf/SNMP metrics |
 | `telegraf` | `telegraf` | — (no UI) | SNMP + host metrics collector → InfluxDB |
-| `alloy` | `grafana/alloy` | https://alloy.hughboi.cc | Grafana Alloy agent (OTel collector) |
 
-All services are on the `promgraftail` internal Docker network. Grafana, Loki, InfluxDB, and Alloy also join the `proxy` network for Traefik routing.
+> [!NOTE] Alloy is not deployed
+> `compose.yaml` has no `alloy` service at all (not even commented out) — despite being
+> documented below and in `docs/6-docker/index.md`'s migration notes as the planned
+> Promtail replacement. Fold standing this up into the same dedicated future session as
+> the rest of this stack's real path/drift issues (see Troubleshooting below), rather than
+> assuming it's already running from this doc alone.
+
+All services are on the `promgraftail` internal Docker network. Grafana, Loki, and InfluxDB also join the `proxy` network for Traefik routing.
 
 ## Network Layout
 
 ```
-Internet → Traefik → [grafana, loki, influxdb, alloy]
+Internet → Traefik → [grafana, loki, influxdb]
                             ↕
                     promgraftail network
                   [prometheus, alertmanager, promtail, telegraf]
@@ -42,7 +48,7 @@ Prometheus and alertmanager are **not** exposed via Traefik. Access them via SSH
 | `loki/config.yaml` | loki | Loki storage and retention config |
 | `promtail/config.yaml` | promtail | Log scrape targets and Loki push config |
 | `telegraf/telegraf.conf` | telegraf | SNMP and host input configs |
-| `alloy/config.alloy` | alloy | Alloy pipeline config (OTel format) |
+| `alloy/config.alloy` | — | Not yet deployed (see note above) — file exists in the repo as prep work only, nothing reads it |
 
 All config files are mounted `:ro` — restart the service after any config change.
 
@@ -75,7 +81,7 @@ Import by ID from grafana.com:
 Config at `prometheus.yml`. Key scrape jobs:
 - `node_exporter` — host metrics
 - `unifipoller` — scrapes unifi-poller container on the `promgraftail` network (no host port needed — container-to-container)
-- `cadvisor` — Docker container metrics (if cadvisor is running)
+- `cadvisor` — Docker container metrics; the service block is present in `compose.yaml` but **fully commented out**, not currently running. Uncomment and redeploy if container-level metrics are wanted.
 
 Alertmanager is configured in `prometheus.yml`:
 ```yaml
@@ -108,9 +114,9 @@ Runs as `telegraf:988` (the telegraf group on the host, needed for docker.sock a
 
 Initial setup is done through the web UI — creates the org, bucket, and admin token on first run. Store the admin token in `.env` after generation.
 
-## Alloy
+## Alloy (not yet deployed)
 
-Grafana Alloy is the next-gen OTel collector replacing Promtail. It can ingest logs, metrics, and traces. The web UI is at https://alloy.hughboi.cc (port 3100 via Traefik) and the agent listen port is `127.0.0.1:12345`.
+Grafana Alloy is the planned next-gen OTel collector to replace Promtail — it can ingest logs, metrics, and traces. A config file exists at `alloy/config.alloy` as prep work, but there is no `alloy` service in `compose.yaml` yet, so none of this is live: no container, no `https://alloy.hughboi.cc` route, nothing listening on port 3100 or `12345`. Stand this up as part of the same dedicated future session as this stack's other real path/drift issues (see Troubleshooting below).
 
 ## Upgrade Notes
 

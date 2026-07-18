@@ -16,7 +16,7 @@ ever need to change.
 
 ## Config
 
-Config lives at `/home/hughboi/code/gatus/config` (mounted `:ro`). This is where all endpoints, alert rules, and thresholds are defined. Changes to config require a container restart to take effect.
+Config lives at `/home/hughboi/homelab/apps/docker/gatus/config` (mounted `:ro`). This is where all endpoints, alert rules, and thresholds are defined. Changes to config require a container restart to take effect.
 
 DNS for the container is set to `10.10.10.8` (Bind9, on Athena) and `10.10.10.10` (dock-prod, this host) so that internal hostnames resolve correctly when checking internal services.
 
@@ -24,11 +24,11 @@ DNS for the container is set to `10.10.10.8` (Bind9, on Athena) and `10.10.10.10
 
 | Host Path | Container Path | Purpose |
 |---|---|---|
-| `/home/hughboi/code/gatus/config` | `/config:ro` | Endpoint definitions and thresholds |
+| `/home/hughboi/homelab/apps/docker/gatus/config` | `/config:ro` | Endpoint definitions and thresholds |
 
 ## First Run
 
-1. Edit the config at `/home/hughboi/code/gatus/config/config.yaml`
+1. Edit the config at `/home/hughboi/homelab/apps/docker/gatus/config/config.yaml`
 2. Add endpoints to monitor — example:
 ```yaml
 endpoints:

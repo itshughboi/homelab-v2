@@ -236,18 +236,18 @@ cd apps/docker/semaphore && sudo -E ../../../scripts/sops-run.sh semaphore up -d
 ./scripts/sops-check.sh
 ```
 
-Example output (illustrative — your actual counts depend on what's been migrated; today it's 0):
+Example output (illustrative — run the script for your actual current counts):
 ```
-SOPS Migration Status  (3 / 18 migrated)
+SOPS Migration Status  (18 / 36 migrated)
 ═══════════════════════════════════════════════
 
 Encrypted (.env.sops exists):
   ✓  vaultwarden
   ✓  gitea
-  ✓  traefik
+  ✓  restic
 
 Not yet migrated (.env.sops missing):
-  ✗  paperless-ngx
+  ✗  homepage
   ✗  immich/home
   ...
 
@@ -346,7 +346,7 @@ Once all `.env` files are filled in on the current host:
 
 ```bash
 for svc in paperless-ngx gitea traefik home-assistant hoarder mealie n8n mailrise \
-           gatus searxng semaphore romm diun restic immich/home immich/eros; do
+           gatus searxng semaphore romm restic immich/home immich/eros; do
   ./scripts/sops-migrate.sh "$svc"
 done
 ```

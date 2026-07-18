@@ -328,7 +328,7 @@ argocd repo add http://10.10.10.8:3000/hughboi/homelab.git \
   --username hughboi --password <gitea-token>
 
 # Bootstrap App of Apps — ArgoCD now manages everything
-kubectl apply -f apps/root-app.yaml
+kubectl apply -f apps/kubernetes/k3s/argocd/apps/root-app.yaml
 ```
 
 ArgoCD discovers every directory under `apps/kubernetes/k3s/apps/` automatically. New apps appear when you add a directory and push.

@@ -32,16 +32,22 @@ Two containers:
 | `/home/hughboi/data/n8n/files` | `/files` | Files produced or consumed by workflows |
 | `/home/hughboi/data/n8n/db` | `/var/lib/postgresql/data` | Postgres data |
 
-## Key Environment Variables (`.env`)
+## Key Environment Variables (`.env`, SOPS-encrypted as `.env.sops`)
 
 | Variable | Purpose |
 |---|---|
+| `DOMAIN_NAME` | `hughboi.cc` |
+| `SUBDOMAIN` | `n8n` |
+| `GENERIC_TIMEZONE` | `America/Denver` |
 | `N8N_HOST` | Hostname (`n8n.hughboi.cc`) |
+| `N8N_PROTOCOL` | `https` |
 | `WEBHOOK_URL` | Full public URL for webhooks: `https://n8n.hughboi.cc/` |
-| `N8N_ENCRYPTION_KEY` | Key used to encrypt stored credentials — **back this up separately** |
-| `DB_TYPE` | `postgresdb` |
-| `DB_POSTGRESDB_HOST` | `postgres` (container name on internal network) |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | For the Postgres container |
+
+There is no `N8N_ENCRYPTION_KEY` or `DB_TYPE`/`DB_POSTGRESDB_HOST` set in this deployment's `.env`
+— n8n falls back to its own defaults for those when unset. If credential-encryption backup ever
+becomes a concern, n8n auto-generates and persists the encryption key inside its own data volume
+(`/home/hughboi/data/n8n/data`) rather than requiring it as an env var.
 
 ## First Run
 

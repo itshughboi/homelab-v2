@@ -10,15 +10,19 @@ environment:
   - BIND9_USER=root
 ```
 
-**2. Own the directories as root** — the container's root maps to real UID 0 on the host, so `chown root:root` is sufficient:
+**2. Own the config directory as root** — the container's root maps to real UID 0 on the host, so `chown root:root` is sufficient. The real bind mount is `/home/hughboi/bind9/config` (not a path relative to this repo checkout — bind9 only ships `compose.yaml` here, config lives directly on the host):
 ```sh
-sudo chown -R root:root ./config /home/hughboi/data/bind9/cache
-sudo chmod 755 ./config /home/hughboi/data/bind9/cache
-sudo chmod 644 ./config/*.conf ./config/*.bind ./config/*.txt
-sudo chmod 755 ./config/zones
+sudo chown -R root:root /home/hughboi/bind9/config
+sudo chmod 755 /home/hughboi/bind9/config
+sudo chmod 644 /home/hughboi/bind9/config/*.conf /home/hughboi/bind9/config/*.bind /home/hughboi/bind9/config/*.txt
+sudo chmod 755 /home/hughboi/bind9/config/zones
 # Tighten key files — should not be world-readable
-sudo chmod 600 ./config/named.conf.key ./config/rndc.conf
+sudo chmod 600 /home/hughboi/bind9/config/named.conf.key /home/hughboi/bind9/config/rndc.conf
 ```
+
+`cache` (`/var/cache/bind`) is a Docker-managed **named volume**, not a host bind mount — there's
+no host-side directory to `chown` for it. If cache permissions ever need fixing, do it from
+inside a throwaway container: `docker run --rm -v bind9_cache:/data alpine chown -R 0:0 /data`.
 
 Verify it started cleanly:
 ```sh

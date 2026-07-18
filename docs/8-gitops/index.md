@@ -32,10 +32,10 @@ See the [k3s GitOps section](../7-k3s/index.md#gitops-argocd) for the full insta
 
 ### App of Apps Pattern
 
-The root Application (`apps/root-app.yaml`) watches `apps/kubernetes/k3s/apps/` and creates a child Application for every subdirectory it finds. Adding a new app = add a directory + push. No manual ArgoCD configuration needed.
+The root Application (`apps/kubernetes/k3s/argocd/apps/root-app.yaml`) watches `apps/kubernetes/k3s/apps/` and creates a child Application for every subdirectory it finds. Adding a new app = add a directory + push. No manual ArgoCD configuration needed.
 
 ```
-apps/root-app.yaml
+apps/kubernetes/k3s/argocd/apps/root-app.yaml
     → apps/kubernetes/k3s/apps/traefik/     → ArgoCD Application: traefik
     → apps/kubernetes/k3s/apps/grafana/     → ArgoCD Application: grafana
     → apps/kubernetes/k3s/apps/vaultwarden/ → ArgoCD Application: vaultwarden

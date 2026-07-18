@@ -163,18 +163,21 @@ UniFi Controller API
 	1. Permissions: Read Only (all networks)
 
 ### Prometheus Connection
-- We expose TCP port 9130 in the container to publish metrics at. We then create a prometheus job to scrape this endpoint:
+- Port 9130 is **not** published to the host — `unifi-poller` and Prometheus share the
+  `promgraftail` Docker network, so Prometheus scrapes it container-to-container by name:
 ```
  - job_name: 'unifipoller'
     scrape_interval: 30s
     static_configs:
-    - targets: ['10.10.10.10:9130']
+    - targets: ['unifi-poller:9130']
 ```
 
 - Redeploy Prometheus and you should be able to see this as a target now and just make sure it checks and can query.
-- I can also check that endpoint myself with this to query the poller metrics
+- To check the endpoint from the host, exec into a container already on the `promgraftail`
+  network (e.g. Prometheus itself) rather than curling from the host directly — there's no
+  published port to hit from outside Docker:
 ```
-curl http://10.10.10.10:9130/metrics
+docker exec prometheus wget -qO- http://unifi-poller:9130/metrics
 ```
 ### Grafana Connection
 - Data Source - > Add new data source -> Prometheus

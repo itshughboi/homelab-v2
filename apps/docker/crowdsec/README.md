@@ -29,7 +29,7 @@ the old ban list/machine registration is acceptable (confirmed with the user —
 internal-only), so a clean reset is fine; just never leave Traefik without a *running* bouncer.
 
 
-## Installation
+## Installation (first-time / fresh setup only — see Migration status above for the live cutover plan)
 1. Configure Traefik. <br>
     a. Add crowdsec middleware
     ```
@@ -52,5 +52,5 @@ internal-only), so a clean reset is fine; just never leave Traefik without a *ru
 2. Start docker compose
 3. Go into crowdsec container to create API key
 ```sudo docker exec crowdsec cscli bouncers add bouncer-traefik```
-4. Put API Key into .env
+4. Put the real key in `apps/docker/crowdsec/.env`, then encrypt it: `./scripts/sops-migrate.sh crowdsec` (overwrites the placeholder in `.env.sops`) — don't leave the real key sitting in plaintext `.env` after encrypting, same discipline as every other service.
 5. Restart container

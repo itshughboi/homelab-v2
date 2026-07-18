@@ -15,16 +15,17 @@ Single container. Uses an internal SQLite or Postgres database (configured via e
 |---|---|
 | `data` (named volume) | All Mealie data — recipes, images, users, meal plans |
 
-## Environment Variables (`.env`)
+## Environment Variables (`.env`, SOPS-encrypted as `.env.sops`)
+
+This deployment uses OIDC (Pocket ID) for authentication, not Mealie's built-in signup/password flow:
 
 | Variable | Purpose |
 |---|---|
-| `ALLOW_SIGNUP` | `false` to disable open registration after initial setup |
-| `DEFAULT_EMAIL` | Admin account email |
-| `DEFAULT_PASSWORD` | Admin account password — change on first login |
-| `BASE_URL` | Must match the public URL: `https://mealie.hughboi.cc` |
-| `DB_ENGINE` | `sqlite` (default) or `postgres` for external DB |
-| `POSTGRES_*` | Only needed if `DB_ENGINE=postgres` |
+| `OIDC_AUTH_ENABLED` | `true` — log in via Pocket ID instead of local accounts |
+| `OIDC_SIGNUP_ENABLED` | `true` — allow new accounts via OIDC on first login |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | Pocket ID OIDC client credentials |
+| `OAUTH_PROVIDER_NAME` | Display name shown on the login button (`Pocket ID`) |
+| `OIDC_CONFIGURATION_URL` | `https://pocket.hughboi.cc/.well-known/openid-configuration` |
 
 ## First Run
 
