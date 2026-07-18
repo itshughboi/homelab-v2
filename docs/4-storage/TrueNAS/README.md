@@ -124,6 +124,7 @@ space client-side); the final path segment is the per-app dataset. So server
 10.10.40.5:/mnt/The\040Archive/Jellyfin    /mnt/truenas/jellyfin   nfs    vers=3,defaults        0 0
 10.10.40.5:/mnt/The\040Archive/Restic      /mnt/truenas/restic     nfs    defaults               0 0
 10.10.40.5:/mnt/The\040Archive/Eros        /mnt/truenas/eros       nfs    defaults,soft,intr,bg  0 0
+10.10.40.5:/mnt/The\040Archive/Gaming/Romm /mnt/truenas/romm       nfs    defaults               0 0
 ```
 
 > [!IMPORTANT] Which IP — `.40.5` (jumbo) vs `.10.5` (mgmt)
