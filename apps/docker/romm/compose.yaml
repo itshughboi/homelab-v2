@@ -2,7 +2,7 @@
 services:
   romm:
     container_name: romm
-    image: rommapp/romm:4.8.1
+    image: rommapp/romm:5.0.0
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
