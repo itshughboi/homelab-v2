@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`files.hughboi.vip`)
+    - match: Host(`files.hughboi.cc`)
       kind: Rule
       services:
         - name: file-browser

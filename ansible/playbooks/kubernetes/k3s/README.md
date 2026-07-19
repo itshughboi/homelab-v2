@@ -229,7 +229,7 @@ kubectl get pods --namespace cert-manager
 ```
 helm install rancher rancher-latest/rancher \
   --namespace cattle-system \
-  --set hostname=rancher.hughboi.vip \
+  --set hostname=rancher.hughboi.cc \
   --set bootstrapPassword=admin
 kubectl -n cattle-system rollout status deploy/rancher
 kubectl -n cattle-system get deploy rancher
@@ -294,11 +294,11 @@ chmod +x traefik-deploy.sh
 
 
 ##### DNS
-- At this point it is essential to have my kubernetes domain (hughboi.vip) pointing to the LoadBalancerIP I picked. I have it currently set to **10.10.30.75**. Once my Bind9 DNS server points hughboi.vip there, I will be able to go to **traefik.hughboi.vip** and login with credentials I made under Dashboard/secret-dashboard.yaml with base64 encoding
+- At this point it is essential to have my kubernetes domain (hughboi.cc) pointing to the LoadBalancerIP I picked. I have it currently set to **10.10.30.75**. Once my Bind9 DNS server points hughboi.cc there, I will be able to go to **traefik.hughboi.cc** and login with credentials I made under Dashboard/secret-dashboard.yaml with base64 encoding
 
 
 ##### Rancher Ingress TLS Troubleshooting
-From everything we setup earlier with rancher.hughboi.vip, once Traefik is up and going, Rancher should now be automatically added to Traefik's ingress
+From everything we setup earlier with rancher.hughboi.cc, once Traefik is up and going, Rancher should now be automatically added to Traefik's ingress
 You can validate the contents of your `tls-rancher-ingress` Secret using commands like this:
 
 ```bash
@@ -507,7 +507,7 @@ Link: https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/ra
 ```
 helm upgrade rancher-latest/rancher \
   --namespace cattle-system \
-  --set hostname=rancher.hughboi.vip \
+  --set hostname=rancher.hughboi.cc \
 
 kubectl -n cattle-system rollout status deploy/rancher
 kubectl -n cattle-system get deploy rancher

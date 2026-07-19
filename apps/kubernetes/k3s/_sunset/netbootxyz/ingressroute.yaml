@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`netboot.hughboi.vip`)
+    - match: Host(`netboot.hughboi.cc`)
       kind: Rule
       services:
         - name: netbootxyz-ui

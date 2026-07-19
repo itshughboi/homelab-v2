@@ -95,7 +95,7 @@ those two paths survive a Traefik or Bind9 outage.
 
 | Down | Still works | Breaks |
 | --- | --- | --- |
-| **Traefik (dock-prod)** | **ArgoCD pulls** (direct IP) · all internal IP traffic · k3s `*.hughboi.vip` (separate k3s Traefik) | Every `*.hughboi.cc` web UI by hostname · Let's Encrypt renewals via this Traefik |
+| **Traefik (dock-prod)** | **ArgoCD pulls** (direct IP) · all internal IP traffic · k3s `*.hughboi.cc` (separate k3s Traefik) | Every `*.hughboi.cc` web UI by hostname · Let's Encrypt renewals via this Traefik |
 | **Bind9 (Athena)** | **ArgoCD pulls** (IP, not hostname) · IP-addressed traffic | Hostname resolution fleet-wide → web UIs, image pulls by name, anything using FQDNs |
 | **Gitea (Athena)** | Running apps keep running (ArgoCD only needs Gitea to *sync changes*) | New ArgoCD syncs · Terraform state ops · **break-glass: repoint ArgoCD/TF at the GitHub mirror** |
 | **dock-prod VM** | **ArgoCD pulls** (Athena) · k3s cluster + its apps | Traefik, AdGuard, Vaultwarden, UniFi controller, all Docker apps |

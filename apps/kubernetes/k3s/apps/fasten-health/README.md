@@ -7,7 +7,7 @@ Self-hosted personal health records aggregator. Connects to healthcare providers
 | | |
 |---|---|
 | **Image** | `ghcr.io/fastenhealth/fasten-onprem:main` |
-| **Domain** | `fastenhealth.hughboi.vip` |
+| **Domain** | `fastenhealth.hughboi.cc` |
 | **Port** | 8080 |
 | **Storage** | 5Gi Longhorn PVC (`/opt/fasten/db`) + 2Gi Longhorn PVC (`/opt/fasten/cache`) |
 

@@ -1,4 +1,4 @@
-# Exposes k3s Prometheus at prometheus.hughboi.vip for dock-prod Grafana to use as a data source.
+# Exposes k3s Prometheus at prometheus.hughboi.cc for dock-prod Grafana to use as a data source.
 #
 # SECURITY: Protected by IP allowlist middleware (internal-only).
 # Only RFC-1918 and Tailscale CGNAT ranges can reach this endpoint.
@@ -28,7 +28,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`prometheus.hughboi.vip`)
+    - match: Host(`prometheus.hughboi.cc`)
       kind: Rule
       middlewares:
         - name: internal-only         # blocks public internet before reaching Prometheus

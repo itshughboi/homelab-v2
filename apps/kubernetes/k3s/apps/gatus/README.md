@@ -7,7 +7,7 @@ Uptime/health monitoring dashboard with alerting.
 | | |
 |---|---|
 | **Image** | `twinproduction/gatus:latest` |
-| **Domain** | `gatus.hughboi.vip` |
+| **Domain** | `gatus.hughboi.cc` |
 | **Port** | 8080 |
 | **Storage** | 2Gi Longhorn PVC (PostgreSQL data — status history) |
 
@@ -32,7 +32,7 @@ kubectl create secret generic gatus-env -n gatus \
   --from-literal=POSTGRES_USER=gatus \
   --from-literal=POSTGRES_PASSWORD=<password> \
   --from-literal=POSTGRES_DB=gatus \
-  --from-literal=NTFY_URL=https://ntfy.hughboi.vip
+  --from-literal=NTFY_URL=https://ntfy.hughboi.cc
 ```
 
 ## Deploy Order

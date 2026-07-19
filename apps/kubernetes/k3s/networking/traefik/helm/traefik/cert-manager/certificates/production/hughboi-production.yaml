@@ -14,7 +14,7 @@ spec:
   issuerRef:
     name: letsencrypt-production
     kind: ClusterIssuer
-  commonName: "*.hughboi.vip"
+  commonName: "*.hughboi.cc"
   dnsNames:
-  - "*.hughboi.vip"
-  - hughboi.vip
+  - "*.hughboi.cc"
+  - hughboi.cc

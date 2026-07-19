@@ -7,7 +7,7 @@ Simple OIDC identity provider. Handles SSO for apps that support OIDC.
 | | |
 |---|---|
 | **Image** | `ghcr.io/pocket-id/pocket-id:latest` |
-| **Domain** | `pocket-id.hughboi.vip` |
+| **Domain** | `pocket-id.hughboi.cc` |
 | **Port** | 1411 |
 | **Storage** | 2Gi Longhorn PVC (`/app/data` — SQLite db, passkeys) |
 
@@ -18,10 +18,10 @@ Fill [secret.yaml](secret.yaml) with real values:
 ```bash
 kubectl create secret generic pocket-id-env -n pocket-id \
   --from-literal=JWT_SECRET=$(openssl rand -hex 32) \
-  --from-literal=PUBLIC_APP_URL=https://pocket-id.hughboi.vip \
+  --from-literal=PUBLIC_APP_URL=https://pocket-id.hughboi.cc \
   --from-literal=SMTP_HOST=mailrise.mailrise.svc.cluster.local \
   --from-literal=SMTP_PORT=8025 \
-  --from-literal=SMTP_FROM=pocket-id@hughboi.vip \
+  --from-literal=SMTP_FROM=pocket-id@hughboi.cc \
   --from-literal=SMTP_SENDER_NAME="Pocket ID"
 ```
 
@@ -48,9 +48,9 @@ kubectl scale deployment pocket-id -n pocket-id --replicas=1
 
 ## Registering OIDC Clients
 
-After deploy, go to `https://pocket-id.hughboi.vip` and add OIDC clients for each app that needs SSO. The OIDC discovery endpoint is:
+After deploy, go to `https://pocket-id.hughboi.cc` and add OIDC clients for each app that needs SSO. The OIDC discovery endpoint is:
 ```
-https://pocket-id.hughboi.vip/.well-known/openid-configuration
+https://pocket-id.hughboi.cc/.well-known/openid-configuration
 ```
 
 ## Notes

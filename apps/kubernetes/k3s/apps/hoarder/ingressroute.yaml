@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`hoarder.hughboi.vip`)
+    - match: Host(`hoarder.hughboi.cc`)
       kind: Rule
       services:
         - name: hoarder

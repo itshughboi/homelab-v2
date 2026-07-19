@@ -45,8 +45,10 @@ Before booting each node, confirm BIOS settings:
 - [ ] USB boot: **Enabled**, USB first in boot order
 - [ ] Secure Boot: **OFF**
 
-Nodes are installed via **Ventoy USB** (see [Ventoy.md](Ventoy.md)). Netboot/PXE was
-abandoned — [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md). After each node is up:
+Nodes are installed via **Ventoy USB** (see [Ventoy.md](Ventoy.md)), rung A (per-node baked
+ISO) in practice — no answer-server infra needed for a small, rarely-reimaged cluster. Netboot/
+PXE was abandoned — [post-mortem](../../1-networking/Alternative%20Methods/Netboot/README.md).
+After each node is up:
 
 **Disable enterprise repo, enable no-subscription:**
 ```sh

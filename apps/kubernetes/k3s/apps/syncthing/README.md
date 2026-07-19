@@ -7,7 +7,7 @@ Continuous file sync between devices.
 | | |
 |---|---|
 | **Image** | `syncthing/syncthing:2.0.8` |
-| **Domain** | `syncthing.hughboi.vip` |
+| **Domain** | `syncthing.hughboi.cc` |
 | **UI Port** | 8384 (via Traefik) |
 | **Sync Ports** | 22000/tcp, 22000/udp (QUIC), 21027/udp (local discovery) |
 | **Storage** | 50Gi Longhorn PVC (`/var/syncthing` — config + default sync folder) |

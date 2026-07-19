@@ -1,5 +1,22 @@
 > [!NOTE] **Reference / extras** — git tips (sparse-checkout, etc.); **not** part of the rebuild sequence ([BUILD.md](../BUILD.md)).
 
+### Two remotes exist — Gitea is canonical, GitHub is a one-way mirror
+
+```sh
+git remote -v
+# origin  https://gitea.hughboi.cc/hughboi/homelab.git   (canonical — push here)
+# github  https://github.com/itshughboi/homelab-v2.git   (mirror — do not push here manually)
+```
+
+The GitHub remote is a mirror **of** Gitea, not the other way around. A manual `git push
+github main` doesn't break anything by itself (any host that clones from Gitea won't see it),
+but it does mean GitHub can briefly show a commit Gitea doesn't have yet — confusing if you're
+troubleshooting from a machine that clones from GitHub instead. If you push to the wrong remote
+by accident, just push the same commit to `origin` too; there's no real conflict as long as
+both remotes end up pointing at the same history.
+
+**Always target `origin` explicitly if there's any ambiguity:** `git push origin main`.
+
 ### Exclude .env from being included
 ```
 echo ".env" >> .gitignore

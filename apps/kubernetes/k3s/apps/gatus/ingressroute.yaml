@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`gatus.hughboi.vip`)
+    - match: Host(`gatus.hughboi.cc`)
       kind: Rule
       services:
         - name: gatus

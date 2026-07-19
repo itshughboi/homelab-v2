@@ -7,7 +7,7 @@ Identity provider and SSO for the k3s stack. Replaces Pocket ID in Kubernetes (P
 | | |
 |---|---|
 | **Image** | `ghcr.io/goauthentik/server:2024.12` |
-| **Domain** | `authentik.hughboi.vip` |
+| **Domain** | `authentik.hughboi.cc` |
 | **Port** | 9000 (HTTP) |
 | **Components** | server + worker + PostgreSQL + Redis |
 | **Storage** | 10Gi (postgres) + 1Gi (redis) |
@@ -35,7 +35,7 @@ kubectl create secret generic authentik-env -n authentik \
   --from-literal=AUTHENTIK_EMAIL__PORT=587 \
   --from-literal=AUTHENTIK_EMAIL__USERNAME=<smtp-user> \
   --from-literal=AUTHENTIK_EMAIL__PASSWORD=<smtp-password> \
-  --from-literal=AUTHENTIK_EMAIL__FROM=authentik@hughboi.vip \
+  --from-literal=AUTHENTIK_EMAIL__FROM=authentik@hughboi.cc \
   --from-literal=POSTGRESQL_PASSWORD=<same-db-password>
 ```
 
@@ -56,7 +56,7 @@ kubectl apply -f ingressroute.yaml
 
 ## First Boot
 
-Navigate to `https://authentik.hughboi.vip/if/flow/initial-setup/` to create the default admin account.
+Navigate to `https://authentik.hughboi.cc/if/flow/initial-setup/` to create the default admin account.
 
 ## Protecting Apps with Authentik
 
@@ -68,7 +68,7 @@ In the Authentik UI:
 - **Providers → Create → Proxy Provider**
   - Name: `app-name`
   - Mode: `Forward auth (single application)`
-  - External host: `https://app.hughboi.vip`
+  - External host: `https://app.hughboi.cc`
 - **Applications → Create**
   - Link to the provider above
 
@@ -102,7 +102,7 @@ spec:
 Then in each app IngressRoute:
 ```yaml
 routes:
-  - match: Host(`app.hughboi.vip`)
+  - match: Host(`app.hughboi.cc`)
     middlewares:
       - name: authentik-forward-auth
         namespace: authentik
@@ -121,9 +121,9 @@ For apps with built-in OIDC support (Grafana, Gitea, etc.):
    - Redirect URIs: the app's callback URL
 2. Note the **Client ID** and **Client Secret**
 3. Configure the app to use:
-   - **Issuer URL**: `https://authentik.hughboi.vip/application/o/<app-slug>/`
-   - **Auth URL**: `https://authentik.hughboi.vip/application/o/authorize/`
-   - **Token URL**: `https://authentik.hughboi.vip/application/o/token/`
+   - **Issuer URL**: `https://authentik.hughboi.cc/application/o/<app-slug>/`
+   - **Auth URL**: `https://authentik.hughboi.cc/application/o/authorize/`
+   - **Token URL**: `https://authentik.hughboi.cc/application/o/token/`
 
 ### Grafana OIDC Example
 
@@ -138,9 +138,9 @@ grafana:
       client_id: <grafana-client-id>
       client_secret: <grafana-client-secret>
       scopes: openid email profile
-      auth_url: https://authentik.hughboi.vip/application/o/authorize/
-      token_url: https://authentik.hughboi.vip/application/o/token/
-      api_url: https://authentik.hughboi.vip/application/o/userinfo/
+      auth_url: https://authentik.hughboi.cc/application/o/authorize/
+      token_url: https://authentik.hughboi.cc/application/o/token/
+      api_url: https://authentik.hughboi.cc/application/o/userinfo/
       role_attribute_path: contains(groups, 'grafana-admins') && 'Admin' || 'Viewer'
 ```
 
@@ -149,7 +149,7 @@ grafana:
 In Gitea admin panel: **Site Administration → Authentication Sources → Add OAuth2**
 - Provider: OpenID Connect
 - Client ID/Secret: from Authentik provider
-- OpenID Connect Auto Discovery URL: `https://authentik.hughboi.vip/application/o/<app-slug>/.well-known/openid-configuration`
+- OpenID Connect Auto Discovery URL: `https://authentik.hughboi.cc/application/o/<app-slug>/.well-known/openid-configuration`
 
 ## Notes
 

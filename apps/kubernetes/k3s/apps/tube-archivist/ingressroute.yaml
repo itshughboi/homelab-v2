@@ -9,7 +9,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`yt.hughboi.vip`)
+    - match: Host(`yt.hughboi.cc`)
       kind: Rule
       services:
         - name: tubearchivist

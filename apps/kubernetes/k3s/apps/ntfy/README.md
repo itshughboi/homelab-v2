@@ -7,7 +7,7 @@ Self-hosted push notification service. Used by Gatus, Mailrise, and Ansible play
 | | |
 |---|---|
 | **Image** | `binwiederhier/ntfy:latest` |
-| **Domain** | `ntfy.hughboi.vip` |
+| **Domain** | `ntfy.hughboi.cc` |
 | **Port** | 80 |
 | **Storage** | 2Gi Longhorn PVC (`/var/cache/ntfy` — SQLite message cache + user DB) |
 

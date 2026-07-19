@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`romm.hughboi.vip`)
+    - match: Host(`romm.hughboi.cc`)
       kind: Rule
       services:
         - name: romm

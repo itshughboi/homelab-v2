@@ -32,7 +32,7 @@ spec:
             - name: TZ
               value: America/Denver
             - name: BASE_URL
-              value: https://mealie.hughboi.vip
+              value: https://mealie.hughboi.cc
           volumeMounts:
             - name: data
               mountPath: /app/data

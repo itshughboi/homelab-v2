@@ -1,54 +1,57 @@
 # Homelab
 
-Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Packer + Ansible). All user services run behind Traefik with Let's Encrypt TLS.
+Self-hosted infrastructure running on Proxmox, managed with IaC. All user services run behind Traefik with Let's Encrypt TLS.
 
 > [!IMPORTANT] Current state (2026-07)
-> **Most user-facing services still run on Docker (`dock-prod`) today.** The k3s cluster is now
-> live on pve-srv-2/3/4, but migration of individual services is ongoing — `apps/kubernetes/k3s/`
-> holds real manifest work (29 services have manifests written), but having a manifest doesn't
-> mean a service has actually migrated. Don't trust a service's presence in
-> `apps/kubernetes/k3s/apps/` as evidence it's live on k3s — check `apps/docker/` and the
-> service's own README for what's actually deployed where.
+> **Most user-facing services still run on Docker (`dock-prod`) today.** The k3s cluster is live
+> on pve-srv-2/3/4, but migration of individual services is ongoing. `apps/kubernetes/k3s/`
+> holds real manifest work, but having a manifest doesn't mean a service is actually running on
+> that platform. Don't treat a service's presence in `apps/kubernetes/k3s/apps/` as evidence
+> it's live on k3s — check `apps/docker/` and the service's own README for what's actually
+> deployed where.
 
 ---
 
 ## Principles
 
-**Everything is code.** Network config, VM provisioning, k3s manifests, DNS records — all live in Git. Rebuilding from bare metal is a known, repeatable process.
+**Everything is code.** Network config, VM provisioning, k3s manifests, DNS records — all live in Git.
 
-**Separation of planes.** Management never mixes with storage or workload traffic. VLANs enforce this at the switch, not just the firewall.
+**Separation of planes.** Management never mixes with storage or workload traffic via VLANs. A compromised container can't pivot to management or storage.
 
-**GitOps over manual.** Push to Git → automation applies it, where automation exists yet (Semaphore for Ansible/Docker deploys today; ArgoCD is planned for k3s once it's live).
+**GitOps over manual.** Push to Git → automation applies it, where automation exists yet (Semaphore for Ansible/Docker; ArgoCD for k3s).
 
-**Secrets never touch Git unencrypted.** SOPS + Age is the rule for Docker/provisioning secrets — active today, ~20/36 Docker services migrated as of this writing (`./scripts/sops-check.sh` for current count). Sealed Secrets is the planned equivalent for k3s once it's live; the controller manifest exists but nothing uses it yet.
-
-**Blast radius by design.** A compromised workload container cannot pivot to management or storage — the VLAN firewall rules make it structurally impossible.
+**Secrets never touch Git unencrypted.** SOPS + Age is used for Docker/provisioning secrets. Sealed Secrets is for k3s.
 
 ---
 
 ## Architecture (today)
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│  Proxmox Cluster (pve-srv-1/2/3/4)                        │
-│                                                            │
-│  pve-srv-1 → dock-prod (10.10.10.10)                      │
-│    Docker host — almost everything user-facing runs here  │
-│    Traefik (*.hughboi.cc), AdGuard, Vaultwarden, Jellyfin, │
-│    Immich, Paperless-ngx, Home Assistant, ~30 more         │
-│                                                            │
-│  pve-srv-1 → Athena (10.10.10.8)                          │
-│    Management: Gitea, Semaphore, Bind9 (canonical DNS)     │
-│                                                            │
-│  pve-srv-2/3/4 → k3s cluster                               │
-│    Masters: 10.10.30.1-3 (VIP 10.10.30.30)                 │
-│    Workers: 10.10.30.11-13, Longhorn: 10.10.30.51-53       │
-│    Same domain (hughboi.cc) — per-service DNS record       │
-│    points at whichever Traefik currently serves it         │
-└──────────────────────────────────────────────────────────┘
-          │
-          ▼
-  TrueNAS (NFS: media, backups, documents)
+Proxmox Cluster (pve-srv-1/2/3/4)
+
+pve-srv-1 → dock-prod (10.10.10.10)
+  Docker host — Traefik (*.hughboi.cc)
+
+pve-srv-1 → Athena (10.10.10.8)
+  Management: Gitea, Semaphore, Bind9 (canonical DNS)
+
+pve-srv-1 → PBS (10.10.10.6)
+  Proxmox Backup Server
+
+pve-srv-1 → Tailscale gateway (10.10.80.10)
+  Subnet router / remote access
+
+pve-srv-1 → Monitoring stack (promgraftail — Prometheus, Grafana, Loki)
+  Runs on dock-prod today; candidate for its own dedicated node/k3s move later
+
+pve-srv-1 → TrueNAS
+  NFS: media, backups, documents
+
+pve-srv-2/3/4 → k3s cluster
+  Masters: 10.10.30.1-3 (VIP 10.10.30.30)
+  Workers: 10.10.30.11-13, Longhorn: 10.10.30.51-53
+  Same domain (hughboi.cc) — per-service DNS record
+  points at whichever Traefik currently serves it
 ```
 
 ---
@@ -74,25 +77,23 @@ homelab/
 
 ---
 
-## k3s Migration Plan
+**Docker Services/`dock-prod`, with real reasons:**
 
-A full audit of every Docker service's real storage/network dependencies determined what's
-actually a good k3s candidate versus what has a real reason to stay on `dock-prod`. Per-service
-reasoning is in the table below (a manifest existing in `apps/kubernetes/k3s/apps/` means it was
-considered a candidate; it does not mean it's deployed).
-
-**Staying on Docker/`dock-prod`, with real reasons:**
-
-| Service | Why it stays |
+| Service | Why it stays on docker |
 |---|---|
 | Jellyfin | GPU transcoding — Intel Arc A380 is passed through on `dock-prod`. k3s nodes only have AMD Radeon iGPUs, benchmarked as a real downgrade for concurrent 4K/HDR transcoding. Revisit once `dock-prod`'s hardware is upgraded and the Arc A380 is retired. |
 | Immich | Real photo libraries are large and TrueNAS-hosted; the k3s manifest uses a 100Gi Longhorn PVC for the library itself (not NFS passthrough), so moving means migrating real data into Longhorn — a deliberate future project, not a simple redeploy. |
-| Paperless-ngx | Same reasoning as Immich — document library lives on Longhorn in the k3s manifest, not NFS passthrough. |
 | Restic | Backs up `dock-prod`'s own filesystem (`/home/hughboi`) — has to run on the host it's backing up, by definition. A separate k3s-native backup job (for Longhorn PVCs) would be a new, different thing, not a migration of this one. |
 | UniFi | Core network management (APs/switches). The k3s manifest could technically give it a stable IP via MetalLB, but this isn't the place to pilot the k3s migration pattern. |
 | Traefik, Bind9, CrowdSec, Gitea, Semaphore, promgraftail | Fixed network position or hard dependency for everything else (reverse proxy, canonical DNS, ingress security, static-IP-pinned routing, the log-shipping destination every other service points at). Each needs its own dedicated re-plumbing project before it can move. |
 
-**Good k3s candidates once the cluster is live** (20 services — small/self-contained state, no storage or network-position tie):
+**Ready to migrate, real data move required first:**
+
+| Service | Status |
+|---|---|
+| Paperless-ngx | The k3s manifest now points `data`/`media` at NFS/TrueNAS exports (not Longhorn) — same low-risk pattern as Jellyfin/Immich's external library. Docker's copy still lives on `dock-prod` local volumes, though, so migrating means `rsync`-ing that data to the new TrueNAS export first, then redeploying. See `apps/kubernetes/k3s/apps/paperless-ngx/README.md` for the exact steps. |
+
+**Good k3s candidates not deployed yet** (20 services — small/self-contained state, no storage or network-position tie):
 
 1. change-detection
 2. ezbookkeeping
@@ -163,11 +164,6 @@ hostname, not per domain: each service's own record (`jellyfin.hughboi.cc`,
 service — dock-prod's Traefik (`10.10.10.10`) today, or k3s's Traefik/MetalLB IP
 (`10.10.30.75`) once a service has actually migrated. Migrating a service later is a single DNS
 record change, not a domain change.
-
-`apps/kubernetes/k3s/` currently has some manifests referencing a separate `*.hughboi.vip`
-domain from earlier planning — that convention is **not** the intended long-term design and
-should be updated to `hughboi.cc` as those manifests are actually put into use, not treated as
-the real target.
 
 Internal LAN DNS resolution is Bind9 on Athena, not AdGuard — AdGuard's Docker instance handles
 ad-blocking for browsing/guest traffic. See `apps/docker/adguard/README.md` for the real current

@@ -7,10 +7,10 @@ Document management system with OCR, full-text search, and auto-classification.
 | | |
 |---|---|
 | **Image** | `ghcr.io/paperless-ngx/paperless-ngx:latest` |
-| **Domain** | `paperless.hughboi.vip` |
+| **Domain** | `paperless.hughboi.cc` |
 | **Port** | 8000 |
 | **Containers** | webserver + PostgreSQL + Redis + Gotenberg + Tika |
-| **Storage** | 10Gi (data) + 50Gi (media) + 10Gi (export) + 10Gi (postgres) + 2Gi (redis) + NFS (consume) |
+| **Storage** | NFS/TrueNAS (data, media, consume) + Longhorn (10Gi export, 10Gi postgres, 2Gi redis) |
 
 ## Architecture
 
@@ -22,11 +22,16 @@ Document management system with OCR, full-text search, and auto-classification.
 | `paperless-gotenberg` | PDF conversion via Chrome (JS disabled) |
 | `paperless-tika` | Document parsing (Word, Excel, etc.) |
 
-The **consume** path is an NFS mount from TrueNAS — drop a file there and Paperless picks it up automatically.
+The document library itself — **data** (index/metadata store) and **media** (originals +
+generated archive PDFs) — lives on NFS/TrueNAS, not Longhorn, matching the same
+external-library pattern used by Jellyfin/Immich. The **consume** path is also an NFS mount
+from TrueNAS — drop a file there and Paperless picks it up automatically. Only `export`
+(manual export snapshots), postgres, and redis stay on Longhorn.
 
 ## Before You Apply
 
-1. Fill in `TRUENAS_IP` and NFS path in [storage.yaml](storage.yaml).
+1. Confirm the TrueNAS server IP and NFS export paths in [storage.yaml](storage.yaml) — three
+   separate exports are expected: `paperless-data`, `paperless-media`, `paperless` (consume).
 
 2. Create the secret:
 ```bash
@@ -55,15 +60,16 @@ kubectl apply -f ingressroute.yaml
 
 ## Migrating from Docker
 
+Since `data`/`media` are NFS-backed rather than Longhorn PVCs, this is a file copy straight to
+the TrueNAS export, not a `kubectl cp` into a PVC:
+
 ```bash
 kubectl scale deployment paperless-webserver -n paperless-ngx --replicas=0
 
-# Copy data and media
-kubectl run copy --image=alpine -n paperless-ngx --restart=Never -- sleep 3600
-kubectl cp /home/hughboi/data/paperless/data/. paperless-ngx/copy:/tmp/data/
-kubectl cp /home/hughboi/data/paperless/media/. paperless-ngx/copy:/tmp/media/
-# Then exec into copy pod and cp the files into the PVC-backed dirs
-kubectl delete pod copy -n paperless-ngx
+# Copy data and media directly to the TrueNAS NFS exports backing paperless-data/paperless-media
+rsync -avP /home/hughboi/data/paperless/data/  <truenas-ip>:/mnt/truenas/paperless-data/
+rsync -avP /home/hughboi/data/paperless/media/ <truenas-ip>:/mnt/truenas/paperless-media/
+
 kubectl scale deployment paperless-webserver -n paperless-ngx --replicas=1
 ```
 

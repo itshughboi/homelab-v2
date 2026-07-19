@@ -7,7 +7,7 @@ Privacy-respecting metasearch engine.
 | | |
 |---|---|
 | **Image** | `searxng/searxng:latest` |
-| **Domain** | `search.hughboi.vip` |
+| **Domain** | `search.hughboi.cc` |
 | **Port** | 8080 |
 | **Storage** | 1Gi Longhorn PVC (`/etc/searxng` — settings and runtime config) |
 

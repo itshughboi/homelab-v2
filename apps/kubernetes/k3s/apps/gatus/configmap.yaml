@@ -18,31 +18,31 @@ data:
     endpoints:
       # ─── k8s services ─────────────────────────────────────────────
       - name: Vaultwarden
-        url: https://vaultwarden.hughboi.vip
+        url: https://vaultwarden.hughboi.cc
         interval: 1m
         conditions:
           - "[STATUS] == 200"
 
       - name: Grafana
-        url: https://grafana.hughboi.vip
+        url: https://grafana.hughboi.cc
         interval: 1m
         conditions:
           - "[STATUS] == 200"
 
       - name: SearXNG
-        url: https://search.hughboi.vip
+        url: https://search.hughboi.cc
         interval: 1m
         conditions:
           - "[STATUS] == 200"
 
       - name: ntfy
-        url: https://ntfy.hughboi.vip
+        url: https://ntfy.hughboi.cc
         interval: 1m
         conditions:
           - "[STATUS] == 200"
 
       - name: Mealie
-        url: https://mealie.hughboi.vip
+        url: https://mealie.hughboi.cc
         interval: 1m
         conditions:
           - "[STATUS] == 200"

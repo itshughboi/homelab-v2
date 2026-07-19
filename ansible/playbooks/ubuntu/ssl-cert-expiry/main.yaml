@@ -38,9 +38,9 @@
       - portainer.hughboi.cc
       - traefik.hughboi.cc
       - wazuh.hughboi.cc
-      # k8s stack (*.hughboi.vip) — add as you migrate services
-      # - gitea.hughboi.vip
-      # - authentik.hughboi.vip
+      # k8s stack (*.hughboi.cc) — add as you migrate services
+      # - gitea.hughboi.cc
+      # - authentik.hughboi.cc
 
   tasks:
     - name: Install openssl

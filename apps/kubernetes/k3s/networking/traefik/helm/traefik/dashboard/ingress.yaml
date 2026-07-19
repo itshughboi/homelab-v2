@@ -9,7 +9,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`traefik.hughboi.vip`)
+    - match: Host(`traefik.hughboi.cc`)
       kind: Rule
       middlewares:
         - name: traefik-dashboard-basicauth

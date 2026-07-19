@@ -14,7 +14,7 @@ spec:
     - websecure
   routes:
     # "kube-prometheus-stack" matches the Helm release name
-    - match: Host(`grafana.hughboi.vip`)
+    - match: Host(`grafana.hughboi.cc`)
       kind: Rule
       services:
         - name: kube-prometheus-stack-grafana

@@ -216,11 +216,11 @@ kubectl apply -f apps/kubernetes/k3s/networking/adguard/
 
 Configure in AdGuard UI (`http://10.10.30.65`):
 - Upstream DNS: `10.10.10.8` (Athena Bind9)
-- DNS rewrites: `*.hughboi.vip → 10.10.30.75` (routes all k3s domains to Traefik)
+- DNS rewrites: `*.hughboi.cc → 10.10.30.75` (routes all k3s domains to Traefik)
 
 **Split-DNS design:**
 - `*.hughboi.cc` → Docker Traefik (dock-prod) — LAN DNS
-- `*.hughboi.vip` → k3s Traefik — cluster internal
+- `*.hughboi.cc` → k3s Traefik — cluster internal
 - Separate resolvers so k3s failure doesn't break LAN DNS
 
 > This AdGuard-on-k3s instance is the target of the broader
@@ -289,7 +289,7 @@ helm upgrade --install loki grafana/loki -n monitoring -f loki/values.yaml
 helm upgrade --install alloy grafana/alloy -n monitoring -f alloy/values.yaml
 ```
 
-Grafana at `https://grafana.hughboi.vip`. Pre-built dashboards for cluster, nodes, and Longhorn.
+Grafana at `https://grafana.hughboi.cc`. Pre-built dashboards for cluster, nodes, and Longhorn.
 
 **Proxmox node metrics** — on each Proxmox node:
 ```sh
@@ -323,7 +323,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
 
 # Register Gitea repo — use the direct Athena IP (matches root-app/appset; survives a DNS/Traefik outage)
-argocd login argocd.hughboi.vip
+argocd login argocd.hughboi.cc
 argocd repo add http://10.10.10.8:3000/hughboi/homelab.git \
   --username hughboi --password <gitea-token>
 

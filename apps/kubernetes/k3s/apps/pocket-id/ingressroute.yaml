@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`pocket-id.hughboi.vip`)
+    - match: Host(`pocket-id.hughboi.cc`)
       kind: Rule
       services:
         - name: pocket-id

@@ -20,7 +20,7 @@ ansible-playbook -i inventory.yaml main.yaml
 
 ## Endpoints checked
 
-All `*.hughboi.cc` and `*.hughboi.vip` services — defined in the `endpoints` var in the playbook. Add new services there as you deploy them.
+All `*.hughboi.cc` and `*.hughboi.cc` services — defined in the `endpoints` var in the playbook. Add new services there as you deploy them.
 
 ## Schedule
 

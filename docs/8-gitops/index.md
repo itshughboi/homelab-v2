@@ -45,7 +45,7 @@ apps/kubernetes/k3s/argocd/apps/root-app.yaml
 ### Connecting ArgoCD to Gitea
 
 ```sh
-argocd login argocd.hughboi.vip
+argocd login argocd.hughboi.cc
 
 # Register Gitea over HTTPS (preferred over SSH for webhooks)
 argocd repo add https://gitea.hughboi.cc/hughboi/homelab.git \
@@ -62,7 +62,7 @@ http://gitea.gitea.svc.cluster.local:3000/hughboi/homelab.git
 
 Instead of waiting for ArgoCD's 3-minute poll, configure a Gitea webhook for instant sync:
 - Gitea → Repository Settings → Webhooks → Add Webhook
-- URL: `https://argocd.hughboi.vip/api/webhook`
+- URL: `https://argocd.hughboi.cc/api/webhook`
 - Events: Push events
 
 ### Useful ArgoCD Commands

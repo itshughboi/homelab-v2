@@ -5,7 +5,7 @@ metadata:
   namespace: ntfy
 data:
   server.yml: |
-    base-url: https://ntfy.hughboi.vip
+    base-url: https://ntfy.hughboi.cc
     cache-file: /var/cache/ntfy/cache.db
     cache-duration: 12h
     auth-file: /var/cache/ntfy/user.db

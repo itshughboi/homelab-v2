@@ -23,7 +23,7 @@ GitOps continuous delivery for the k3s cluster. ArgoCD watches your Gitea repo a
 | | |
 |---|---|
 | **Chart** | `argo/argo-cd` |
-| **Domain** | `argocd.hughboi.vip` |
+| **Domain** | `argocd.hughboi.cc` |
 | **Port** | 80 (ArgoCD serves HTTP; TLS terminated at Traefik) |
 | **Gitea repo** | `http://10.10.10.8:3000/hughboi/homelab.git` (Athena, direct IP — see note above) |
 
@@ -146,12 +146,12 @@ kubectl get secret argocd-initial-admin-secret -n argocd \
   -o jsonpath='{.data.password}' | base64 -d
 ```
 
-Log in at `https://argocd.hughboi.vip` with user `admin` and the password above. Change it immediately.
+Log in at `https://argocd.hughboi.cc` with user `admin` and the password above. Change it immediately.
 
 ### 4. Add your Gitea repo
 
 ```bash
-argocd login argocd.hughboi.vip --username admin
+argocd login argocd.hughboi.cc --username admin
 
 # Athena Gitea by direct IP (canonical — matches the Application manifests):
 argocd repo add http://10.10.10.8:3000/hughboi/homelab.git \
@@ -196,7 +196,7 @@ ArgoCD will immediately start syncing:
 Instead of ArgoCD polling every 3 minutes, configure a Gitea webhook for instant syncs:
 
 In Gitea: `Settings → Webhooks → Add Webhook`
-- Payload URL: `https://argocd.hughboi.vip/api/webhook`
+- Payload URL: `https://argocd.hughboi.cc/api/webhook`
 - Content type: `application/json`
 - Secret: Generate with `openssl rand -hex 20` and set `webhook.github.secret` in Helm values
 

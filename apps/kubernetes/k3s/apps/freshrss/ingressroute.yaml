@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`freshrss.hughboi.vip`)
+    - match: Host(`freshrss.hughboi.cc`)
       kind: Rule
       services:
         - name: freshrss

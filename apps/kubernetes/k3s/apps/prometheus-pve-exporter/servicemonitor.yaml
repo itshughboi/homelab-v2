@@ -28,9 +28,9 @@ spec:
       params:
         # Scrape all three Proxmox nodes. Add/remove entries to match your cluster.
         target:
-          - pve-srv-1.hughboi.vip   # replace with actual Proxmox node hostnames/IPs
-          - pve-srv-2.hughboi.vip
-          - pve-srv-3.hughboi.vip
+          - pve-srv-1.hughboi.cc   # replace with actual Proxmox node hostnames/IPs
+          - pve-srv-2.hughboi.cc
+          - pve-srv-3.hughboi.cc
       relabelings:
         # Expose the proxmox target as a label so dashboards can filter per-node
         - sourceLabels: [__param_target]

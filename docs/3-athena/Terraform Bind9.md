@@ -109,7 +109,7 @@ journal file is persistent — it won't go away. This is just for viewability/ti
 
 ## Hand-editing a zone file that has `update-policy` set
 
-`update-policy { grant tsig-key zonesub any; };` (on `hughboi.cc` and `hughboi.vip`) makes BIND
+`update-policy { grant tsig-key zonesub any; };` (on `hughboi.cc` and `hughboi.cc`) makes BIND
 treat the zone as **dynamic** (`rndc zonestatus <zone>` shows `dynamic: yes`) — this matters even
 if you've never actually run a Terraform-driven dynamic update, because it changes how BIND
 handles the plain zone *file* too.

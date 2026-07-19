@@ -1,3 +1,19 @@
+# NFS consume path — TrueNAS: paperless-ngx's own index/metadata store (search index,
+# thumbnails cache paths, etc.) — the document library itself, not just the drop folder.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: paperless-data
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: 10.10.40.5           # TrueNAS storage-VLAN NIC (VLAN 40)
+    path: /mnt/truenas/paperless-data
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -6,10 +22,26 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: longhorn
+  storageClassName: ""
+  volumeName: paperless-data
   resources:
     requests:
       storage: 10Gi
+---
+# NFS consume path — TrueNAS: original documents + generated archive PDFs, the real library
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: paperless-media
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: 10.10.40.5           # TrueNAS storage-VLAN NIC (VLAN 40)
+    path: /mnt/truenas/paperless-media
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -19,7 +51,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: longhorn
+  storageClassName: ""
+  volumeName: paperless-media
   resources:
     requests:
       storage: 50Gi

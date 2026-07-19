@@ -27,7 +27,7 @@ spec:
               name: http
           env:
             - name: EBK_SERVER_DOMAIN
-              value: bookkeeping.hughboi.vip
+              value: bookkeeping.hughboi.cc
             - name: EBK_SERVER_ENABLE_GZIP
               value: "true"
             - name: EBK_DATABASE_TYPE

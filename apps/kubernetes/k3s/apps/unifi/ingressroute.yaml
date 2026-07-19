@@ -11,7 +11,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`unifi.hughboi.vip`)
+    - match: Host(`unifi.hughboi.cc`)
       kind: Rule
       services:
         - name: unifi-controller

@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`jellyfin.hughboi.vip`)
+    - match: Host(`jellyfin.hughboi.cc`)
       kind: Rule
       services:
         - name: jellyfin

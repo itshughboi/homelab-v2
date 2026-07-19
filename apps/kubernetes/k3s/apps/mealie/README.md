@@ -7,7 +7,7 @@ Self-hosted recipe manager and meal planner.
 | | |
 |---|---|
 | **Image** | `ghcr.io/mealie-recipes/mealie:latest` |
-| **Domain** | `mealie.hughboi.vip` |
+| **Domain** | `mealie.hughboi.cc` |
 | **Port** | 9000 |
 | **Storage** | 5Gi Longhorn PVC (`/app/data` — SQLite db, recipes, images) |
 
@@ -23,7 +23,7 @@ kubectl create secret generic mealie-env -n mealie \
   --from-literal=DEFAULT_PASSWORD=changeme \
   --from-literal=SMTP_HOST=mailrise.mailrise.svc.cluster.local \
   --from-literal=SMTP_PORT=8025 \
-  --from-literal=SMTP_FROM_EMAIL=mealie@hughboi.vip \
+  --from-literal=SMTP_FROM_EMAIL=mealie@hughboi.cc \
   --from-literal=SMTP_FROM_NAME=Mealie \
   --from-literal=SMTP_AUTH_STRATEGY=NONE
 ```

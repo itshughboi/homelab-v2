@@ -34,7 +34,7 @@ Networks with DHCP disabled (k3s, Storage): DNS is not distributed by UniFi — 
 
 ### DNS Resolution Chain
 
-- Bind9 (`10.10.10.8`) is authoritative for `*.hughboi.cc` and `*.hughboi.vip` — answers these directly from zone files
+- Bind9 (`10.10.10.8`) is authoritative for `*.hughboi.cc` and `*.hughboi.cc` — answers these directly from zone files
   - Both zones have `update-policy` set (TSIG, for future Terraform-driven updates — see
     [Terraform Bind9.md](../../../3-athena/Terraform%20Bind9.md)), which makes BIND treat them as
     **dynamic zones**. This matters even if you're not using Terraform at all: hand-editing the
@@ -82,7 +82,7 @@ one host dying kills all DNS. Target spreads them:
 
 | Service | Runs on | Serves |
 | --- | --- | --- |
-| Bind9 **primary** | Athena VM (pve-srv-1) | Trusted nets (authoritative for `*.hughboi.cc` / `*.hughboi.vip`) |
+| Bind9 **primary** | Athena VM (pve-srv-1) | Trusted nets (authoritative for `*.hughboi.cc` / `*.hughboi.cc`) |
 | Bind9 **secondary** | k3s (pve-srv-2/3/4), MetalLB VIP | Trusted nets — AXFR/IXFR zone transfer from primary |
 | **AdGuard** | k3s (pve-srv-2/3/4), MetalLB VIP | WiFi/IoT/TV/Guest only |
 
@@ -113,7 +113,7 @@ DNS servers** in AdGuard to conditionally forward the local zones:
 
 ```
 [/hughboi.cc/]10.10.10.8
-[/hughboi.vip/]10.10.10.8
+[/hughboi.cc/]10.10.10.8
 ```
 
 Everything else uses AdGuard's filtered/recursive upstreams. **Don't** use a DNS rewrite of

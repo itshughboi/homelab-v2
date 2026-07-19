@@ -7,7 +7,7 @@ Self-hosted media server for Films, TV Shows, Music, and Concerts.
 | | |
 |---|---|
 | **Image** | `jellyfin/jellyfin:latest` |
-| **Domain** | `jellyfin.hughboi.vip` |
+| **Domain** | `jellyfin.hughboi.cc` |
 | **Port** | 8096 |
 | **Storage** | 10Gi Longhorn (config) + 20Gi Longhorn (cache) + NFS PVs (media) |
 

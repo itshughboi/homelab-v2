@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`fastenhealth.hughboi.vip`)
+    - match: Host(`fastenhealth.hughboi.cc`)
       kind: Rule
       services:
         - name: fasten-health

@@ -33,7 +33,7 @@ Items marked ✅ are fixed in this repo. Items marked 📋 require manual action
 ## Critical
 
 ### C1 — Prometheus exposed publicly with no authentication ✅ Fixed
-**Risk:** `prometheus.hughboi.vip` was reachable by anyone. Prometheus has no built-in auth.
+**Risk:** `prometheus.hughboi.cc` was reachable by anyone. Prometheus has no built-in auth.
 An attacker could read every scrape target, internal IP address, alert rule, and service name —
 a complete map of the homelab without needing to scan anything.
 
@@ -139,12 +139,12 @@ All changes go through PRs. ArgoCD's access is read-only pull.
 for all zones. If the cluster is compromised and an attacker reads secrets, they can:
 - Create DNS records pointing your domains at their servers
 - Issue their own TLS certificates for your domains
-- Intercept all traffic to `*.hughboi.cc` and `*.hughboi.vip`
+- Intercept all traffic to `*.hughboi.cc` and `*.hughboi.cc`
 
 **Fix (manual):**
 1. In Cloudflare dashboard → My Profile → API Tokens → Edit your cert-manager token
 2. Change "Zone permissions" from `Zone:Edit` to only `DNS:Edit`
-3. Restrict the token to only the specific zones (`hughboi.cc`, `hughboi.vip`) — not all zones
+3. Restrict the token to only the specific zones (`hughboi.cc`, `hughboi.cc`) — not all zones
 4. Set an IP filter on the token to only allow requests from your k3s node IPs
 5. Rotate the token and update the k8s secret:
    ```sh
@@ -156,7 +156,7 @@ for all zones. If the cluster is compromised and an attacker reads secrets, they
 ---
 
 ### H4 — Vaultwarden publicly accessible, holds keys to everything 📋 Manual
-**Risk:** `vault.hughboi.vip` is internet-accessible. Vaultwarden holds Sealed Secrets backup key,
+**Risk:** `vault.hughboi.cc` is internet-accessible. Vaultwarden holds Sealed Secrets backup key,
 Proxmox API tokens, SSH keys, and all credentials. A Vaultwarden vulnerability or weak master
 password means an attacker gets everything at once.
 

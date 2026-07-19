@@ -7,7 +7,7 @@ Workflow automation platform.
 | | |
 |---|---|
 | **Image** | `n8nio/n8n:latest` |
-| **Domain** | `n8n.hughboi.vip` |
+| **Domain** | `n8n.hughboi.cc` |
 | **Port** | 5678 |
 | **Containers** | n8n + PostgreSQL |
 | **Storage** | 5Gi PVC (n8n data) + 5Gi PVC (postgres) |
@@ -29,10 +29,10 @@ kubectl create secret generic n8n-env -n n8n \
   --from-literal=DB_POSTGRESDB_DATABASE=n8n \
   --from-literal=DB_POSTGRESDB_USER=n8n \
   --from-literal=DB_POSTGRESDB_PASSWORD=<password> \
-  --from-literal=N8N_HOST=n8n.hughboi.vip \
+  --from-literal=N8N_HOST=n8n.hughboi.cc \
   --from-literal=N8N_PORT=5678 \
   --from-literal=N8N_PROTOCOL=https \
-  --from-literal=WEBHOOK_URL=https://n8n.hughboi.vip/ \
+  --from-literal=WEBHOOK_URL=https://n8n.hughboi.cc/ \
   --from-literal=N8N_ENCRYPTION_KEY=$(openssl rand -hex 32)
 ```
 

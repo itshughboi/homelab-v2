@@ -1,5 +1,5 @@
 global:
-  domain: argocd.hughboi.vip
+  domain: argocd.hughboi.cc
 
 server:
   ingress:

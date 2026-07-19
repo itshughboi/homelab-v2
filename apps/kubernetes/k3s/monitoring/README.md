@@ -8,7 +8,7 @@ Prometheus · Grafana · Loki · Alloy
 
 ## Summary
 
-k3s is the target monitoring platform. One Grafana (`grafana.hughboi.vip`) as single pane of glass, pulling from:
+k3s is the target monitoring platform. One Grafana (`grafana.hughboi.cc`) as single pane of glass, pulling from:
 - k3s Prometheus — k3s cluster, dock-prod host, bind9, CrowdSec, Unifi
 - k3s Loki — all logs (k3s pods + dock-prod logs shipped by Alloy)
 - dock-prod InfluxDB — SNMP + Proxmox push metrics (no k8s equivalent)
@@ -26,7 +26,7 @@ monitoring/
 ├── kube-prometheus-stack/
 │   ├── values.yaml          # Prometheus + Grafana + AlertManager config
 │   ├── grafana-ingressroute.yaml
-│   └── prometheus-ingressroute.yaml   # exposes prometheus.hughboi.vip
+│   └── prometheus-ingressroute.yaml   # exposes prometheus.hughboi.cc
 ├── loki/
 │   └── values.yaml
 └── alloy/

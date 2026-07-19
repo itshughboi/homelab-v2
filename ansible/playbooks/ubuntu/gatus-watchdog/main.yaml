@@ -104,17 +104,17 @@
             - name: k3s Grafana
               group: k3s Cluster
               <<: *http
-              url: "https://grafana.hughboi.vip"
+              url: "https://grafana.hughboi.cc"
 
             - name: k3s Prometheus
               group: k3s Cluster
               <<: *http
-              url: "https://prometheus.hughboi.vip/-/healthy"
+              url: "https://prometheus.hughboi.cc/-/healthy"
 
             - name: k3s ArgoCD
               group: k3s Cluster
               <<: *http
-              url: "https://argocd.hughboi.vip"
+              url: "https://argocd.hughboi.cc"
 
             - name: k3s Traefik
               group: k3s Cluster
@@ -142,7 +142,7 @@
             - name: Vaultwarden
               group: Key Services
               <<: *http
-              url: "https://vaultwarden.hughboi.vip"
+              url: "https://vaultwarden.hughboi.cc"
 
             - name: Gitea
               group: Key Services

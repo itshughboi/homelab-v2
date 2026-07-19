@@ -7,7 +7,7 @@ Self-hosted RSS feed aggregator.
 | | |
 |---|---|
 | **Image** | `lscr.io/linuxserver/freshrss:latest` |
-| **Domain** | `freshrss.hughboi.vip` |
+| **Domain** | `freshrss.hughboi.cc` |
 | **Port** | 80 |
 | **Storage** | 2Gi Longhorn PVC (`/config` — SQLite db, feeds, themes, extensions) |
 

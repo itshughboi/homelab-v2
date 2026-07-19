@@ -7,7 +7,7 @@ Website change monitoring. Uses a Playwright/Chrome sidecar for JavaScript-heavy
 | | |
 |---|---|
 | **Image** | `ghcr.io/dgtlmoon/changedetection.io:latest` |
-| **Domain** | `change.hughboi.vip` |
+| **Domain** | `change.hughboi.cc` |
 | **Port** | 5000 |
 | **Chrome** | `browserless/chrome:latest` (sidecar in same pod) |
 | **Storage** | 5Gi Longhorn PVC (`/datastore`) |

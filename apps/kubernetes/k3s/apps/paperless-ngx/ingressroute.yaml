@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`paperless.hughboi.vip`)
+    - match: Host(`paperless.hughboi.cc`)
       kind: Rule
       services:
         - name: paperless-webserver

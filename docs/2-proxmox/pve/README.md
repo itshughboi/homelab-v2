@@ -88,3 +88,14 @@ hypervisor defaults that apply to any VM are documented there too, so they live 
 - **PBS backup schedules** at the datacenter level for every production VM.
 - **Node placement:** pin VMs to preferred nodes via resource mapping / HA groups rather than
   random placement, so you control where workloads land after a failover.
+- **Check for interrupted dpkg state before installing anything new:** `apt install` can fail
+  with `dpkg was interrupted, you must manually run 'dpkg --configure -a'` on a host that's
+  accumulated updates without ever fully completing configuration (found on pve-srv-1, which
+  had core packages — `proxmox-ve`, `pve-manager`, `grub-efi-amd64`, `lvm2`, more — stuck
+  unpacked-but-unconfigured across 7 kernel versions). Before running the fix on a live host,
+  verify it's actually healthy first: `systemctl is-active pveproxy pvedaemon pve-cluster
+  corosync`, `qm list`, `pvecm status`. Only run `dpkg --configure -a` once you've confirmed
+  nothing is actually broken — it's usually safe, but a live host running production VMs
+  deserves that check first. It may also surface a GRUB "removable bootloader" warning at the
+  end; fix with `echo 'grub-efi-amd64 grub2/force_efi_extra_removable boolean true' |
+  debconf-set-selections -v -u && apt install --reinstall grub-efi-amd64`.

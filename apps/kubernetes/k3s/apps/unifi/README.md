@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Domain** | `unifi.hughboi.vip` (web UI via Traefik) |
+| **Domain** | `unifi.hughboi.cc` (web UI via Traefik) |
 | **UI Port** | 8443 (HTTPS, proxied by Traefik with `insecureSkipVerify=true`) |
 | **Containers** | controller + mongodb (latest, fresh) + unifi-poller |
 

@@ -7,7 +7,7 @@ SMTP-to-notifications gateway. Accepts SMTP email from services (Vaultwarden, Ga
 | | |
 |---|---|
 | **Image** | `yoryan/mailrise:latest` |
-| **Domain** | `mailrise.hughboi.vip` |
+| **Domain** | `mailrise.hughboi.cc` |
 | **SMTP Port** | 8025 |
 | **Config** | ConfigMap (`/etc/mailrise.conf`) |
 

@@ -1,6 +1,6 @@
 # k3s Homelab Cluster
 
-3-master, 3-worker k3s cluster with dedicated Longhorn storage nodes. All user-facing services resolve to `*.hughboi.vip` via Traefik.
+3-master, 3-worker k3s cluster with dedicated Longhorn storage nodes. All user-facing services resolve to `*.hughboi.cc` via Traefik.
 
 > Docker services (legacy) run on `*.hughboi.cc`. The goal is to migrate everything here.  
 > Monitoring tools (InfluxDB, Telegraf, Promtail/Grafana Agent) have been replaced cluster-wide by the kube-prometheus-stack + Loki + Alloy stack in `monitoring/`.
@@ -123,7 +123,7 @@ kubectl apply -f apps/<name>/           # remaining manifests
 
 ## TLS
 
-Wildcard cert `*.hughboi.vip` is issued by cert-manager via Cloudflare DNS-01 and stored as `hughboi-tls` in the `traefik` namespace. Reflector mirrors it automatically to all app namespaces.
+Wildcard cert `*.hughboi.cc` is issued by cert-manager via Cloudflare DNS-01 and stored as `hughboi-tls` in the `traefik` namespace. Reflector mirrors it automatically to all app namespaces.
 
 **When adding a new app:** add its namespace to the Reflector annotation in  
 `networking/traefik/helm/traefik/cert-manager/certificates/production/hughboi-production.yaml`

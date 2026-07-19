@@ -35,7 +35,7 @@ spec:
             - name: DATA_DIR
               value: /data
             - name: NEXTAUTH_URL
-              value: https://hoarder.hughboi.vip
+              value: https://hoarder.hughboi.cc
           envFrom:
             - secretRef:
                 name: hoarder-env

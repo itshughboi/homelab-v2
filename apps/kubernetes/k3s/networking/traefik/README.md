@@ -1,6 +1,6 @@
 # Traefik
 
-Ingress controller and reverse proxy for the k3s cluster. Every `*.hughboi.vip` domain routes through Traefik.
+Ingress controller and reverse proxy for the k3s cluster. Every `*.hughboi.cc` domain routes through Traefik.
 
 ## Overview
 
@@ -9,7 +9,7 @@ Ingress controller and reverse proxy for the k3s cluster. Every `*.hughboi.vip` 
 | **Chart** | `traefik/traefik` |
 | **Replicas** | 3 (worker nodes only) |
 | **External IP** | `10.10.30.75` (MetalLB) |
-| **TLS** | Wildcard `*.hughboi.vip` via cert-manager + Let's Encrypt (Cloudflare DNS-01) |
+| **TLS** | Wildcard `*.hughboi.cc` via cert-manager + Let's Encrypt (Cloudflare DNS-01) |
 | **Security** | CrowdSec bouncer plugin on both `web` and `websecure` entrypoints |
 | **Backends** | `insecureSkipVerify: true` — Traefik trusts self-signed certs on upstream pods |
 
@@ -29,7 +29,7 @@ helm/traefik/
 │   │   ├── letsencrypt-production.yaml # ClusterIssuer using Cloudflare DNS-01
 │   │   └── secret-cf-token.yaml        # Cloudflare API token secret
 │   └── certificates/production/
-│       └── hughboi-production.yaml     # Certificate: *.hughboi.vip + root
+│       └── hughboi-production.yaml     # Certificate: *.hughboi.cc + root
 manifest/
 └── bouncer-middleware.yaml             # CrowdSec IngressRouteTCPMiddleware
 helm/crowdsec/values.yaml               # CrowdSec Helm values
@@ -39,7 +39,7 @@ helm/reflector/values.yaml              # Reflector Helm values
 ## How TLS Works
 
 1. **cert-manager** uses a `ClusterIssuer` that proves domain ownership via Cloudflare DNS-01 (no exposed ports required).
-2. cert-manager issues a wildcard cert `*.hughboi.vip` and stores it as Secret `hughboi-tls` in the `traefik` namespace.
+2. cert-manager issues a wildcard cert `*.hughboi.cc` and stores it as Secret `hughboi-tls` in the `traefik` namespace.
 3. **Reflector** (emberstack) watches that secret and mirrors it automatically into every namespace listed in the `secretTemplate` annotations on the Certificate.
 4. Each app's `IngressRoute` references `hughboi-tls` from its own namespace.
 
@@ -104,7 +104,7 @@ metadata:
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`myapp.hughboi.vip`)
+    - match: Host(`myapp.hughboi.cc`)
       kind: Rule
       services:
         - name: myapp

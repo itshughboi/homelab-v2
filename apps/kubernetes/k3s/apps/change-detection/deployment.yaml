@@ -25,7 +25,7 @@ spec:
             - name: PLAYWRIGHT_DRIVER_URL
               value: ws://localhost:3000
             - name: BASE_URL
-              value: https://change.hughboi.vip
+              value: https://change.hughboi.cc
           volumeMounts:
             - name: data
               mountPath: /datastore

@@ -6,7 +6,7 @@ Self-hosted YouTube media manager and archiver.
 
 | | |
 |---|---|
-| **Domain** | `yt.hughboi.vip` |
+| **Domain** | `yt.hughboi.cc` |
 | **Port** | 8000 |
 | **Containers** | tubearchivist + elasticsearch + redis |
 
@@ -28,7 +28,7 @@ Self-hosted YouTube media manager and archiver.
 2. **Fill in secrets** in [secret.yaml](secret.yaml):
    ```bash
    kubectl create secret generic tube-archivist-env -n tube-archivist \
-     --from-literal=TA_HOST=https://yt.hughboi.vip \
+     --from-literal=TA_HOST=https://yt.hughboi.cc \
      --from-literal=TA_USERNAME=admin \
      --from-literal=TA_PASSWORD=<password> \
      --from-literal=ELASTIC_PASSWORD=<password>

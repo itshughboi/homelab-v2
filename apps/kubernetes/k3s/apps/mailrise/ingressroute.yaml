@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`mailrise.hughboi.vip`)
+    - match: Host(`mailrise.hughboi.cc`)
       kind: Rule
       services:
         - name: mailrise

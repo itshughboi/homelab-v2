@@ -7,7 +7,7 @@ Lightweight personal bookkeeping application backed by MySQL.
 | | |
 |---|---|
 | **Image** | `mayswind/ezbookkeeping:latest` |
-| **Domain** | `bookkeeping.hughboi.vip` |
+| **Domain** | `bookkeeping.hughboi.cc` |
 | **Port** | 8080 |
 | **Containers** | ezbookkeeping + MySQL 8.0 |
 | **Storage** | 5Gi PVC (MySQL) + 2Gi PVC (app storage/logs) |

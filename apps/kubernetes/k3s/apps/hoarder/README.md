@@ -7,7 +7,7 @@ Self-hosted bookmark manager with AI tagging and full-text search.
 | | |
 |---|---|
 | **Image** | `ghcr.io/hoarder-app/hoarder:latest` |
-| **Domain** | `hoarder.hughboi.vip` |
+| **Domain** | `hoarder.hughboi.cc` |
 | **Port** | 3000 |
 | **Containers** | hoarder + chrome (sidecar) + meilisearch (separate Deployment) |
 | **Storage** | 10Gi PVC (hoarder data) + 5Gi PVC (meilisearch index) |

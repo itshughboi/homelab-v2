@@ -9,7 +9,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`search.hughboi.vip`)
+    - match: Host(`search.hughboi.cc`)
       kind: Rule
       services:
         - name: searxng

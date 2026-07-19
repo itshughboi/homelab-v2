@@ -16,7 +16,7 @@ Self-hosted Git service — formerly planned as the GitOps source of truth for A
 | | |
 |---|---|
 | **Image** | `gitea/gitea:1.26` |
-| **Domain** | `gitea.hughboi.vip` |
+| **Domain** | `gitea.hughboi.cc` |
 | **HTTP Port** | 3000 |
 | **SSH Port** | 2222 (LoadBalancer) |
 | **Containers** | gitea + PostgreSQL |
@@ -59,7 +59,7 @@ kubectl get svc gitea-ssh -n gitea
 Configure your SSH client to use port 2222:
 ```
 # ~/.ssh/config
-Host gitea.hughboi.vip
+Host gitea.hughboi.cc
   Port 2222
   User git
 ```
@@ -80,7 +80,7 @@ The Postgres data migration is separate — use `pg_dump` on the source and `pg_
 
 The Docker setup included `gitea/act_runner` which requires Docker socket access. In k8s you have two options:
 
-**Option A: Keep the runner on the Docker host** — simpler, runner can still call back to `gitea.hughboi.vip`. Register with the runner token from Gitea UI.
+**Option A: Keep the runner on the Docker host** — simpler, runner can still call back to `gitea.hughboi.cc`. Register with the runner token from Gitea UI.
 
 **Option B: Gitea Actions Runner in k8s** — requires either Docker-in-Docker (DinD) or [Kaniko](https://github.com/GoogleContainerTools/kaniko) for builds. Considerably more complex. Defer until needed.
 

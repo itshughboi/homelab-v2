@@ -7,7 +7,7 @@ Bitwarden-compatible self-hosted password manager.
 | | |
 |---|---|
 | **Image** | `vaultwarden/server:1.35.7` |
-| **Domain** | `vaultwarden.hughboi.vip` |
+| **Domain** | `vaultwarden.hughboi.cc` |
 | **Port** | 80 |
 | **Storage** | 1Gi Longhorn PVC (`/data` — SQLite db + attachments) |
 
@@ -16,12 +16,12 @@ Bitwarden-compatible self-hosted password manager.
 1. Fill in [secret.yaml](secret.yaml) with real values, or create the secret imperatively:
    ```bash
    kubectl create secret generic vaultwarden-env -n vaultwarden \
-     --from-literal=DOMAIN=https://vaultwarden.hughboi.vip \
+     --from-literal=DOMAIN=https://vaultwarden.hughboi.cc \
      --from-literal=ADMIN_TOKEN=$(openssl rand -base64 48) \
-     --from-literal=SMTP_HOST=mailrise.hughboi.vip \
+     --from-literal=SMTP_HOST=mailrise.hughboi.cc \
      --from-literal=SMTP_PORT=8025 \
      --from-literal=SMTP_SECURITY=off \
-     --from-literal=SMTP_FROM=vaultwarden@hughboi.vip \
+     --from-literal=SMTP_FROM=vaultwarden@hughboi.cc \
      --from-literal=SMTP_FROM_NAME=Vaultwarden \
      --from-literal=SMTP_USERNAME="" \
      --from-literal=SMTP_PASSWORD=""
@@ -61,4 +61,4 @@ kubectl scale deployment vaultwarden -n vaultwarden --replicas=1
 
 - `strategy: Recreate` is required — the `ReadWriteOnce` PVC can only be mounted by one pod at a time.
 - The Ansible backup playbooks in `ansible/playbooks/vaultwarden/` target the Docker host. After cutover, update them to use `kubectl exec` to export the SQLite database from the PVC instead.
-- Admin panel: `https://vaultwarden.hughboi.vip/admin`
+- Admin panel: `https://vaultwarden.hughboi.cc/admin`

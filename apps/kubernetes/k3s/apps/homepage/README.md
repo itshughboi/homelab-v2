@@ -7,7 +7,7 @@ Self-hosted start page with service integrations, API widgets, and Kubernetes-aw
 | | |
 |---|---|
 | **Image** | `ghcr.io/gethomepage/homepage:latest` |
-| **Domain** | `home.hughboi.vip` |
+| **Domain** | `home.hughboi.cc` |
 | **Port** | 3000 |
 | **Storage** | 1Gi Longhorn PVC (`/app/config` — YAML config files) |
 
@@ -26,7 +26,7 @@ Fill in all `CHANGE_ME` values in [secret.yaml](secret.yaml) with real API keys.
 
 ```bash
 kubectl create secret generic homepage-env -n homepage \
-  --from-literal=HOMEPAGE_ALLOWED_HOSTS=home.hughboi.vip \
+  --from-literal=HOMEPAGE_ALLOWED_HOSTS=home.hughboi.cc \
   --from-literal=HOMEPAGE_VAR_PROXMOX_USERNAME=admin@pam \
   --from-literal=HOMEPAGE_VAR_PROXMOX_PASSWORD=<password> \
   # ... all other keys
@@ -55,7 +55,7 @@ kubectl delete pod copy -n homepage
 kubectl scale deployment homepage -n homepage --replicas=1
 ```
 
-After migration, update service URLs in the config from `*.hughboi.cc` to `*.hughboi.vip`.
+After migration, update service URLs in the config from `*.hughboi.cc` to `*.hughboi.cc`.
 
 ## Kubernetes Integration
 

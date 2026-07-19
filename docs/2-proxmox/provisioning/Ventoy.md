@@ -10,8 +10,8 @@ reaches it. Per-node config lives in git as `bootstrap/ventoy/answers/pve-srv-X.
 
 | Rung | How the answer is delivered | Touch per install | Infra | Best for |
 | --- | --- | --- | --- | --- |
-| **B — Answer server** ✅ *(in use)* | One generic ISO; installer fetches its answer by MAC over HTTP | Boot, pick the one ISO | A small service (during installs) | Frequent reimaging / testing — edit a TOML in git, no ISO rebuild. [Runbook](../../../bootstrap/proxmox-answer-server/README.md) |
-| **A — Per-node baked ISO** | Answer baked into a per-node ISO | Boot, pick the node's ISO | None | Few static nodes; zero infra. [Runbook](../../../bootstrap/ventoy/README.md) |
+| **B — Answer server** | One generic ISO; installer fetches its answer by MAC over HTTP | Boot, pick the one ISO | A small service (during installs) | Frequent reimaging / testing — edit a TOML in git, no ISO rebuild. [Runbook](../../../bootstrap/proxmox-answer-server/README.md) |
+| **A — Per-node baked ISO** ✅ *(in use)* | Answer baked into a per-node ISO | Boot, pick the node's ISO | None | Few static nodes; zero infra. [Runbook](../../../bootstrap/ventoy/README.md) |
 | **Manual** | None — type it in | Click through the installer | None | No tooling handy, or a one-off (below) |
 
 B and A end in the same place; B just avoids rebuilding ISOs when a node's config changes.

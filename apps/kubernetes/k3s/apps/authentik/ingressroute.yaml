@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`authentik.hughboi.vip`)
+    - match: Host(`authentik.hughboi.cc`)
       kind: Rule
       services:
         - name: authentik-server

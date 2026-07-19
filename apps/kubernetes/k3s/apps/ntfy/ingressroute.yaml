@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`ntfy.hughboi.vip`)
+    - match: Host(`ntfy.hughboi.cc`)
       kind: Rule
       services:
         - name: ntfy

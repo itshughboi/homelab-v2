@@ -7,7 +7,7 @@ Web UI for running Ansible playbooks. Replaces manual `ansible-playbook` runs wi
 | | |
 |---|---|
 | **Image** | `semaphoreui/semaphore:latest` |
-| **Domain** | `semaphore.hughboi.vip` |
+| **Domain** | `semaphore.hughboi.cc` |
 | **Port** | 3000 |
 | **Containers** | semaphore + MySQL 8.4 |
 | **Storage** | 5Gi PVC (MySQL) + 1Gi PVC (Semaphore config) |
@@ -28,7 +28,7 @@ kubectl create secret generic semaphore-env -n semaphore \
   --from-literal=SEMAPHORE_PLAYBOOK_PATH=/tmp/semaphore/ \
   --from-literal=SEMAPHORE_ADMIN_PASSWORD=<admin-password> \
   --from-literal=SEMAPHORE_ADMIN_NAME=admin \
-  --from-literal=SEMAPHORE_ADMIN_EMAIL=admin@hughboi.vip \
+  --from-literal=SEMAPHORE_ADMIN_EMAIL=admin@hughboi.cc \
   --from-literal=SEMAPHORE_ADMIN=admin \
   --from-literal=SEMAPHORE_ACCESS_KEY_ENCRYPTION=$(openssl rand -base64 32) \
   --from-literal=ANSIBLE_HOST_KEY_CHECKING=false

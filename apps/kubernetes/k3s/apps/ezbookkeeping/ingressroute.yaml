@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`bookkeeping.hughboi.vip`)
+    - match: Host(`bookkeeping.hughboi.cc`)
       kind: Rule
       services:
         - name: ezbookkeeping

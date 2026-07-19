@@ -7,7 +7,7 @@ Home automation platform with PostgreSQL for recorder storage.
 | | |
 |---|---|
 | **Image** | `ghcr.io/home-assistant/home-assistant:stable` |
-| **Domain** | `ha.hughboi.vip` |
+| **Domain** | `ha.hughboi.cc` |
 | **Port** | 8123 |
 | **Containers** | home-assistant + PostgreSQL |
 | **Storage** | 10Gi Longhorn (HA config) + 20Gi Longhorn (postgres) |

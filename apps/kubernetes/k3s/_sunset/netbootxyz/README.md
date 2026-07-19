@@ -12,7 +12,7 @@ Network boot server for PXE booting operating systems over TFTP/HTTP.
 | | |
 |---|---|
 | **Image** | `lscr.io/linuxserver/netbootxyz:latest` |
-| **Domain** | `netboot.hughboi.vip` (web UI) |
+| **Domain** | `netboot.hughboi.cc` (web UI) |
 | **UI Port** | 3000 |
 | **TFTP Port** | 69/UDP (LoadBalancer) |
 | **Storage** | 2Gi Longhorn (`/config`) + 10Gi Longhorn (`/assets` — ISO cache) |

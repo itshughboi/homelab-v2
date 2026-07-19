@@ -9,7 +9,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`vaultwarden.hughboi.vip`)
+    - match: Host(`vaultwarden.hughboi.cc`)
       kind: Rule
       services:
         - name: vaultwarden

@@ -7,7 +7,7 @@ Self-hosted photo and video management. Google Photos alternative with mobile ba
 | | |
 |---|---|
 | **Image** | `ghcr.io/immich-app/immich-server:release` |
-| **Domain** | `immich.hughboi.vip` |
+| **Domain** | `immich.hughboi.cc` |
 | **Port** | 2283 |
 | **Containers** | server + machine-learning + PostgreSQL (pgvecto-rs) + Redis |
 | **Storage** | 100Gi PVC (uploads) + NFS (external media RO) + 10Gi (ML cache) + 20Gi (postgres) + 1Gi (redis) |

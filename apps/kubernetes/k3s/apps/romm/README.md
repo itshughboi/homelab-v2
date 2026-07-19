@@ -7,7 +7,7 @@ Self-hosted game ROM manager and metadata scraper.
 | | |
 |---|---|
 | **Image** | `rommapp/romm:latest` |
-| **Domain** | `romm.hughboi.vip` |
+| **Domain** | `romm.hughboi.cc` |
 | **Port** | 8080 |
 | **Containers** | romm + MariaDB |
 | **Storage** | 5Gi (mysql) + 10Gi (resources/covers) + 100Gi (game library) + 10Gi (assets/saves) + 1Gi (redis cache) |

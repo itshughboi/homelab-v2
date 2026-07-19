@@ -9,7 +9,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`syncthing.hughboi.vip`)
+    - match: Host(`syncthing.hughboi.cc`)
       kind: Rule
       services:
         - name: syncthing-ui

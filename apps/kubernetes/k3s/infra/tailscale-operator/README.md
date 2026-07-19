@@ -8,7 +8,7 @@ Exposes Kubernetes Services directly on your Tailnet without punching holes in y
 |----------|-----|
 | Remote access to Grafana/ArgoCD | Annotate Service with `tailscale.com/expose: "true"` |
 | Access cluster from phone/laptop | Tailscale client + operator creates a proxy node per service |
-| No-internet-required access | Works even when `hughboi.vip` DNS or Let's Encrypt is unreachable |
+| No-internet-required access | Works even when `hughboi.cc` DNS or Let's Encrypt is unreachable |
 | Secure admin interfaces | Longhorn UI, Kubernetes dashboard — never exposed to public Traefik |
 
 ## Prerequisites

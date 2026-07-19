@@ -15,11 +15,54 @@ fine; for heavy reimaging, rung B is nicer. Full comparison:
 
 > [!IMPORTANT] Validate, and canary one node first
 > The only real risk is disk selection. The answer files use `[disk-setup]` with
-> `filter.ID_TYPE = "disk"` + an empty `disk_list` — fine on a single-NVMe mini PC, but the
-> kind of thing that either works perfectly or errors at install. **Validate every TOML, then
-> test-boot ONE node and confirm it before building/booting the rest.** Catch a surprise once,
-> not N times. (These install **ext4 on a single disk**, not ZFS — change `filesystem` if you
-> want host-level ZFS snapshots.)
+> `filter.ID_TYPE = "disk"` — fine on a single-NVMe mini PC, but the kind of thing that either
+> works perfectly or errors at install. **Validate every TOML, then test-boot ONE node and
+> confirm it before building/booting the rest.** Catch a surprise once, not N times. (These
+> install **ext4 on a single disk**, not ZFS — change `filesystem` if you want host-level ZFS
+> snapshots.)
+>
+> [!WARNING] A validated TOML on one node doesn't mean the *schema* is proven
+> A TOML that has never actually been run through `validate-answer` isn't evidence the schema is
+> correct, even if the node it describes is up and running today (it may have been installed
+> some other way — manually, or with a since-changed tool version). Don't assume an existing
+> file is trustworthy just because its node exists; validate it for real before trusting the
+> pattern for a new node.
+
+### Answer file schema — confirmed correct as of `proxmox-auto-install-assistant` 9.2.7
+
+The field names below are **not** what older examples/blog posts show, and in one case the
+installed tool's own behavior contradicts the [upstream wiki](https://pve.proxmox.com/wiki/Automated_Installation).
+Validated end-to-end producing a working ISO:
+
+```toml
+[global]
+keyboard = "en-us"
+country = "us"
+fqdn = "pve-srv-2.hughboi.cc"        # required, and must be under [global] — NOT [network]
+mailto = "root@hughboi.cc"            # required in practice on this tool version, despite the
+                                       # upstream wiki listing it as optional
+timezone = "America/Denver"
+root-password = "$6$...hash..."       # kebab-case; root_password is deprecated
+root-ssh-keys = [ "ssh-ed25519 ..." ] # kebab-case; ssh_public_keys is not a valid field at all
+                                       # (hard parse error, not just a deprecation warning)
+
+[network]
+source = "from-answer"
+cidr = "10.10.10.2/24"                # NOT "address"
+dns = "9.9.9.9"                       # NOT "dns-list" (single string, not an array)
+gateway = "10.10.10.254"
+# no "hostname" field — fqdn in [global] covers it
+
+[disk-setup]
+filesystem = "ext4"
+filter.ID_TYPE = "disk"
+# disk-list and filter are mutually exclusive — do not set both.
+# filter alone auto-selects "the disk" on a single-NVMe box.
+```
+
+Known-deprecated (warning, not fatal): `root_password`, `dns_list`, `disk_list` (underscore
+style — kebab-case is preferred since PVE 8.4-1 / PBS 3.4-1).
+Known-invalid (fatal parse error): `ssh_public_keys` — the real field is `root-ssh-keys`.
 
 ### 1. On pve-srv-1 — validate + build (amd64 tool lives here)
 
@@ -40,8 +83,19 @@ done
 # → out/pve-srv-2-auto.iso, pve-srv-3-auto.iso, pve-srv-4-auto.iso
 ```
 
-`make-isos.sh` loops every `pve-srv-*.toml` in `answers/`. Re-run it
-whenever a TOML changes.
+`make-isos.sh` loops every `pve-srv-*.toml` in `answers/` — including `pve-srv-1.toml`, which
+will fail if it's never been fixed to the schema above. That's expected and harmless: pve-srv-1
+is already installed, so its ISO is never needed. Re-run the script whenever a TOML changes.
+
+> [!TIP] Getting the built ISOs onto the USB stick
+> pve-srv-1 is headless — the ISOs land in `bootstrap/ventoy/out/` on that host, not on your
+> Mac where the Ventoy stick is plugged in. Pull them over `scp` before copying to Ventoy:
+>
+> ```sh
+> # on your Mac — quote the remote path, or your local shell will try (and fail) to
+> # glob-expand pve-srv-*-auto.iso against your Mac's own filesystem
+> scp "root@10.10.10.1:~/homelab/bootstrap/ventoy/out/pve-srv-*-auto.iso" ~/Downloads/proxmox-isos/
+> ```
 
 > [!IMPORTANT] The TOMLs contain root password **hashes** — and this repo is public
 > `root_password` in each answer file is a SHA512-crypt hash. A public hash is offline-crackable

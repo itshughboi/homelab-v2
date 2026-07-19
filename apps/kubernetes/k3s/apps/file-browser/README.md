@@ -7,7 +7,7 @@ Web-based file manager for browsing TrueNAS NFS shares.
 | | |
 |---|---|
 | **Image** | `hurlenko/filebrowser:latest` |
-| **Domain** | `files.hughboi.vip` |
+| **Domain** | `files.hughboi.cc` |
 | **Port** | 8080 |
 | **Storage** | TrueNAS NFS PV (`/data`) + 1Gi Longhorn PVC (`/config` — filebrowser.db) |
 

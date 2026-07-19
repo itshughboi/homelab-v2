@@ -11,7 +11,7 @@
 One Grafana. Everything feeds it.
 
 ```
-k3s Grafana (grafana.hughboi.vip)        ← single pane of glass
+k3s Grafana (grafana.hughboi.cc)        ← single pane of glass
   ├── data source: k3s Prometheus         → k3s cluster, dock-prod host, bind9, CrowdSec, Unifi
   ├── data source: k3s Loki               → k3s pod logs + dock-prod logs (shipped by Alloy)
   └── data source: dock-prod InfluxDB     → SNMP + Proxmox native push metrics
@@ -23,7 +23,7 @@ dock-prod Telegraf → dock-prod InfluxDB   ← stays; SNMP + Proxmox push have 
 ```
 
 **What's retired once k3s is live:**
-- `grafana.hughboi.cc` — Docker Grafana (replaced by `grafana.hughboi.vip`)
+- `grafana.hughboi.cc` — Docker Grafana (replaced by `grafana.hughboi.cc`)
 - dock-prod Prometheus (`localhost:9070`) — barely used, only scraped 2 targets
 - dock-prod Promtail — replaced by Alloy
 
@@ -71,7 +71,7 @@ helm upgrade --install alloy grafana/alloy \
   -f apps/kubernetes/k3s/monitoring/alloy/values.yaml
 ```
 
-**Grafana:** `https://grafana.hughboi.vip` — default credentials `admin/prom-operator`, change immediately.
+**Grafana:** `https://grafana.hughboi.cc` — default credentials `admin/prom-operator`, change immediately.
 
 ---
 
@@ -219,8 +219,8 @@ Import from grafana.com after setup:
 
 ```sh
 kubectl get pods -n monitoring          # all Running
-curl -I https://grafana.hughboi.vip     # 200
-curl -I https://prometheus.hughboi.vip  # 200 (internal use by dock-prod Grafana if needed)
+curl -I https://grafana.hughboi.cc     # 200
+curl -I https://prometheus.hughboi.cc  # 200 (internal use by dock-prod Grafana if needed)
 
 # Loki receiving logs (give Alloy ~30s to start)
 kubectl logs -n monitoring -l app.kubernetes.io/name=alloy --tail=20

@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`ha.hughboi.vip`)
+    - match: Host(`ha.hughboi.cc`)
       kind: Rule
       services:
         - name: home-assistant
