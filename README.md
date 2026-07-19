@@ -3,12 +3,12 @@
 Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Packer + Ansible). All user services run behind Traefik with Let's Encrypt TLS.
 
 > [!IMPORTANT] Current state (2026-07)
-> **Almost everything runs on Docker (`dock-prod`) today.** k3s is the target architecture for
-> most workloads, but the cluster is **not currently live** — it needs reconfiguring before any
-> real migration can start. `apps/kubernetes/k3s/` holds real manifest work already done ahead
-> of that (29 services have manifests written), but having a manifest doesn't mean a service is
-> running there. Don't trust a service's presence in `apps/kubernetes/k3s/apps/` as evidence it's
-> live — check `apps/docker/` and the service's own README for what's actually deployed.
+> **Most user-facing services still run on Docker (`dock-prod`) today.** The k3s cluster is now
+> live on pve-srv-2/3/4, but migration of individual services is ongoing — `apps/kubernetes/k3s/`
+> holds real manifest work (29 services have manifests written), but having a manifest doesn't
+> mean a service has actually migrated. Don't trust a service's presence in
+> `apps/kubernetes/k3s/apps/` as evidence it's live on k3s — check `apps/docker/` and the
+> service's own README for what's actually deployed where.
 
 ---
 
@@ -37,10 +37,10 @@ Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Pac
 │    Traefik (*.hughboi.cc), AdGuard, Vaultwarden, Jellyfin, │
 │    Immich, Paperless-ngx, Home Assistant, ~30 more         │
 │                                                            │
-│  pve-srv-1 → Athena (10.10.10.8)                           │
+│  pve-srv-1 → Athena (10.10.10.8)                          │
 │    Management: Gitea, Semaphore, Bind9 (canonical DNS)     │
 │                                                            │
-│  pve-srv-2/3/4 → k3s cluster (NOT currently live)          │
+│  pve-srv-2/3/4 → k3s cluster                               │
 │    Masters: 10.10.30.1-3 (VIP 10.10.30.30)                 │
 │    Workers: 10.10.30.11-13, Longhorn: 10.10.30.51-53       │
 │    Same domain (hughboi.cc) — per-service DNS record       │
@@ -59,16 +59,16 @@ Self-hosted infrastructure running on Proxmox, managed with IaC (Terraform + Pac
 homelab/
 ├── apps/
 │   ├── docker/              # What's actually running today — ~36 services on dock-prod
-│   └── kubernetes/k3s/      # k3s manifests — target state, cluster not yet live
+│   └── kubernetes/k3s/      # k3s manifests — cluster is live, migration ongoing
 │       ├── infra/           # kube-vip, MetalLB, Longhorn, system-upgrade-controller
 │       ├── networking/      # Traefik, cert-manager, CrowdSec, AdGuard
 │       ├── monitoring/      # kube-prometheus-stack, Loki, Alloy, Alertmanager
-│       ├── argocd/          # ArgoCD install + App of Apps (not yet running)
+│       ├── argocd/          # ArgoCD install + App of Apps
 │       └── apps/            # 29 services with manifests prepared, most not yet deployed
 ├── ansible/                 # OS provisioning, k3s install, Docker host setup
 ├── terraform/proxmox/       # VM provisioning (bpg/proxmox provider)
 ├── packer/                  # Ubuntu cloud-init template for Proxmox
-├── bootstrap/                # PXE / netboot.xyz setup (provisioning-time only)
+├── bootstrap/                # Node install tooling (Ventoy, answer-server) — provisioning-time only
 └── docs/                    # Architecture notes, numbered setup guides
 ```
 
@@ -77,11 +77,9 @@ homelab/
 ## k3s Migration Plan
 
 A full audit of every Docker service's real storage/network dependencies determined what's
-actually a good k3s candidate versus what has a real reason to stay on `dock-prod`. Full
-per-service reasoning: see the categorized reference published as an Artifact during the
-planning session — ask in a future session if the link needs regenerating, or reconstruct from
-`apps/kubernetes/k3s/apps/` (a manifest existing there means it was considered a candidate; it
-does not mean it's deployed).
+actually a good k3s candidate versus what has a real reason to stay on `dock-prod`. Per-service
+reasoning is in the table below (a manifest existing in `apps/kubernetes/k3s/apps/` means it was
+considered a candidate; it does not mean it's deployed).
 
 **Staying on Docker/`dock-prod`, with real reasons:**
 
@@ -150,7 +148,7 @@ This is a high-level summary, not a 1:1 map to `docs/QUICKSTART.md`'s numbered p
 | Edge | CrowdSec | Active — hard dependency for all Traefik traffic (see `apps/docker/crowdsec/README.md`) |
 | Ingress | Traefik | Active — TLS termination, routing, auth middleware |
 | Certs | Let's Encrypt via Cloudflare DNS-01 | Active |
-| SIEM | Wazuh | Not yet deployed anywhere — planned for k3s once live (see k3s Migration Plan above) |
+| SIEM | Wazuh | Not yet deployed anywhere — build directly on k3s, next up (see k3s Migration Plan above) |
 | Secrets (Docker/provisioning) | SOPS + Age | Active — ~20/36 Docker services migrated as of this writing |
 | Secrets (k3s) | Sealed Secrets | Controller manifest exists, **not adopted by any app yet** — see `docs/8-gitops/index.md` |
 | Identity | Pocket ID | Active on Docker (OIDC/SSO) — preferred over Authentik's more complex setup. Authentik itself was tried and sunset (`apps/docker/sunset/authentik/`); a k3s manifest exists as unrealized planning only |
@@ -198,7 +196,7 @@ Docker Compose deploys go through Semaphore's `sops-deploy` Task Template
 |------|---------|---------|
 | NFS | TrueNAS | Media, large datasets — Jellyfin, Immich, Paperless-ngx, Tube Archivist, RomM |
 | Local disk | `dock-prod` | Named Docker volumes for app state (databases, caches, small config) |
-| Block (planned) | Longhorn | k3s app PVCs — not in use yet, k3s isn't live |
+| Block | Longhorn | k3s app PVCs — in use by services that have migrated |
 
 ---
 
