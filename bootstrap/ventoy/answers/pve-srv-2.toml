@@ -7,7 +7,7 @@ timezone = "America/Denver"
 root-password = "$6$g3uJAD4Bi7rxyHCT$a.414zOnFoh4n7l8gFVeHhqFGLmGHfpzV65QdwG5vei.6PYEi/2wJ4Htup2LhksAwDDkttYlYRPzRRs6fQOYy/"
 root-ssh-keys = [
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOiFbiQZyO8eVxHFGGxSi6WldRYXHZCmP7wdGQ8N/Fd3 homelab-mac",
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN7q284pL5oPwrp1NOwtNnkNiwX3R3z5F+qqYMmhTZYM ansible"
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIERM6kSim3ldDx26t/s3nJg3j4ALFPVFJuGjRymu7U1g homelab-athena"
 ]
 
 [network]
