@@ -88,7 +88,7 @@ does not mean it's deployed).
 | Service | Why it stays |
 |---|---|
 | Jellyfin | GPU transcoding — Intel Arc A380 is passed through on `dock-prod`. k3s nodes only have AMD Radeon iGPUs, benchmarked as a real downgrade for concurrent 4K/HDR transcoding. Revisit once `dock-prod`'s hardware is upgraded and the Arc A380 is retired. |
-| Immich (home + eros) | Real photo libraries are large and TrueNAS-hosted; the k3s manifest uses a 100Gi Longhorn PVC for the library itself (not NFS passthrough), so moving means migrating real data into Longhorn — a deliberate future project, not a simple redeploy. |
+| Immich | Real photo libraries are large and TrueNAS-hosted; the k3s manifest uses a 100Gi Longhorn PVC for the library itself (not NFS passthrough), so moving means migrating real data into Longhorn — a deliberate future project, not a simple redeploy. |
 | Paperless-ngx | Same reasoning as Immich — document library lives on Longhorn in the k3s manifest, not NFS passthrough. |
 | Restic | Backs up `dock-prod`'s own filesystem (`/home/hughboi`) — has to run on the host it's backing up, by definition. A separate k3s-native backup job (for Longhorn PVCs) would be a new, different thing, not a migration of this one. |
 | UniFi | Core network management (APs/switches). The k3s manifest could technically give it a stable IP via MetalLB, but this isn't the place to pilot the k3s migration pattern. |
