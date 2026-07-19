@@ -1,8 +1,10 @@
 [global]
 keyboard = "en-us"
 country = "us"
+fqdn = "pve-srv-2.hughboi.cc"
+mailto = "root@hughboi.cc"
 timezone = "America/Denver"
-root-password = "$6$HOZEESUiEsvs4sXb$dslqNOnvB92DbDFn.....ThisIsAnExamplePasswordHashusing >> " #openssl passwd -6 "PasswordHere"
+root-password = "$6$g3uJAD4Bi7rxyHCT$a.414zOnFoh4n7l8gFVeHhqFGLmGHfpzV65QdwG5vei.6PYEi/2wJ4Htup2LhksAwDDkttYlYRPzRRs6fQOYy/"
 root-ssh-keys = [
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOiFbiQZyO8eVxHFGGxSi6WldRYXHZCmP7wdGQ8N/Fd3 homelab-mac",
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN7q284pL5oPwrp1NOwtNnkNiwX3R3z5F+qqYMmhTZYM ansible"
@@ -10,13 +12,10 @@ root-ssh-keys = [
 
 [network]
 source = "from-answer"
-hostname = "pve-srv-2"
-fqdn = "pve-srv-2.hughboi.cc"
-address = "10.10.10.2/24"
+cidr = "10.10.10.2/24"
+dns = "9.9.9.9"
 gateway = "10.10.10.254"
-dns-list = ["9.9.9.9"]
 
 [disk-setup]
 filesystem = "ext4"
 filter.ID_TYPE = "disk"
-disk-list = []
