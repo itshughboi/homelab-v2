@@ -27,9 +27,9 @@ services:
       grimmory-db:
         condition: service_healthy
     volumes:
-      - ./data:/app/data
-      - ./books:/books
-      - ./bookdrop:/bookdrop
+      - /home/hughboi/data/grimmory:/app/data
+      - /home/hughboi/data/grimmory:/books:/books
+      - /home/hughboi/data/grimmory:/bookdrop:/bookdrop
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grimmory.entrypoints=http"
