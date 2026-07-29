@@ -1,0 +1,78 @@
+services:
+  grimmory:
+    container_name: grimmory
+    image: ghcr.io/grimmory-tools/grimmory:v0.38.2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://loki.hughboi.cc/loki/api/v1/push"
+        loki-retries: 2
+        loki-max-backoff: 800ms
+        loki-timeout: 1s
+        keep-file: "true"
+        mode: "non-blocking"
+    environment:
+      - USER_ID=1000
+      - GROUP_ID=1000
+      - TZ=America/Denver
+      - DATABASE_URL=jdbc:mariadb://grimmory-db:3306/grimmory
+      - DATABASE_USERNAME=grimmory
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - SWAGGER_ENABLED=false
+      - FORCE_DISABLE_OIDC=false
+    depends_on:
+      grimmory-db:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./books:/books
+      - ./bookdrop:/bookdrop
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grimmory.entrypoints=http"
+      - "traefik.http.routers.grimmory.rule=Host(`grimmory.hughboi.cc`)"
+      - "traefik.http.middlewares.grimmory-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.grimmory.middlewares=grimmory-https-redirect"
+      - "traefik.http.routers.grimmory-secure.entrypoints=https"
+      - "traefik.http.routers.grimmory-secure.rule=Host(`grimmory.hughboi.cc`)"
+      - "traefik.http.routers.grimmory-secure.tls=true"
+      - "traefik.http.routers.grimmory-secure.service=grimmory"
+      - "traefik.http.services.grimmory.loadbalancer.server.port=6060"
+      - "traefik.docker.network=proxy"
+    networks:
+      - proxy
+      - grimmory
+
+  grimmory-db:
+    container_name: grimmory-db
+    image: lscr.io/linuxserver/mariadb:11.4.8
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Denver
+      - MYSQL_DATABASE=grimmory
+      - MYSQL_USER=grimmory
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./config:/config
+    healthcheck:
+      test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - grimmory
+
+
+networks:
+  grimmory:
+    internal: true
+  proxy:
+    external: true
