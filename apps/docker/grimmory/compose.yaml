@@ -27,9 +27,9 @@ services:
       grimmory-db:
         condition: service_healthy
     volumes:
-      - /home/hughboi/data/grimmory:/app/data
-      - /home/hughboi/data/grimmory:/books:/books
-      - /home/hughboi/data/grimmory:/bookdrop:/bookdrop
+      - /home/hughboi/data/grimmory/data:/app/data
+      - /home/hughboi/data/grimmory/books:/books
+      - /home/hughboi/data/grimmory/bookdrop:/bookdrop
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grimmory.entrypoints=http"
@@ -61,7 +61,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     volumes:
-      - ./config:/config
+      - /home/hughboi/data/grimmory/config:/config
     healthcheck:
       test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
       interval: 5s
