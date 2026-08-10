@@ -15,3 +15,9 @@ all:
           ansible_host: 10.10.10.10   # most services live here
         athena:
           ansible_host: 10.10.10.8    # management plane: gitea, semaphore, bind9
+          # Semaphore RUNS on Athena, so it must not SSH to itself — run commands
+          # directly. Without this, the play tries hughboi@10.10.10.8 with a key
+          # Semaphore's service user (/home/semaphore) doesn't have, and fails
+          # "Permission denied (publickey)". local connection sidesteps SSH.
+          # (dock-prod stays SSH — it's a different host.)
+          ansible_connection: local
