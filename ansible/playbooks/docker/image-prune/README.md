@@ -20,11 +20,11 @@ run through a container that still exists (even stopped) — is left alone.
 ## Usage
 
 ```sh
-ansible-playbook -i inventory.yaml main.yaml
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/image-prune/main.yaml -l dock-prod
 ```
 
 **As a Semaphore Task Template:** run on a schedule (e.g. weekly) — no Survey Variables needed,
-it targets all `docker_hosts`. Reports results via ntfy (`ntfy.hughboi.cc/homelab`) either way —
+it targets the `docker` group (limit to `dock-prod`). Reports results via ntfy (`ntfy.hughboi.cc/homelab`) either way —
 success shows counts removed + `docker system df` output, failure alerts urgently.
 
 ## Replaces

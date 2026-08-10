@@ -10,7 +10,7 @@ Searches `/home/hughboi/code` for `compose.yaml` files, inspects every container
 
 ```sh
 cd ansible/playbooks/docker/compose-health
-ansible-playbook -i inventory.yaml main.yaml
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/compose-health/main.yaml -l dock-prod
 ```
 
 ## Schedule
@@ -19,4 +19,4 @@ Run every 15–30 minutes as a Semaphore job for continuous fleet health. Use as
 
 ## Target
 
-`docker_hosts` → `10.10.10.10` (dock-prod)
+`docker` group, limited to `dock-prod` (`10.10.10.10`)

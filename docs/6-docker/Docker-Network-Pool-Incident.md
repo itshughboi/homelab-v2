@@ -82,7 +82,7 @@ reconnected automatically — Docker preserves container state independent of th
 it just needed the daemon back up to re-attach networking. Verified with
 `docker ps --format '{{.Names}}\t{{.Status}}'`: everything came back except `promtail`, which was
 already independently crash-looping before this incident (see
-[`apps/docker/promgraftail/README.md`](../docker/promgraftail/README.md) — unrelated, still
+[`apps/docker/promgraftail/README.md`](../../apps/docker/promgraftail/README.md) — unrelated, still
 unresolved).
 
 Total outage: roughly 6 minutes, from the failed restart to Docker coming back up healthy on the

@@ -10,7 +10,7 @@ Tars each named Docker volume into `/mnt/truenas/docker-volume-backups/`, keeps 
 
 ```sh
 cd ansible/playbooks/docker/volume-backup
-ansible-playbook -i inventory.yaml main.yaml
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/volume-backup/main.yaml -l dock-prod
 ```
 
 ## Notes
@@ -25,4 +25,4 @@ Weekly in Semaphore.
 
 ## Target
 
-`docker_hosts` → `10.10.10.10` (dock-prod)
+`docker` group, limited to `dock-prod` (`10.10.10.10`)

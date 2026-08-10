@@ -7,7 +7,7 @@ Homelab dashboard. Shows widgets for all services with live stats — Proxmox no
 
 ## Stack
 
-Single container. Config is managed in the repo under `/home/hughboi/code/homepage/config/`.
+Single container. Config is managed in the repo under `/home/hughboi/homelab/apps/docker/homepage/config/`.
 
 ## Network Layout
 
@@ -16,7 +16,7 @@ Single container. Config is managed in the repo under `/home/hughboi/code/homepa
 
 ## Config Files
 
-All config lives in `/home/hughboi/code/homepage/config/`:
+All config lives in `/home/hughboi/homelab/apps/docker/homepage/config/`:
 
 | File | Purpose |
 |---|---|
@@ -51,7 +51,7 @@ All are passed as `HOMEPAGE_VAR_*` and referenced in `services.yaml` as `{{HOMEP
 
 ## Adding a New Service Widget
 
-1. Edit `/home/hughboi/code/homepage/config/services.yaml`
+1. Edit `/home/hughboi/homelab/apps/docker/homepage/config/services.yaml`
 2. Add the service under the appropriate group. Example:
 ```yaml
 - My Service:
@@ -84,4 +84,4 @@ The container uses `10.10.10.10` (dock-prod, this host) and `10.10.10.8` (Bind9,
 - Ensure `HOMEPAGE_ALLOWED_HOSTS` includes the hostname. Missing this causes a 400 error from Homepage's host validation middleware.
 
 **Config changes not appearing:**
-- Homepage hot-reloads from `/app/config`. If it's not reloading, check file permissions on the config mount: `sudo chown -R 1000:1000 /home/hughboi/code/homepage/config`
+- Homepage hot-reloads from `/app/config`. If it's not reloading, check file permissions on the config mount: `sudo chown -R 1000:1000 /home/hughboi/homelab/apps/docker/homepage/config`

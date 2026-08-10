@@ -10,7 +10,7 @@ Finds all compose projects under `/home/hughboi/code`, runs `docker compose pull
 
 ```sh
 cd ansible/playbooks/docker/image-update
-ansible-playbook -i inventory.yaml main.yaml
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/image-update/main.yaml -l dock-prod
 ```
 
 ## Notes
@@ -26,4 +26,4 @@ Run weekly as a Semaphore job for routine patch updates.
 
 ## Target
 
-`docker_hosts` → `10.10.10.10` (dock-prod)
+`docker` group, limited to `dock-prod` (`10.10.10.10`)

@@ -10,7 +10,7 @@ Finds all containers using a Postgres image, connects to each, and runs `VACUUM 
 
 ```sh
 cd ansible/playbooks/docker/postgres-maintenance
-ansible-playbook -i inventory.yaml main.yaml
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/postgres-maintenance/main.yaml -l dock-prod
 ```
 
 ## Affected services
@@ -23,4 +23,4 @@ Monthly in Semaphore. Without periodic vacuuming, dead tuple accumulation causes
 
 ## Target
 
-`docker_hosts` → `10.10.10.10` (dock-prod)
+`docker` group, limited to `dock-prod` (`10.10.10.10`)

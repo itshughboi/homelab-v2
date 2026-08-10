@@ -50,7 +50,7 @@ The homepage config files (`services.yaml`, `bookmarks.yaml`, `settings.yaml`, `
 ```bash
 kubectl scale deployment homepage -n homepage --replicas=0
 kubectl run copy --image=alpine -n homepage --restart=Never -- sleep 3600
-kubectl cp /home/hughboi/code/homepage/config/. homepage/copy:/app/config/
+kubectl cp /home/hughboi/homelab/apps/docker/homepage/config/. homepage/copy:/app/config/
 kubectl delete pod copy -n homepage
 kubectl scale deployment homepage -n homepage --replicas=1
 ```

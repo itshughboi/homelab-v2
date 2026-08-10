@@ -29,105 +29,19 @@ sudo apt install ansible -y
 ansible --version
 ```
 
-### Inventory (yaml or ini)
-This is a list of machines that the playbook can target
-- Default location for ansible host file
+### Inventory
+
+This is a list of machines that playbooks can target. **There is one inventory:
+[`ansible/inventories/hosts.ini`](inventories/hosts.ini)** — the single source of
+truth (see the callout at the top of this file). It defines every host and every
+group name playbooks target (`docker`, `proxmox`, `k3s_servers`, `pbs`,
+`backup_control`, etc.), many as `:children` aliases. Per-node vars live in
+[`inventories/host_vars/`](inventories/host_vars/).
+
+To see the resolved inventory:
 ```sh
-sudo nano /etc/ansible/hosts
+ansible-inventory -i ansible/inventories/hosts.ini --graph
 ```
-Option 1 (Not-Recommended): Use default ansible host file (above), See full /ansible/inventory/all_hosts.ini for template hosts.ini file // https://raw.githubusercontent.com/itshughboi/iac/refs/heads/main/ansible/inventory/all_hosts.ini
-
-.ini syntax
-```
-[k3s]
-10.10.30.1
-10.10.30.2
-10.10.30.3
-10.10.30.11
-10.10.30.12
-10.10.30.13
-		
-[masters]
-10.10.30.1
-10.10.30.2
-10.10.30.3
-
-[workers]
-10.10.30.11
-10.10.30.12
-10.10.30.13
-```
-
-**All Vars**
-- Add this to the top of the .ini to apply global variables. Essentially this changes inventory to use specified Ansible key file for authentication
-```
-[all:vars]
-ansible_user='hughboi'
-ansible_become=yes
-ansible_become_method=sudo
-ansible_ssh_private_key_file=~/.ssh/ansible
-```
-
-
-
-Option 2 (Recommended): inventory.yaml // https://raw.githubusercontent.com/itshughboi/iac/refs/heads/main/ansible/inventory/inventory.yaml. Gives a better granular way to control which hosts are group to what, rather than doing it from the default location
-
-.yaml syntax
-```
-all:
-  children:
-    proxmox:
-      hosts:
-        pve-srv-1:
-          ansible_host: 10.10.10.1
-          ansible_user: hughboi
-        pve-srv-2:
-          ansible_host: 10.10.10.2
-          ansible_user: hughboi
-        pve-srv-3:
-          ansible_host: 10.10.10.3
-          ansible_user: hughboi
-        pve-srv-3:
-          ansible_host: 10.10.10.3
-          ansible_user: hughboi
-    docker_hosts:
-      hosts:
-        docker:
-          ansible_host: 10.10.10.10
-          ansible_user: hughboi
-    k3s:
-      hosts:
-        k3s-master-1:
-          ansible_host: 10.10.30.1
-          ansible_user: hughboi
-        k3s-master-2:
-          ansible_host: 10.10.30.2
-          ansible_user: hughboi
-        k3s-master-3:
-          ansible_host: 10.10.30.3
-          ansible_user: hughboi
-        k3s-worker-1:
-          ansible_host: 10.10.30.11
-          ansible_user: hughboi
-        kes-worker-2:
-          ansible_host: 10.10.30.12
-          ansible_user: hughboi
-		k3s-worker-3:
-		  ansible_host: 10.10.30.13
-          ansible_user: hughboi
-    storage:
-      hosts:
-        truenas:
-          ansible_host: 10.10.10.5
-          ansible_user: hughboi
-        pbs:
-          ansible_host: 10.10.10.6
-          ansible_user: hughboi
-  vars:
-    ansible_ssh_private_key_file: ~/.ssh/ansible
-```
-
-- ^^ These allow you to target specific groups from this one inventory file when running playbooks
 
 
 ***
@@ -205,7 +119,7 @@ ansible vault encrypt secrets_file.enc
 ##### Using playbook while referencing vault encrypted file
 1. Create a new fileecalled something like *secret* or *passwords*
 ```
-ansible-playbook PLAYBOOKNAME -i inventory.yaml -e @secrets_file.enc --private-file ~/.ssh/ansible --ask-become-pass --vault-password-file secret
+ansible-playbook PLAYBOOKNAME -i ansible/inventories/hosts.ini -e @secrets_file.enc --vault-password-file secret
 ```
 
 ##### Editing encrypted secrets file
@@ -244,14 +158,14 @@ ansible-vault create group_vars/appname/vault.yml
 3. Then in Ansible playbook, you can reference the values like such
 ```
 - name: Deploy Immich
-  hosts: dockerhosts
+  hosts: docker
   vars:
     app_name: immich
   tasks:
     - name: Create .env file
       template:
         src: env.j2
-        dest: "/home/hughboi/code/docker/APPLICATION/{{ app_name }}/.env"
+        dest: "/home/hughboi/homelab/apps/docker/{{ app_name }}/.env"
       vars:
         env_vars:
           - { name: "DB_PASSWORD", value: "{{ vault_immich_db_password }}" }

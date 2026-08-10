@@ -10,7 +10,7 @@ Inspects all running containers and reports any that are running on `:latest` (i
 
 ```sh
 cd ansible/playbooks/docker/image-audit
-ansible-playbook -i inventory.yaml main.yaml
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/image-audit/main.yaml -l dock-prod
 ```
 
 ## Why
@@ -23,4 +23,4 @@ Run monthly. Renovate handles automated tag-bump PRs; this catches anything Reno
 
 ## Target
 
-`docker_hosts` → `10.10.10.10` (dock-prod)
+`docker` group, limited to `dock-prod` (`10.10.10.10`)
