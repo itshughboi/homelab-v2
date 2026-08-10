@@ -1,0 +1,85 @@
+---
+# Fleet disk-usage snapshot → one consolidated ntfy message.
+#
+# "Where are we sitting disk-wise across all nodes?" — collects df from every host,
+# then sends ONE ntfy notification listing every real filesystem, sorted
+# fullest-first so whatever needs attention is at the top.
+#
+# This is a capacity snapshot (how FULL is the disk), not a SMART/drive-health
+# check (that's ../disk-health/, a different concern). No thresholds, no
+# per-host spam — just a readable summary on demand or on a schedule.
+#
+# Usage:
+#   ansible-playbook -i inventory.yaml main.yaml
+# As a Semaphore Task Template: run on demand, or schedule (e.g. daily) — no
+# survey vars needed.
+
+# ── Play 1: gather df from every host ────────────────────────────────────────
+- name: Collect disk usage from all hosts
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    # -x excludes pseudo/virtual filesystems (tmpfs, devtmpfs, overlay, squashfs)
+    # so we only report disks that can actually fill. -h gives human-readable
+    # sizes; --output pins the columns to target,pcent,avail,size regardless of
+    # the host's default df format, so parsing is stable.
+    - name: Get filesystem usage (real filesystems only, human-readable)
+      ansible.builtin.command:
+        cmd: >
+          df -h -x tmpfs -x devtmpfs -x overlay -x squashfs
+          --output=target,pcent,avail,size
+      register: df_h
+      changed_when: false
+
+    # Each line after the header becomes a 4-item list [mount, pcent, avail, size].
+    - name: Build this host's parsed filesystem list
+      ansible.builtin.set_fact:
+        host_filesystems: "{{ df_h.stdout_lines[1:] | map('split') | map('list') | list }}"
+
+# ── Play 2: aggregate + send one ntfy from the controller ────────────────────
+- name: Send consolidated disk report to ntfy
+  hosts: localhost
+  gather_facts: true
+  connection: local
+
+  vars:
+    ntfy_url: "https://ntfy.hughboi.cc/homelab"
+    # Flag anything at/above this in the message (⚠️ marker); doesn't change what's
+    # sent, just draws the eye. Purely cosmetic — this playbook always reports all.
+    warn_at_pct: 85
+
+  tasks:
+    # Walk every host's parsed filesystem list, turn each df row (a 4-item list
+    # [mount, pcent, avail, size]) into a dict, and collect them all. Sort the
+    # combined list fullest-first so the disk that needs attention is at the top.
+    - name: Assemble the report body (sorted fullest-first)
+      ansible.builtin.set_fact:
+        report_lines: >-
+          {%- set rows = [] -%}
+          {%- for host in groups['all'] -%}
+            {%- for fs in hostvars[host].host_filesystems | default([]) -%}
+              {%- set pct = fs[1] | regex_replace('%','') | int -%}
+              {%- set _ = rows.append({'host': host, 'mount': fs[0], 'pct': pct, 'avail': fs[2], 'size': fs[3]}) -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {{ rows | sort(attribute='pct', reverse=true) }}
+
+    - name: Format the message text
+      ansible.builtin.set_fact:
+        ntfy_body: |
+          {% for r in report_lines %}
+          {{ '⚠️ ' if r.pct >= warn_at_pct else '   ' }}{{ r.pct }}%  {{ r.host }}:{{ r.mount }}  ({{ r.avail }} free of {{ r.size }})
+          {% endfor %}
+
+    - name: Send consolidated report to ntfy
+      ansible.builtin.uri:
+        url: "{{ ntfy_url }}"
+        method: POST
+        headers:
+          Title: "Disk usage — {{ report_lines | selectattr('pct', 'ge', warn_at_pct) | list | length }} over {{ warn_at_pct }}%"
+          Priority: "{{ 'high' if (report_lines | selectattr('pct', 'ge', warn_at_pct) | list | length) > 0 else 'default' }}"
+          Tags: "{{ 'warning' if (report_lines | selectattr('pct', 'ge', warn_at_pct) | list | length) > 0 else 'floppy_disk' }}"
+        body: "{{ ntfy_body }}"
+        body_format: raw
+        status_code: 200

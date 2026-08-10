@@ -16,6 +16,31 @@ It doesn't start services back **up**. Bringing a service up needs its decrypted
 does no SOPS decryption, because stopping/removing existing containers doesn't
 need the secrets.
 
+## ⚠️ The Gitea bootstrap exception — do NOT stop Gitea and expect Semaphore to restart it
+
+Both this playbook and `sops-deploy` are driven by Semaphore, and **Semaphore's
+first step on every run is to clone the repo from Gitea over SSH
+(`ssh://git@10.10.10.8:222`)**. Gitea *is* that git-over-SSH endpoint.
+
+So if you stop Gitea, Semaphore can no longer clone anything — every task fails at
+the checkout step with `Connection refused` on port 222, including the `sops-deploy`
+task that would bring Gitea back up. It's a chicken-and-egg: you can't use the tool
+that depends on Gitea to start Gitea.
+
+**Gitea is the one Athena service that must be (re)started manually**, directly on
+Athena, not through Semaphore:
+
+```sh
+cd ~/homelab
+./scripts/sops-run.sh gitea up -d
+```
+
+(This works because the repo is already cloned locally on Athena — no Gitea fetch
+needed. It decrypts `.env.sops` in memory, no plaintext hits disk.)
+
+Every *other* Athena service (bind9, etc.) is fine to stop/start via Semaphore —
+Gitea is special only because it's Semaphore's own git source.
+
 ## Actions
 
 | action | effect | bring back with |
