@@ -2,6 +2,10 @@
 # Show which Docker services have a .env.example but no .env.sops yet.
 # Run this to see your migration progress at a glance.
 #
+# Retired services under apps/docker/sunset/ are EXCLUDED — they'll never be
+# migrated, so counting them just makes the progress number lie. They're listed
+# separately at the end for reference.
+#
 # Usage: ./scripts/sops-check.sh
 
 set -euo pipefail
@@ -9,12 +13,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCKER_ROOT="$REPO_ROOT/apps/docker"
+SUNSET_DIR="$DOCKER_ROOT/sunset"
 
 MIGRATED=()
 NOT_MIGRATED=()
 SOPS_ONLY=()   # has .env.sops but no .env.example (fine, just noting it)
+SUNSET=()      # retired services — excluded from the count, listed for reference
 
-# Walk all .env.example files (including nested like immich/home)
+# Walk all .env.example files (including nested like immich/home).
+# Exclude sunset/ — those are retired and will never be migrated.
 while IFS= read -r example_file; do
   service_dir=$(dirname "$example_file")
   service_name="${service_dir#$DOCKER_ROOT/}"
@@ -34,25 +41,32 @@ while IFS= read -r example_file; do
   else
     NOT_MIGRATED+=("✗  $service_name")
   fi
-done < <(find "$DOCKER_ROOT" -name ".env.example" | sort)
+done < <(find "$DOCKER_ROOT" -path "$SUNSET_DIR" -prune -o -name ".env.example" -print | sort)
 
-# Check for .env.sops with no corresponding .env.example
+# Check for .env.sops with no corresponding .env.example (excluding sunset)
 while IFS= read -r sops_file; do
   service_dir=$(dirname "$sops_file")
   service_name="${service_dir#$DOCKER_ROOT/}"
   if [[ ! -f "$service_dir/.env.example" ]]; then
     SOPS_ONLY+=("·  $service_name  (no .env.example to compare against)")
   fi
-done < <(find "$DOCKER_ROOT" -name ".env.sops" | sort)
+done < <(find "$DOCKER_ROOT" -path "$SUNSET_DIR" -prune -o -name ".env.sops" -print | sort)
 
 # Config-as-secret services (e.g. mailrise) commit <filename>.<ext>.sops
 # instead of .env.sops, and are invisible to the .env.example scan above —
-# surface them separately so they don't look unmigrated.
+# surface them separately so they don't look unmigrated. (excluding sunset)
 while IFS= read -r sops_file; do
   service_dir=$(dirname "$sops_file")
   service_name="${service_dir#$DOCKER_ROOT/}"
   SOPS_ONLY+=("·  $service_name  ($(basename "$sops_file") — config-as-secret, not .env-based)")
-done < <(find "$DOCKER_ROOT" -name "*.sops" ! -name ".env.sops" | sort)
+done < <(find "$DOCKER_ROOT" -path "$SUNSET_DIR" -prune -o \( -name "*.sops" ! -name ".env.sops" \) -print | sort)
+
+# Retired services (sunset/) — collected only to show as an excluded footnote.
+while IFS= read -r example_file; do
+  service_dir=$(dirname "$example_file")
+  service_name="${service_dir#$DOCKER_ROOT/}"
+  SUNSET+=("$service_name")
+done < <(find "$SUNSET_DIR" -name ".env.example" 2>/dev/null | sort)
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 
@@ -87,6 +101,12 @@ fi
 if [[ ${#SOPS_ONLY[@]} -gt 0 ]]; then
   echo "Has .env.sops (no .env.example to compare):"
   for s in "${SOPS_ONLY[@]}"; do echo "  $s"; done
+  echo ""
+fi
+
+if [[ ${#SUNSET[@]} -gt 0 ]]; then
+  echo "Retired (sunset/ — excluded from the count above):"
+  printf '  %s\n' "${SUNSET[@]}"
   echo ""
 fi
 
