@@ -68,6 +68,22 @@
       when: service is not defined
       delegate_to: localhost
 
+    # docker_hosts has more than one member (dock-prod + athena). A service
+    # lives on exactly one host, so a run must be limited to that host
+    # (Semaphore Limit field, or CLI -l). If it isn't, ansible_play_hosts holds
+    # every group member and we'd deploy the service to hosts it doesn't belong
+    # on — fail fast instead.
+    - name: Fail fast if the run targets more than one host
+      ansible.builtin.fail:
+        msg: >
+          This run targets {{ ansible_play_hosts | length }} hosts
+          ({{ ansible_play_hosts | join(', ') }}). Limit it to the single host
+          that runs '{{ service }}' — set Semaphore's Limit field (or pass
+          -l dock-prod / -l athena on the CLI).
+      when: ansible_play_hosts | length > 1
+      run_once: true
+      delegate_to: localhost
+
     - name: Pull latest repo on target host
       ansible.builtin.git:
         repo: https://gitea.hughboi.cc/hughboi/homelab.git

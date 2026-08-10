@@ -5,7 +5,14 @@ all:
     ansible_ssh_private_key_file: ~/.ssh/homelab-athena_id_ed25519
 
   children:
+    # docker_hosts is the group the playbook targets. It has two members. A
+    # service lives on exactly ONE of them, so ALWAYS limit the run to the host
+    # that actually runs the service (Semaphore: set the Limit / -l field;
+    # CLI: -l dock-prod or -l athena). Running unlimited would try to deploy the
+    # service to BOTH hosts — wrong for every service, since none run on both.
     docker_hosts:
       hosts:
         dock-prod:
-          ansible_host: 10.10.10.10
+          ansible_host: 10.10.10.10   # most services live here
+        athena:
+          ansible_host: 10.10.10.8    # management plane: gitea, semaphore, bind9

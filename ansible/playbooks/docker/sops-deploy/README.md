@@ -87,15 +87,54 @@ copy out of `.gitignore` exceptions for that service directory regardless.
 
 ## Usage
 
+Two target hosts exist (`dock-prod` and `athena`), and every service lives on
+exactly one of them. **Always limit the run to the host that runs the service**
+— the playbook fails fast if a run targets more than one host, so you can't
+accidentally deploy a service to the wrong place.
+
 ```sh
-ansible-playbook -i inventory.yaml main.yaml -e service=gatus
+# most services run on dock-prod:
+ansible-playbook -i inventory.yaml main.yaml -e service=gatus -l dock-prod
+
+# management-plane services (gitea, semaphore, bind9) run on athena:
+ansible-playbook -i inventory.yaml main.yaml -e service=gitea -l athena
 ```
 
 **As a Semaphore Task Template:** add `service` as a Survey Variable (prompted on
 each run), so one template deploys any migrated service — don't create a separate
-template per service.
+template per service. Set the template's **Limit** field to the correct host
+(`dock-prod` or `athena`) for the service being deployed. Since most services are
+on dock-prod, a `dock-prod`-limited template covers the common case; make a
+second `athena`-limited template (or override Limit per run) for the handful of
+management-plane services.
 
 ## Adding a new target host
 
-Add it to `inventory.yaml` under `docker_hosts`. No `sops`/`age` install needed on
-the new host — decryption always happens on the controller.
+This playbook uses **its own** inventory (`ansible/playbooks/docker/sops-deploy/
+inventory.yaml`), **not** the shared `ansible/inventories/hosts.ini` — the shared
+one has no `docker_hosts` group, so pointing a Semaphore template at it would
+match zero hosts. Keep the sops-deploy Task Template pointed at this local
+`inventory.yaml`.
+
+To add a host (the exact steps used to add Athena):
+
+1. Add it under `docker_hosts` in this directory's `inventory.yaml`, e.g.:
+   ```yaml
+   docker_hosts:
+     hosts:
+       dock-prod:
+         ansible_host: 10.10.10.10
+       athena:
+         ansible_host: 10.10.10.8
+       new-host:
+         ansible_host: 10.10.10.X
+   ```
+2. Make sure the repo is cloned at `/home/hughboi/homelab` on the new host — the
+   playbook's `remote_repo_dir` is hardcoded to that path. A clone elsewhere
+   breaks the deploy silently.
+3. In Semaphore, create a Task Template (or reuse one) with its **Limit** field
+   set to the new host — every run must be `-l`-limited to the single host that
+   runs the service, or the playbook's multi-host guard aborts the run.
+
+No `sops`/`age` install needed on the new host — decryption always happens on the
+controller (Athena).
