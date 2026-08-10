@@ -286,14 +286,14 @@
             timezone: America/Denver
             integrations:
                 - type: ical
-                  url: {{HOMEPAGE_VAR_GOOGLE_CALENDAR}}
+                  url: ${HOMEPAGE_VAR_GOOGLE_CALENDAR}
                   name: Google
                   color: zinc
                   params: # optional - additional params for the service
                     showName: true # optional - show name before event title in event line - defaults to false
 
                 - type: ical
-                  url: {{HOMEPAGE_VAR_ICLOUD_CALENDAR}}
+                  url: ${HOMEPAGE_VAR_ICLOUD_CALENDAR}
                   name: iCloud
                   color: zinc
                   params: # optional - additional params for the service
