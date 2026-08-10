@@ -28,7 +28,7 @@ services:
     volumes:
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
-      - /mnt/truenas/eros:/mnt/media/eros:ro
+      - /mnt/truenas/eros:/mnt/media/eros:rw
     env_file:
       - .env
     healthcheck:
