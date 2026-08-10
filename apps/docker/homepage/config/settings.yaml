@@ -21,7 +21,7 @@ hideErrors: true
 
 layout:
 
-### NESTING EXAMPLE TO NEST APPS ON TOP OF EACH OTHER
+## NESTING EXAMPLE TO NEST APPS ON TOP OF EACH OTHER
 # Title:
 #   header: false
 #   style: row
@@ -35,46 +35,47 @@ layout:
     icon: 
 
 
-  Front-End:
-    style: row 
-    columns: 5
-  
-
-
-  Back-End:
+  Management:
     style: row
-    columns: 5
+    columns: 4
 
 
-  Monitoring:
-    style: column
-  
-
-  GitOps:
-    style: column
+  Personal:
+    style: row
+    columns: 4
 
 
   Media:
     style: column
+    columns: 4
 
-  Music:
+    
+  Monitoring:
     style: column
+    columns: 4
+
+
+  Automation:
+    style: column
+    columns: 4
+
 
   Security:
     style: column
 
 
+  Storage:
+    style: column 
+    columns: 4
+
+
+  # Glances:
+  #   style: row
+  #   columns: 4
+
+
   Calendar:
     style: column
-    
-  Storage:
-    style: row 
-    columns: 5
-
-
-  Glances:
-    style: row
-    columns: 4
 
 
   Bookmarks:

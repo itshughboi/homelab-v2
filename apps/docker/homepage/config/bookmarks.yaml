@@ -8,13 +8,6 @@
          description: Email Alias
          icon: anonaddy.png
 
-
-    - Cloudflare:
-        - abbr:
-          icon: cloudflare.png
-          href: https://dash.cloudflare.com
-          description: Domains
-
     
     - Git:
         - abbr:
@@ -30,13 +23,6 @@
           description: Lots of tools
 
 
-    - Nugs:
-        - abbr:
-          icon: 
-          href: https://www.nugs.net/
-          description: Livestreams
-
-
     - Jelly Fin:
         - abbr:
           icon: jellyfin.png
@@ -50,23 +36,9 @@
           href: https://pastebin.com
           description: Public File Share
 
+
     - Relisten:
         - abbr:
           icon: gratefuldead.png
           href: https://relisten.net/
           description: Grateful Dead Live
-
-
-
-    - Tailscale:
-        - abbr:
-          icon: headscale.png
-          href: https://login.tailscale.com/admin/machines
-          description: Mesh VPN
-  
-
-    - Reddit:
-        - abbr:
-          icon: reddit.png
-          href: https://reddit.com
-          description: Feed

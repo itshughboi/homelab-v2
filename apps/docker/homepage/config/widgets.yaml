@@ -1,0 +1,6 @@
+- glances:
+    url: http://10.10.10.10:61208
+    version: 4
+    metric: cpu
+    chart: true
+    refreshInterval: 5000
