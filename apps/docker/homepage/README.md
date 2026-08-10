@@ -3,7 +3,7 @@
 **URL:** https://home.hughboi.cc
 **Docs:** https://gethomepage.dev/
 
-Homelab dashboard. Shows widgets for all services with live stats — Proxmox node status, TrueNAS pool health, Unifi client counts, Grafana, Gitea, PBS, Immich, etc.
+Homelab dashboard. Mostly link tiles (href + status dot) grouped by category, with live **Proxmox** node widgets (VM count, CPU, memory) at the top and a Glances CPU chart. Previously had widgets for many services (TrueNAS, Unifi, Grafana, PBS, Immich, etc.) — those were removed in favor of a simpler, faster dashboard; only Proxmox keeps a live widget.
 
 ## Stack
 
@@ -30,24 +30,27 @@ Config changes take effect immediately — Homepage watches the config directory
 
 ## Environment Variables (Widget Credentials)
 
-All are passed as `HOMEPAGE_VAR_*` and referenced in `services.yaml` as `{{HOMEPAGE_VAR_NAME}}`:
+Passed as `HOMEPAGE_VAR_*` and referenced in `services.yaml` as `{{HOMEPAGE_VAR_NAME}}`.
+Since the dashboard was slimmed to link tiles, only the Proxmox widget needs
+credentials:
 
 | Variable | Service |
 |---|---|
-| `HOMEPAGE_VAR_PROXMOX_USERNAME` / `_PASSWORD` | Proxmox node stats |
-| `HOMEPAGE_VAR_TRUENAS_KEY` | TrueNAS API key |
-| `HOMEPAGE_VAR_ADGUARD_USERNAME` / `_PASSWORD` | AdGuard stats |
-| `HOMEPAGE_VAR_UNIFI_USERNAME` / `_PASSWORD` | UniFi controller |
-| `HOMEPAGE_VAR_IMMICH_KEY` | Immich API key |
-| `HOMEPAGE_VAR_GITEA_KEY` | Gitea API token |
-| `HOMEPAGE_VAR_PBS_USERNAME` / `_PASSWORD` | Proxmox Backup Server |
-| `HOMEPAGE_VAR_GRAFANA_USERNAME` / `_PASSWORD` | Grafana widget |
-| `HOMEPAGE_VAR_PORTAINER_KEY` | Portainer API token |
-| `HOMEPAGE_VAR_TAILSCALE_KEY` | Tailscale widget |
-| `HOMEPAGE_VAR_AUTHENTIK_KEY` | Authentik user count widget |
-| `HOMEPAGE_VAR_PAPERLESS_KEY` | Paperless-ngx API key |
-| `HOMEPAGE_VAR_FILEBROWSER_USERNAME` / `_PASSWORD` | File Browser widget |
+| `HOMEPAGE_VAR_PROXMOX_USERNAME` / `_PASSWORD` | Proxmox node widgets (API token, `api@pam!homepage` style) |
 | `HOMEPAGE_ALLOWED_HOSTS` | Must include `home.hughboi.cc` to prevent host validation errors |
+
+### Secrets are SOPS-encrypted
+
+These live in `.env.sops` (encrypted, committed) — **not** a plaintext `.env`.
+Deploy through the SOPS flow so the values get decrypted and injected:
+
+- **Via Semaphore:** `sops-deploy` Task Template, service `homepage`, Limit `dock-prod`.
+- **By hand on dock-prod:** `./scripts/sops-run.sh homepage up -d` (decrypts in
+  memory — **not** plain `docker compose up -d`, which would leave the
+  `{{HOMEPAGE_VAR_PROXMOX_*}}` unresolved and the Proxmox widgets failing auth).
+
+To change a value: edit the real `.env` on a host with the age key (Athena),
+re-run `./scripts/sops-migrate.sh homepage`, commit the updated `.env.sops`.
 
 ## Adding a New Service Widget
 
@@ -62,8 +65,12 @@ All are passed as `HOMEPAGE_VAR_*` and referenced in `services.yaml` as `{{HOMEP
       url: http://myservice:port
       key: {{HOMEPAGE_VAR_MYSERVICE_KEY}}
 ```
-3. Add the corresponding env var to `.env` and to compose
-4. Homepage hot-reloads — no restart needed
+
+3. If the widget needs a credential, add the var to the real `.env` (on Athena),
+   re-encrypt with `./scripts/sops-migrate.sh homepage`, and add the passthrough
+   line to compose's `environment:` block
+4. Redeploy via the SOPS flow (see above) — Homepage hot-reloads config, but a
+   new secret needs the deploy to inject it
 
 ## DNS
 
@@ -71,7 +78,7 @@ The container uses `10.10.10.10` (dock-prod, this host) and `10.10.10.8` (Bind9,
 
 ## Upgrade Notes
 
-- No persistent data — all config is in the repo. Upgrade is just a tag bump + `docker compose up -d`.
+- No persistent data — all config is in the repo. Upgrade is a tag bump in `compose.yaml`, then redeploy via the SOPS flow (`sops-deploy` or `./scripts/sops-run.sh homepage up -d`), not plain `docker compose up -d`.
 - Check [Homepage releases](https://github.com/gethomepage/homepage/releases) for any breaking changes to widget config schema.
 
 ## Troubleshooting
