@@ -54,20 +54,20 @@ Always `-l`-limit the run to the single host that runs the service — the playb
 aborts if a run targets more than one host.
 
 ```sh
-# stop Gitea on Athena (to test a Semaphore redeploy):
-ansible-playbook -i inventory.yaml main.yaml -e service=gitea -e action=stop -l athena
+# run from the repo root. stop Gitea on Athena (to test a Semaphore redeploy):
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/compose-control/main.yaml -e service=gitea -e action=stop -l athena
 
 # fully tear down before a clean redeploy:
-ansible-playbook -i inventory.yaml main.yaml -e service=gitea -e action=down -l athena
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/docker/compose-control/main.yaml -e service=gitea -e action=down -l athena
 ```
 
-**As a Semaphore Task Template:** add `service` and `action` as Survey Variables
+**As a Semaphore Task Template:** point it at the shared inventory
+`ansible/inventories/hosts.ini`. Add `service` and `action` as Survey Variables
 (prompted each run), and set the template's **Limit** field to the host the
 service runs on (`athena` for the management-plane services this is mostly for).
-Point the template at **this playbook's own `inventory.yaml`**, not the shared
-`ansible/inventories/hosts.ini` — same as sops-deploy.
 
 ## Adding a target host
 
-Add it under `docker_hosts` in this directory's `inventory.yaml` (same as
-sops-deploy). Every run must still be `-l`-limited to a single host.
+Add it under `[docker]` in `ansible/inventories/hosts.ini` (there are no
+per-playbook inventory files anymore). Every run must still be `-l`-limited to a
+single host.

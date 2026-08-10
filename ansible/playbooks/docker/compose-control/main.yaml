@@ -25,7 +25,7 @@
 # below aborts a run that targets more than one host.
 
 - name: Stop or tear down a Docker Compose service
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: false
   become: true
 
@@ -53,7 +53,7 @@
       when: action not in _valid_actions
       delegate_to: localhost
 
-    # docker_hosts has more than one member (dock-prod + athena). A service lives
+    # The docker group has more than one member (dock-prod + athena). A service lives
     # on exactly one host, so a run must be limited to that host. If it isn't,
     # ansible_play_hosts holds every group member — abort instead of acting on
     # the wrong host.

@@ -20,8 +20,13 @@ without needing the Prometheus/Alertmanager stack up.
 ## Usage
 
 ```sh
-ansible-playbook -i inventory.yaml main.yaml
+# run from the repo root:
+ansible-playbook -i ansible/inventories/hosts.ini ansible/playbooks/ubuntu/disk-usage-report/main.yaml
 ```
+
+> Uses the shared inventory `ansible/inventories/hosts.ini` — there are no
+> per-playbook inventory files. In Semaphore you just pick that inventory from the
+> dropdown; the `-i` flag is only for manual CLI runs.
 
 **As a Semaphore Task Template:** point it at this playbook, no survey vars needed.
 Run on demand, or schedule it (daily/weekly) for a regular heartbeat. Reaches

@@ -5,7 +5,7 @@
 # Sends ntfy alert if any issues are found. Safe to run as a scheduled Semaphore job.
 
 - name: Docker Compose health check
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: true
   become: true
 

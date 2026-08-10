@@ -13,7 +13,7 @@
 # container/volume/network changes.
 
 - name: Prune unused Docker images safely
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: true
   become: true
 

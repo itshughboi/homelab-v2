@@ -10,7 +10,7 @@
 # Services using `restart: unless-stopped` will come back automatically.
 
 - name: Docker image update sweep
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: true
   become: true
 

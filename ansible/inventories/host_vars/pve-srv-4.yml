@@ -1,0 +1,8 @@
+---
+# Network-setup vars for pve-srv-4 (same hardware profile as srv-2 — verify
+# NIC name on the live node before running). Used by proxmox/network-setup/.
+pve_mgmt_nic: enp4s0
+pve_mgmt_bridge: vmbr0
+pve_mgmt_ip: 10.10.10.4
+pve_has_storage_vlan: false
+# pve_corosync_ip: 10.10.20.4

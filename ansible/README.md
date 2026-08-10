@@ -1,3 +1,19 @@
+# Ansible
+
+> [!IMPORTANT] Single inventory — `ansible/inventories/hosts.ini`
+> **All playbooks and Semaphore templates use one shared inventory:
+> `ansible/inventories/hosts.ini`.** Per-playbook `inventory.yaml` files were
+> removed — do not re-create them. If a playbook targets a group name
+> (`docker`, `proxmox`, `k3s_servers`, `pbs`, `backup_control`, etc.), that group
+> is defined in `hosts.ini` (many as `:children` aliases). Per-node vars (e.g.
+> Proxmox NIC/bridge for network-setup) live in `inventories/host_vars/`.
+> Add hosts/groups there, not in scattered files.
+>
+> Some playbooks intentionally target multiple hosts in a group (e.g. `docker` =
+> dock-prod + athena). Use the Semaphore template's **Limit** field (or `-l` on
+> the CLI) to scope a run to one host. `sops-deploy` and `compose-control`
+> fail-fast if not limited to a single host.
+
 ## Ansible VM Setup
 
 > [!NOTE] Ansible Cloud-Init

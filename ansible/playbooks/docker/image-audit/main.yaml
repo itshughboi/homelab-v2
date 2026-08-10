@@ -5,7 +5,7 @@
 # Does NOT make any changes — read-only report.
 
 - name: Docker image audit
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: true
   become: true
 

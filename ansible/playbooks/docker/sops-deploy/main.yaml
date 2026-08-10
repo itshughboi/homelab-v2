@@ -33,7 +33,7 @@
 # anything in this playbook.
 
 - name: Deploy a Docker Compose service with SOPS secrets
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: false
   become: true
 
@@ -68,7 +68,7 @@
       when: service is not defined
       delegate_to: localhost
 
-    # docker_hosts has more than one member (dock-prod + athena). A service
+    # The docker group has more than one member (dock-prod + athena). A service
     # lives on exactly one host, so a run must be limited to that host
     # (Semaphore Limit field, or CLI -l). If it isn't, ansible_play_hosts holds
     # every group member and we'd deploy the service to hosts it doesn't belong

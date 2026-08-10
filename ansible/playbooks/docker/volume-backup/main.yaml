@@ -8,7 +8,7 @@
 # Retention: keeps last N backups per volume, deletes older ones.
 
 - name: Docker named volume backup
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: true
   become: true
 

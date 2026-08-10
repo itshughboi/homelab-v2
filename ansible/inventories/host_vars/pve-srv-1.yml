@@ -1,0 +1,9 @@
+---
+# Network-setup vars for pve-srv-1 (preserved from the old per-playbook
+# network-setup/inventory.yaml during inventory consolidation). Used by
+# ansible/playbooks/proxmox/network-setup/.
+pve_mgmt_nic: enp42s0          # 2.5 GbE on-board NIC (srv-1 differs from 2/3/4)
+pve_mgmt_bridge: vmbr1
+pve_mgmt_ip: 10.10.10.1
+pve_has_storage_vlan: true      # adds vmbr1.40 with MTU 9000
+# pve_corosync_ip: 10.10.20.1   # uncomment when creating the cluster (VLAN 20)

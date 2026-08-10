@@ -1,0 +1,11 @@
+---
+# Network-setup vars for pve-srv-2 (preserved from the old network-setup
+# inventory). srv-2/3/4 share a hardware profile that differs from srv-1:
+# NIC is enp4s0 (not enp42s0), bridge vmbr0 (not vmbr1), no storage VLAN.
+# Was commented-out/aspirational in the original — verify NIC name on the live
+# node before running network-setup. Used by proxmox/network-setup/.
+pve_mgmt_nic: enp4s0
+pve_mgmt_bridge: vmbr0
+pve_mgmt_ip: 10.10.10.2
+pve_has_storage_vlan: false
+# pve_corosync_ip: 10.10.20.2

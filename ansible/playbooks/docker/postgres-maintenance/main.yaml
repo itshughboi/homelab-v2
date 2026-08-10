@@ -11,7 +11,7 @@
 # Schedule monthly in Semaphore.
 
 - name: PostgreSQL maintenance sweep
-  hosts: docker_hosts
+  hosts: docker
   gather_facts: true
   become: true
 
