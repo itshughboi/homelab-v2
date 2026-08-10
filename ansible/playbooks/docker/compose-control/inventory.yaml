@@ -1,0 +1,17 @@
+---
+all:
+  vars:
+    ansible_user: hughboi
+    ansible_ssh_private_key_file: ~/.ssh/homelab-athena_id_ed25519
+
+  children:
+    # Same two hosts as sops-deploy. A service lives on exactly one of them, so
+    # ALWAYS limit the run to the host that runs the service (Semaphore: Limit
+    # field; CLI: -l dock-prod or -l athena). The playbook fails fast if a run
+    # targets more than one host.
+    docker_hosts:
+      hosts:
+        dock-prod:
+          ansible_host: 10.10.10.10   # most services live here
+        athena:
+          ansible_host: 10.10.10.8    # management plane: gitea, semaphore, bind9

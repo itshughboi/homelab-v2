@@ -1,0 +1,90 @@
+---
+# Stop (or tear down) a Docker Compose service on a remote host from Semaphore —
+# no manual SSH required.
+#
+# Purpose: dock-prod services can be stopped from Portainer, but the management-
+# plane services on Athena (gitea, semaphore, bind9) aren't in that Portainer, so
+# stopping them otherwise means an SSH session. This playbook is the no-SSH stop
+# button for those — handy for testing a redeploy (stop here, then redeploy with
+# sops-deploy).
+#
+# No SOPS decryption happens here: stopping/removing containers that already
+# exist doesn't need the service's secrets. To bring a service back UP (which
+# does need the decrypted .env), use sops-deploy, not this playbook.
+#
+# Usage (Semaphore Task Template — prompt for `service` and `action` as vars):
+#   ansible-playbook -i inventory.yaml main.yaml -e service=gitea -e action=stop -l athena
+#
+# action:
+#   stop  - stop containers, keep them. Bring back with sops-deploy (or Portainer
+#           for dock-prod services).
+#   down  - stop AND remove containers + network. Named volumes/data are NOT
+#           touched. Use to fully clear a wedged service before a fresh redeploy.
+#
+# Always -l-limit the run to the single host that runs the service — the guard
+# below aborts a run that targets more than one host.
+
+- name: Stop or tear down a Docker Compose service
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+
+  vars:
+    remote_repo_dir: /home/hughboi/homelab
+    service_dir: "{{ remote_repo_dir }}/apps/docker/{{ service }}"
+    _valid_actions: [stop, down]
+
+  tasks:
+    - name: Fail fast if no service was specified
+      ansible.builtin.fail:
+        msg: "Pass -e service=<name> (matches apps/docker/<name>/), e.g. -e service=gitea"
+      when: service is not defined
+      delegate_to: localhost
+
+    - name: Fail fast if no action was specified
+      ansible.builtin.fail:
+        msg: "Pass -e action=<stop|down>"
+      when: action is not defined
+      delegate_to: localhost
+
+    - name: Fail fast on an unknown action
+      ansible.builtin.fail:
+        msg: "action '{{ action }}' is not valid. Use one of: {{ _valid_actions | join(', ') }}"
+      when: action not in _valid_actions
+      delegate_to: localhost
+
+    # docker_hosts has more than one member (dock-prod + athena). A service lives
+    # on exactly one host, so a run must be limited to that host. If it isn't,
+    # ansible_play_hosts holds every group member — abort instead of acting on
+    # the wrong host.
+    - name: Fail fast if the run targets more than one host
+      ansible.builtin.fail:
+        msg: >
+          This run targets {{ ansible_play_hosts | length }} hosts
+          ({{ ansible_play_hosts | join(', ') }}). Limit it to the single host
+          that runs '{{ service }}' — set Semaphore's Limit field (or pass
+          -l dock-prod / -l athena on the CLI).
+      when: ansible_play_hosts | length > 1
+      run_once: true
+      delegate_to: localhost
+
+    - name: Fail fast if the service directory is missing on the target host
+      ansible.builtin.stat:
+        path: "{{ service_dir }}/compose.yaml"
+      register: compose_file
+      failed_when: not compose_file.stat.exists
+
+    # stop: containers keep existing, just stopped.
+    - name: Stop the service via docker compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ service_dir }}"
+        state: stopped
+      when: action == 'stop'
+
+    # down: remove containers + network. Named volumes are preserved
+    # (remove_volumes defaults to false) — data is not touched.
+    - name: Tear down the service (down) via docker compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ service_dir }}"
+        state: absent
+      when: action == 'down'
