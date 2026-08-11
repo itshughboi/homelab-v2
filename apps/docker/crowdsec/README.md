@@ -1,6 +1,36 @@
 ## Overview
 - Crowdsec is essentially a social network firewall. It does everything that fail2ban does, but crowdsec also can preemptively ban bad IP's that are put into the crowd defense. Essentially it's fail2ban Premium. Having both is redunant and can cause issues by being double banned with different rules. Fail2ban also gets installed on the host which adds *state* whereas with crowdsec that runs in container and is *stateless*
 
+## ❓ "Where are all these blocked IPs coming from? My homelab isn't exposed to the internet"
+
+Short answer: **they are NOT attacks that reached you.** As of the last check, **100% of active
+decisions have `origin=CAPI`** — the CrowdSec **Central API community blocklist**. CAPI is
+crowd-sourced threat intel: IPs that attacked *other* CrowdSec users worldwide, which your instance
+proactively downloads and pre-emptively blocks. The big numbers in the Grafana "Crowdsec — Security"
+dashboard (http:exploit, ssh:bruteforce, etc.) are **the shield you downloaded, not wounds you took.**
+
+This matches the network reality: the homelab is double-NAT'd, Tailscale-only, with no port forwards,
+so hostile internet traffic can't reach Traefik in the first place.
+
+How to tell a real local detection from the community list:
+- **`origin=CAPI`** → community blocklist (downloaded). Not traffic to you.
+- **`origin=crowdsec`** (or a bouncer name) → a *local* scenario fired on **your own** parsed logs.
+  If you ever see this, something actually hit a monitored service.
+
+Evidence it's all pre-emptive, never local (from `cscli metrics`):
+- Traefik `access.log`: every line read is **whitelisted** (matches trusted/local ranges via the
+  `crowdsecurity/whitelists` + `public-dns-allowlist` scenarios).
+- **Lines poured to bucket: 0** — nothing ever accumulated toward triggering a local ban.
+- **`bouncer-traefik` non-empty answers: 0** — across millions of decision queries, the bouncer has
+  never once had to block a real request to your services.
+
+Quick re-check any time:
+```sh
+# Should be CAPI only. Any other origin = a real local detection worth investigating.
+docker exec crowdsec cscli decisions list -o human | head
+sum by (origin) (cs_active_decisions)   # PromQL, in Grafana Explore
+```
+
 ## ⚠️ CrowdSec is a hard dependency for ALL Traefik traffic — never stop it alone
 
 Traefik applies the `crowdsec-bouncer` forwardAuth middleware **globally**, to every entrypoint
