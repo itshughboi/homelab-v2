@@ -1,0 +1,122 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "Host — dock-prod",
+  "uid": "host-node-metrics",
+  "tags": ["host", "node-exporter", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM", "label": "Prometheus", "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "prometheus", "value": "be3h9i5t3zoxsd" }, "hide": 0
+      },
+      {
+        "name": "instance", "label": "Host", "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+        "query": "label_values(node_uname_info, instance)",
+        "refresh": 2, "includeAll": false, "multi": false,
+        "current": { "text": "dock-prod", "value": "dock-prod" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "CPU busy",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", instance=\"$instance\"}[$__rate_interval])) * 100)" } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 } ] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Memory used",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "100 * (1 - (node_memory_MemAvailable_bytes{instance=\"$instance\"} / node_memory_MemTotal_bytes{instance=\"$instance\"}))" } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 } ] } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Root disk used",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "100 * (1 - (node_filesystem_avail_bytes{instance=\"$instance\", mountpoint=\"/\"} / node_filesystem_size_bytes{instance=\"$instance\", mountpoint=\"/\"}))" } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 } ] } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Load1",
+      "gridPos": { "h": 4, "w": 3, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "node_load1{instance=\"$instance\"}" } ],
+      "fieldConfig": { "defaults": { "decimals": 2, "color": { "mode": "fixed", "fixedColor": "purple" } } }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Uptime",
+      "gridPos": { "h": 4, "w": 3, "x": 21, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "time() - node_boot_time_seconds{instance=\"$instance\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "blue" } } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "CPU usage by mode",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "{{mode}}", "expr": "sum by (mode) (rate(node_cpu_seconds_total{instance=\"$instance\", mode!=\"idle\"}[$__rate_interval]))" } ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "drawStyle": "line", "fillOpacity": 30, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "total", "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"}" },
+        { "refId": "B", "legendFormat": "used", "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}" },
+        { "refId": "C", "legendFormat": "cached", "expr": "node_memory_Cached_bytes{instance=\"$instance\"}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Network traffic",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{device}} rx", "expr": "rate(node_network_receive_bytes_total{instance=\"$instance\", device!~\"lo|veth.*|docker.*|br-.*\"}[$__rate_interval]) * 8" },
+        { "refId": "B", "legendFormat": "{{device}} tx", "expr": "-rate(node_network_transmit_bytes_total{instance=\"$instance\", device!~\"lo|veth.*|docker.*|br-.*\"}[$__rate_interval]) * 8" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bps", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Disk I/O",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{device}} read", "expr": "rate(node_disk_read_bytes_total{instance=\"$instance\", device!~\"dm-.*|loop.*\"}[$__rate_interval])" },
+        { "refId": "B", "legendFormat": "{{device}} write", "expr": "-rate(node_disk_written_bytes_total{instance=\"$instance\", device!~\"dm-.*|loop.*\"}[$__rate_interval])" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    },
+    {
+      "id": 10, "type": "table", "title": "Filesystems",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "format": "table", "expr": "100 * (1 - (node_filesystem_avail_bytes{instance=\"$instance\", fstype!~\"tmpfs|overlay|squashfs\"} / node_filesystem_size_bytes{instance=\"$instance\", fstype!~\"tmpfs|overlay|squashfs\"}))" } ],
+      "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true, "job": true, "instance": true, "__name__": true, "device": false, "fstype": true }, "renameByName": { "Value": "used %", "mountpoint": "mount", "device": "device" } } } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 1 } }
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Load average",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "1m", "expr": "node_load1{instance=\"$instance\"}" },
+        { "refId": "B", "legendFormat": "5m", "expr": "node_load5{instance=\"$instance\"}" },
+        { "refId": "C", "legendFormat": "15m", "expr": "node_load15{instance=\"$instance\"}" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    }
+  ]
+}
