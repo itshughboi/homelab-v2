@@ -30,8 +30,22 @@ ruler:
   alertmanager_url: http://localhost:9093 #change this to Prometheus Alertmanager name or IP http://promalerts:9093
 
 
+# ── Retention ────────────────────────────────────────────────────────────────
+# Loki keeps logs FOREVER by default — retention only happens if the compactor
+# is told to delete AND limits_config.retention_period is set. Without this the
+# chunks dir grows without bound (it hit ~19G before and was wiped).
+compactor:
+  working_directory: /loki/compactor        # on the persistent /loki volume
+  compaction_interval: 10m
+  retention_enabled: true                    # <-- actually deletes old chunks
+  retention_delete_delay: 2h                 # grace period before hard delete
+  retention_delete_worker_count: 150
+  delete_request_store: filesystem           # required when retention_enabled + filesystem store
+
+
 limits_config:
   ingestion_rate_mb: 30          # Set ingestion rate to 20MB/s (Adjust as needed)
   ingestion_rate_strategy: "global" # Strategy to apply rate limits (global, user, or tenant)
   max_entries_limit_per_query: 7000  # Adjust if queries are too large
   max_query_length: 7d            # Maximum time range for queries
+  retention_period: 1080h         # 45 days — logs older than this are deleted by the compactor

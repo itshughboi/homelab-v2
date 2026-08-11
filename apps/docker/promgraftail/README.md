@@ -136,10 +136,24 @@ Runs as `telegraf:988` (the telegraf group on the host, needed for docker.sock a
 
 Initial setup is done through the web UI — creates the org, bucket, and admin token on first run. Store the admin token in `.env` after generation.
 
+## Log Retention (Loki)
+
+Loki keeps logs **45 days**, then the compactor deletes them — configured in
+`loki/config.yaml` (`compactor.retention_enabled: true` +
+`limits_config.retention_period: 1080h`). Without this, Loki keeps logs forever
+and `/home/hughboi/data/loki` grows unbounded (it hit ~19G once and was wiped).
+
+- To change the window: edit `retention_period` (e.g. `720h` = 30d, `2160h` = 90d)
+  and restart loki. `1080h` = 45 days.
+- The compactor runs every 10m; deletes have a 2h grace delay
+  (`retention_delete_delay`).
+- Rough growth: ~1–2 GB/day steady-state, so 45d ≈ 50–100 GB. Watch
+  `du -sh /home/hughboi/data/loki` if disk gets tight and shorten the window.
+
 ## Upgrade Notes
 
 - Grafana: back up `/home/hughboi/data/grafana` before upgrading — contains dashboards, data source configs, users.
-- Loki: back up `/home/hughboi/data/loki/data` — contains the log chunks and index.
+- Loki: back up `/home/hughboi/data/loki` — contains the log chunks and index (bounded by the 45-day retention above).
 - InfluxDB: back up `/home/hughboi/data/influxdb`.
 - Prometheus, Alertmanager, Alloy, Telegraf: stateless config — no data to back up separately (Alloy keeps only file-tail positions in the `alloy_data` volume).
 
