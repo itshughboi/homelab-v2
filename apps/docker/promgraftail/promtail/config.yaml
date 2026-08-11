@@ -12,7 +12,6 @@ clients:
     batchwait: 2s # wait 2 seconds before sending batch. Performance decision
 
 
-
 scrape_configs:
   - job_name: dock-prod_system
     static_configs:
@@ -22,8 +21,6 @@ scrape_configs:
           job: dock-prod_varlogs
           __path__: /var/log/*log
 
-
-
   - job_name: pve-srv-1_system
     static_configs:
       - targets:
@@ -31,9 +28,6 @@ scrape_configs:
         labels:
           job: pve-srv-1_varlogs
           __path__: /var/log/*log
-
-
-
 
   - job_name: pve-srv-2_system
     static_configs:
@@ -43,8 +37,6 @@ scrape_configs:
           job: pve-srv-2_varlogs
           __path__: /var/log/*log
 
-
-
   - job_name: pve-srv-3_system
     static_configs:
       - targets:
@@ -52,8 +44,6 @@ scrape_configs:
         labels:
           job: pve-srv-3_varlogs
           __path__: /var/log/*log
-
-
 
   - job_name: pve-srv-4_system
     static_configs:
@@ -63,3 +53,15 @@ scrape_configs:
           job: pve-srv-4_varlogs
           __path__: /var/log/*log
 
+  # NOTE: unbound_logs job removed during the promgraftail migration.
+  # Unbound log shipping will be re-added properly alongside the AdGuard/unbound
+  # observability work (unbound currently logs to a file inside its own container;
+  # needs to be pointed at a shared path or switched to stdout first).
+
+  - job_name: bind9
+    syslog:
+      listen_address: 0.0.0.0:1514
+      idle_timeout: 60s
+      label_structured_data: yes
+      labels:
+        job: bind9

@@ -31,7 +31,7 @@ ruler:
 
 
 limits_config:
-  ingestion_rate_mb: 20          # Set ingestion rate to 20MB/s (Adjust as needed)
+  ingestion_rate_mb: 30          # Set ingestion rate to 20MB/s (Adjust as needed)
   ingestion_rate_strategy: "global" # Strategy to apply rate limits (global, user, or tenant)
-  max_entries_limit_per_query: 5000  # Adjust if queries are too large
+  max_entries_limit_per_query: 7000  # Adjust if queries are too large
   max_query_length: 7d            # Maximum time range for queries

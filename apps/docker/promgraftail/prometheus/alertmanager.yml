@@ -20,7 +20,7 @@ route:
 receivers:
   - name: discord
     discord_configs:
-      - webhook_url: ${DISCORD_WEBHOOK_URL}
+      - webhook_url: "https://discord.com/api/webhooks/1390457753000218676/owy3eJNhifSq8YWIKp7ypgy3bF5Ma9oIMhKqYw71RrnBlQooShvfEDDcBcGjmoTgRpMP"
         send_resolved: true
         title: "{{ .CommonLabels.alertname }} - {{ .Status }}"
         message: "{{ .CommonAnnotations.summary }}"
@@ -29,7 +29,7 @@ receivers:
 
   - name: smtp
     email_configs:
-      - to: ${EMAIL_TARGET}
+      - to: "notify@mailrise.xyz"
         send_resolved: true
         headers:
           Subject: "[Prometheus Alert] {{ .CommonLabels.alertname }}"

@@ -10,18 +10,24 @@ See [loki/README.md](loki/README.md) for detailed Loki + Promtail setup.
 |---|---|---|---|
 | `grafana` | `grafana/grafana` | https://grafana.hughboi.cc | Dashboards and visualization |
 | `loki` | `grafana/loki` | https://loki.hughboi.cc | Log aggregation and query |
-| `prometheus` | `prom/prometheus` | `127.0.0.1:9070` (localhost only) | Metrics scraping and alerting |
-| `alertmanager` | `quay.io/prometheus/alertmanager` | `127.0.0.1:9093` (localhost only) | Alert routing |
+| `prometheus` | `prom/prometheus` | `:9070` (host port, not via Traefik) | Metrics scraping and alerting |
+| `alertmanager` | `quay.io/prometheus/alertmanager` | `:9093` (host port, not via Traefik) | Alert routing |
 | `promtail` | `grafana/promtail` | — (no UI) | Log shipping to Loki |
 | `influxdb` | `influxdb` | https://influxdb.hughboi.cc | Time-series DB for Telegraf/SNMP metrics |
 | `telegraf` | `telegraf` | — (no UI) | SNMP + host metrics collector → InfluxDB |
 
-> [!NOTE] Alloy is not deployed
-> `compose.yaml` has no `alloy` service at all (not even commented out) — despite being
-> documented below and in `docs/6-docker/index.md`'s migration notes as the planned
-> Promtail replacement. Fold standing this up into the same dedicated future session as
-> the rest of this stack's real path/drift issues (see Troubleshooting below), rather than
-> assuming it's already running from this doc alone.
+> [!NOTE] Migrated into the repo (Aug 2026)
+> This stack was reconciled from its old drifted location `/home/hughboi/promgraftail`
+> into this git-tracked dir, matching the homelab convention: **app code here, runtime
+> data under `/home/hughboi/data/`**. Grafana + InfluxDB data were preserved (moved);
+> Loki's ~19G of historical logs were intentionally wiped and started fresh (they
+> regenerate). Images were re-pinned to current stable versions. Config files are now
+> mounted with relative `./` paths from this dir.
+
+> [!NOTE] Alloy is not deployed yet
+> `compose.yaml` has no `alloy` service — `alloy/config.alloy` exists only as prep work.
+> Promtail is EOL, so swapping Promtail → Alloy is the planned Phase 2 (a deliberate
+> separate change: port the scrape jobs, wire Prometheus remote-write, verify each stream).
 
 All services are on the `promgraftail` internal Docker network. Grafana, Loki, and InfluxDB also join the `proxy` network for Traefik routing.
 
@@ -38,7 +44,7 @@ Internet → Traefik → [grafana, loki, influxdb]
 
 Prometheus and alertmanager are **not** exposed via Traefik. Access them via SSH tunnel if needed.
 
-## Config Files (all in `/home/hughboi/code/promgraftail/`)
+## Config Files (all in this repo dir, mounted `./` relative)
 
 | File | Service | Purpose |
 |---|---|---|
@@ -55,11 +61,10 @@ All config files are mounted `:ro` — restart the service after any config chan
 ## Grafana
 
 **User:** admin (set password on first login)
-**Grafana UID:** 472 — the data directory must be owned by 472:
-
-```sh
-sudo chown -R 472:472 /home/hughboi/data/grafana
-```
+**Runs as `user: "0"`** (root inside the container). The old stack tried UID 472 (Grafana's
+default) but hit a write-permission issue on the data dir, so it runs as `0`. Revisit this
+alongside the port-hardening work — ideally `chown -R 472:472 /home/hughboi/data/grafana` and
+switch back to `user: "472"`.
 
 ### Data Sources
 
@@ -94,11 +99,14 @@ alerting:
 ## Promtail
 
 Scrapes:
-- `/var/log` on the host (all syslog, auth.log, etc.)
+- `/var/log` on dock-prod and the pve-srv-* hosts (syslog, auth.log, etc.)
 - Docker container logs via `docker.sock`
-- Unbound log at `/home/hughboi/adguard/unbound/unbound.log`
+- `bind9` syslog receiver on port `1514` (published as `1541:1514`)
 
-Port `1514` is open for receiving syslog from network devices (routers, switches, firewalls).
+> The old `unbound_logs` scrape job was **removed** during the migration — its source
+> path (`/home/hughboi/adguard/unbound/unbound.log`) was deleted when AdGuard migrated.
+> Unbound log shipping returns with the AdGuard/unbound observability work (unbound
+> currently logs to a file inside its own container; needs a shared path or stdout first).
 
 ## Telegraf
 
@@ -127,53 +135,23 @@ Grafana Alloy is the planned next-gen OTel collector to replace Promtail — it 
 
 ## Troubleshooting
 
-**⚠️ Known issue (unresolved):** `promtail` was observed crash-looping (`Restarting`) on
-dock-prod during the SOPS migration session, unrelated to anything changed that night — root
-cause not yet investigated. This stack is deliberately **not yet SOPS-migrated**, both because of
-this crash loop and because Loki here is a dependency for every other service's
-`logging: driver: loki` — a broken Loki doesn't just lose this stack's own logs, it silently
-drops shipped logs fleet-wide. Diagnose and fix the crash loop (`docker logs promtail`) before
-attempting any path/secrets migration on this stack.
+**✅ Migration completed (Aug 2026):** the path/drift/version issues previously flagged here are
+resolved. This stack now deploys from `/home/hughboi/homelab/apps/docker/promgraftail/` with
+relative `./` config mounts, data under `/home/hughboi/data/`, live configs reconciled into the
+repo (including the `bind9` syslog job), and images re-pinned to current stable versions. Two
+version bumps required config fixes at the time: promtail's `bind9` syslog `labels:` had to move
+*inside* the `syslog:` block, and telegraf's `inputs.docker` dropped the deprecated
+`perdevice`/`total` fields (now `perdevice_include`/`total_include`).
 
-**⚠️ Bigger finding (full-repo audit, confirmed on the live host):** every bind-mount source path
-in `compose.yaml` claims `/home/hughboi/code/promgraftail/...` — **this directory doesn't exist
-on dock-prod at all.** The actual live containers are mounted from a third, different path
-entirely: `/home/hughboi/promgraftail/<service>/...` (confirmed directly, e.g.
-`docker inspect loki --format '{{json .Mounts}}'` shows
-`/home/hughboi/promgraftail/loki/config/config.yaml`, not the repo's claimed path). This means
-`compose.yaml` has not actually driven a real deploy of this stack in some time — it's an
-aspirational/hand-edited "should be" file, not what's running. Corroborating evidence: the live
-`grafana` and `prometheus` containers are running `:main`/`:latest` respectively, not the pinned
-`13.0.1`/`v3.11.3` versions `compose.yaml` specifies.
-
-The repo's tracked config files (`loki/config.yaml`, `prometheus/*.yml`, `telegraf/telegraf.conf`,
-`promtail/config.yaml`) are themselves **stale relative to the live host versions**, not the other
-way around — e.g. the repo's `promtail/config.yaml` uses old `dock-prod_*` job-name labels (the
-live version uses `ubnt-prod_*`, suggesting a hostname rename that was never synced back) and is
-missing two entire scrape jobs the live config has: `unbound_logs` and `bind9` (syslog receiver).
-
-**Before touching this stack's mounts/paths at all**, the full-repo audit (July 2026) recommends:
-1. Diff every one of the 6 services' actual live config (via `docker inspect <name> --format
-   '{{json .Mounts}}'` to find the true `Source:`, then `cat`/`diff` its contents) against the
-   repo's tracked copy — assume the **live host is the source of truth**, not the repo, given the
-   evidence above.
-2. Decide the target convention once, for the whole stack: `/home/hughboi/homelab/apps/docker/promgraftail/...`
-   (the convention every other SOPS-migrated service now uses) is the natural choice, but this is
-   a real decision, not a given.
-3. Update the repo's tracked config files from the live (correct) versions where they've drifted,
-   *then* update `compose.yaml`'s mounts, *then* redeploy and verify — the same careful
-   diff-first discipline used for every other migration this session (see the `pocket-id`
-   incident in this repo's history for why skipping this step is dangerous).
-4. Re-pin `grafana`/`prometheus` to explicit versions matching what's actually intended to run,
-   not what happens to be cached on the host right now.
-5. Add long-term uptime/history monitoring via this stack (e.g. Blackbox exporter scraped by
-   Prometheus, visualized in Grafana) — Uptime Kuma was sunset 2026-07-17 in favor of Gatus, but
-   Gatus only covers current status + a short window, not the historical uptime %/incident-timeline
-   view Kuma provided. This is the intended replacement for that gap, not Gatus itself.
-
-This is intentionally scoped as one combined future session (crash-loop fix + path/convention
-migration + SOPS migration + optional node_exporter addition for host metrics, plus the Blackbox
-exporter addition above), not a quick fix — see the main homelab todo list.
+**Still open (tracked as Gitea issues / future phases):**
+1. **Port hardening** — published ports are currently exposed as they were live (e.g. `3100`,
+   `8086`, `9070`, `9093`); binding them to `127.0.0.1` is deferred. See the Gitea issue.
+2. **Promtail → Alloy** — Promtail is EOL; Phase 2 swaps it for Grafana Alloy (port scrape jobs,
+   enable Prometheus remote-write — already turned on via `--web.enable-remote-write-receiver`).
+3. **Not yet SOPS-migrated** — no `.env.sops` for this stack yet.
+4. **Long-term uptime history** — a Blackbox exporter scraped by Prometheus would restore the
+   historical uptime%/incident-timeline view that Uptime Kuma provided (Gatus only covers current
+   status + a short window).
 
 **Grafana can't connect to Prometheus:**
 - Both must be on the `promgraftail` network. Verify: `docker network inspect promgraftail | grep -A2 prometheus`

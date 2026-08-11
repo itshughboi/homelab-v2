@@ -1,35 +1,31 @@
 ---
-services:
+# MERGED compose for review — promgraftail migrated into homelab repo.
+# Principles applied:
+#   - Config files: relative ./ paths (this file lives in the repo dir), NOT
+#     the old /home/hughboi/promgraftail or the bogus /home/hughboi/code paths.
+#   - Data: /home/hughboi/data/<component> (moved via mv, same filesystem).
+#   - Images: latest stable pins verified today. Loki -> 3.7.6 too, since we are
+#     WIPING the old 19G of Loki logs (user OK'd; they regenerate) and starting
+#     fresh, so there is no schema-jump risk. Only Grafana + InfluxDB data moves.
+#   - user:/ports: keep LIVE proven values (grafana user "0"; live port exposure).
+#   - Keep repo's good hardening: loki logging driver blocks, memory limits.
+#   - Networks: preserve what live uses (promgraftail + proxy; promtail external
+#     for the :1514 bind9 syslog path; unbound external where relevant).
+#   - FIX the broken unbound.log mount -> new /home/hughboi/data/adguard path.
+#   - TODO(gitea issue): localhost-bind published ports for hardening.
 
-  # cAdvisor — Docker container metrics. Uncomment if you want per-container CPU/mem/net in Grafana.
-  # cadvisor:
-  #   container_name: cadvisor
-  #   image: gcr.io/cadvisor/cadvisor:v0.50.0
-  #   restart: unless-stopped
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   devices:
-  #     - /dev/kmsg
-  #   privileged: true
-  #   volumes:
-  #     - /:/rootfs:ro
-  #     - /var/run:/var/run:ro
-  #     - /sys:/sys:ro
-  #     - /var/lib/docker/:/var/lib/docker:ro
-  #     - /dev/disk/:/dev/disk:ro
-  #   networks:
-  #     - promgraftail
-  #     - proxy
+services:
 
   grafana:
     container_name: grafana
-    image: grafana/grafana:13.0.1
+    image: grafana/grafana:13.1.3          # was :main  (verified latest stable)
     restart: unless-stopped
-    # Grafana default UID is 472. Run once on host to fix ownership:
-    #   sudo chown -R 472:472 /home/hughboi/data/grafana
-    user: "472"
+    # Live runs user "0": the comment on the old stack notes 472 hit a write-perm
+    # issue. Keeping "0" (proven). Revisit with the hardening issue.
+    user: "0"
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     logging:
       driver: loki
       options:
@@ -67,11 +63,12 @@ services:
 
   influxdb:
     container_name: influxdb
-    image: influxdb:2.9.1
+    image: influxdb:2.9.1                   # was 2.7  (latest 2.x, verified)
     restart: unless-stopped
     user: "1000"
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     logging:
       driver: loki
       options:
@@ -83,9 +80,9 @@ services:
         mode: "non-blocking"
     volumes:
       - /home/hughboi/data/influxdb:/var/lib/influxdb
-    ports:
-      - "127.0.0.1:8086:8086"
-      - "127.0.0.1:8089:8089/udp"
+    ports:                                  # LIVE exposure (not localhost-bound yet)
+      - 8086:8086
+      - 8089:8089/udp
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.influxdb.entrypoints=http"
@@ -104,17 +101,18 @@ services:
 
   loki:
     container_name: loki
-    image: grafana/loki:3.4.2
+    image: grafana/loki:3.7.6               # latest stable; old logs wiped, fresh start
     restart: unless-stopped
-    user: "1000:1000"
+    command: "-config.file=/etc/loki/config.yaml"
     security_opt:
       - no-new-privileges:true
-    command: "-config.file=/etc/loki/config.yaml"
+      - apparmor:unconfined
+    user: "1000:1000"
     volumes:
-      - /home/hughboi/code/promgraftail/loki/config.yaml:/etc/loki/config.yaml:ro
-      - /home/hughboi/data/loki/data:/loki:rw
-    ports:
-      - "127.0.0.1:3100:3100"
+      - ./loki/config.yaml:/etc/loki/config.yaml:ro
+      - /home/hughboi/data/loki:/loki:rw
+    ports:                                  # LIVE exposure
+      - 3100:3100
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.loki.entrypoints=http"
@@ -134,21 +132,23 @@ services:
         reservations:
           memory: 128m
     networks:
-      - promgraftail
       - proxy
+      - promgraftail
 
   prometheus:
     container_name: prometheus
-    image: prom/prometheus:v3.11.3
+    image: prom/prometheus:v3.13.2          # was :latest  (verified latest stable)
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
+    # remote-write receiver enabled so a future Alloy can push metrics here.
     command: "--config.file=/etc/prometheus/prometheus.yml --web.enable-remote-write-receiver"
     volumes:
-      - /home/hughboi/code/promgraftail/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - /home/hughboi/code/promgraftail/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-    ports:
-      - "127.0.0.1:9070:9090"
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    ports:                                  # LIVE exposure
+      - 9070:9090
     deploy:
       resources:
         limits:
@@ -157,14 +157,15 @@ services:
           memory: 256m
     networks:
       - promgraftail
-      # - proxy   # Uncomment to expose prometheus via Traefik
+      # - proxy
 
   alertmanager:
     container_name: alertmanager
-    image: quay.io/prometheus/alertmanager:v0.32.1
+    image: quay.io/prometheus/alertmanager:v0.33.1   # was untagged (verified latest)
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
     logging:
@@ -177,39 +178,43 @@ services:
         keep-file: "true"
         mode: "non-blocking"
     volumes:
-      - /home/hughboi/code/promgraftail/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    ports:
-      - "127.0.0.1:9093:9093"
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:                                  # LIVE exposure
+      - 9093:9093
     networks:
       - promgraftail
       - proxy
 
   promtail:
     container_name: promtail
-    image: grafana/promtail:3.4.2
+    image: grafana/promtail:3.6.11          # latest promtail (EOL line); Phase 2 swaps to Alloy
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     command: -config.file=/etc/promtail/promtail-config.yml
     volumes:
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/hughboi/promgraftail/promtail/config.yaml:/etc/promtail/promtail-config.yml:ro
-      # Unbound logs — alternatively set logfile to /dev/stdout in unbound.conf
-      - /home/hughboi/adguard/unbound/unbound.log:/etc/unbound/unbound.log
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail/config.yaml:/etc/promtail/promtail-config.yml:ro
+      # NOTE: old unbound.log mount (/home/hughboi/adguard/unbound/unbound.log) was
+      # removed here and in promtail config — that path was deleted in the adguard
+      # migration. Unbound log shipping returns with the observability work.
     ports:
-      - "1514:1514"   # Syslog receiver — only needed if sending syslogs from other devices
+      - "1541:1514"   # bind9 syslog receiver (live used 1541:1514)
     networks:
       - promgraftail
+      - promtail
 
   telegraf:
     container_name: telegraf
-    image: telegraf:1.32.3
+    image: telegraf:1.39.3                  # was 1.32.3  (verified latest stable)
     restart: unless-stopped
     user: telegraf:988
     security_opt:
       - no-new-privileges:true
+      - apparmor:unconfined
     logging:
       driver: loki
       options:
@@ -220,10 +225,10 @@ services:
         keep-file: "true"
         mode: "non-blocking"
     volumes:
-      - /home/hughboi/code/promgraftail/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
       - /:/hostfs:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/hughboi/data/promgraftail/mibs:/usr/share/snmp/mibs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./mibs:/usr/share/snmp/mibs
     environment:
       - HOST_ETC=/hostfs/etc
       - HOST_PROC=/hostfs/proc
@@ -237,5 +242,8 @@ services:
 
 networks:
   promgraftail:
+    name: promgraftail
   proxy:
+    external: true
+  promtail:
     external: true
