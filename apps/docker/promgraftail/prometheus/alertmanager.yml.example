@@ -44,10 +44,12 @@ receivers:
            Summary: {{ .CommonAnnotations.summary }}<br/>
            Description: {{ .CommonAnnotations.description }}
 
-  # ntfy — direct receiver (topic: alertmanager). ntfy natively parses the
-  # Alertmanager webhook payload into clean per-alert notifications. Anonymous
-  # publish is allowed on this ntfy, so no secret/URL to hide here.
+  # ntfy — direct receiver (topic: alertmanager). A plain webhook POST would dump
+  # raw JSON into ntfy, so ntfy's own templating is used via query params
+  # (template=1 + Go-template title/message/priority over the Alertmanager payload)
+  # to render clean notifications. priority: resolved=2, critical=5, warning=4,
+  # else 3. Anonymous publish is allowed on this ntfy, so no secret here.
   - name: ntfy
     webhook_configs:
-      - url: "https://ntfy.hughboi.cc/alertmanager"
+      - url: "https://ntfy.hughboi.cc/alertmanager?template=1&title=%7B%7Brange+.alerts%7D%7D%7B%7B.labels.alertname%7D%7D+%28%7B%7B.status%7D%7D%29%7B%7Bend%7D%7D&message=%7B%7Brange+.alerts%7D%7D%7B%7B.annotations.summary%7D%7D%7B%7Bif+.annotations.description%7D%7D%0A%7B%7B.annotations.description%7D%7D%7B%7Bend%7D%7D%0A%7B%7Bend%7D%7D&priority=%7B%7Bif+eq+.status+%22resolved%22%7D%7D2%7B%7Belse+if+eq+%28index+.alerts+0%29.labels.severity+%22critical%22%7D%7D5%7B%7Belse+if+eq+%28index+.alerts+0%29.labels.severity+%22warning%22%7D%7D4%7B%7Belse%7D%7D3%7B%7Bend%7D%7D&tags=warning"
         send_resolved: true
