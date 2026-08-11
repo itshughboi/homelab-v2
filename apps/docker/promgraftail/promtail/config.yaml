@@ -65,3 +65,48 @@ scrape_configs:
       label_structured_data: yes
       labels:
         job: bind9
+
+  # AdGuard query log — per-query client IP -> domain, blocked/allowed, upstream.
+  # This is the "who visited what" data the AdGuard UI shows, shipped to Loki.
+  # File is JSON-lines at /adguard-querylog/querylog.json (mounted from
+  # /home/hughboi/data/adguard/work/data). Rotates to querylog.json.1 after
+  # ~30d (interval 720h), so glob the active file.
+  - job_name: adguard-queries
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: adguard-queries
+          host: dock-prod
+          __path__: /adguard-querylog/querylog.json
+    pipeline_stages:
+      # Parse the JSON line into extracted fields.
+      - json:
+          expressions:
+            timestamp: T
+            query: QH
+            qtype: QT
+            client: IP
+            upstream: Upstream
+            cached: Cached
+            elapsed: Elapsed
+            is_filtered: Result.IsFiltered
+            filter_reason: Result.Reason
+      # Use AdGuard's own timestamp (RFC3339 with nanoseconds + offset).
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      # Derive a clean blocked=true/false template value from Result.IsFiltered
+      # (absent/empty when the query was allowed).
+      - template:
+          source: blocked
+          template: '{{ if eq .is_filtered "true" }}true{{ else }}false{{ end }}'
+      # Low-cardinality labels only: client IP, blocked status, query type.
+      # Domain (query) is intentionally NOT a label — it would explode cardinality;
+      # it stays queryable via the JSON line body / LogQL json parser in Grafana.
+      - labels:
+          client:
+          blocked:
+          qtype:
+      # No output stage: the original raw JSON line is preserved as the log body,
+      # so Grafana can parse it with `| json` (query, upstream, elapsed, etc.).

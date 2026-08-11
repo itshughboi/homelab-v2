@@ -1,0 +1,176 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "title": "AdGuard DNS — Queries",
+  "uid": "adguard-dns-queries",
+  "tags": ["adguard", "dns", "loki"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_LOKI",
+        "label": "Loki datasource",
+        "type": "datasource",
+        "query": "loki",
+        "current": { "text": "loki", "value": "feq5ypvk39gqoe" },
+        "hide": 0
+      },
+      {
+        "name": "client",
+        "label": "Client IP",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "query": { "label": "client", "stream": "{job=\"adguard-queries\"}", "type": 1 },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total queries",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"adguard-queries\", client=~\"$client\"} [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "blue", "value": null } ] } } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Blocked queries",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({job=\"adguard-queries\", blocked=\"true\", client=~\"$client\"} [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null } ] } } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Block rate %",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(count_over_time({job=\"adguard-queries\", blocked=\"true\", client=~\"$client\"} [$__range])) / sum(count_over_time({job=\"adguard-queries\", client=~\"$client\"} [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 30 } ] } } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Distinct clients",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(sum by (client) (count_over_time({job=\"adguard-queries\"} [$__range])))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "purple", "value": null } ] } } }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Queries over time — allowed vs blocked",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "allowed",
+          "expr": "sum(count_over_time({job=\"adguard-queries\", blocked=\"false\", client=~\"$client\"} [$__interval]))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "blocked",
+          "expr": "sum(count_over_time({job=\"adguard-queries\", blocked=\"true\", client=~\"$client\"} [$__interval]))"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [ { "matcher": { "id": "byName", "options": "blocked" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }, { "matcher": { "id": "byName", "options": "allowed" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] } ] }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Top clients",
+      "gridPos": { "h": 9, "w": 8, "x": 0, "y": 12 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "topk(15, sum by (client) (count_over_time({job=\"adguard-queries\", client=~\"$client\"} [$__range])))"
+        }
+      ],
+      "transformations": [ { "id": "labelsToFields", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } } ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Top domains",
+      "gridPos": { "h": 9, "w": 8, "x": 8, "y": 12 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "topk(20, sum by (QH) (count_over_time({job=\"adguard-queries\", client=~\"$client\"} | json [$__range])))"
+        }
+      ],
+      "transformations": [ { "id": "labelsToFields", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "QH": "domain" } } } ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Top blocked domains",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 12 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "topk(20, sum by (QH) (count_over_time({job=\"adguard-queries\", blocked=\"true\", client=~\"$client\"} | json [$__range])))"
+        }
+      ],
+      "transformations": [ { "id": "labelsToFields", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "QH": "domain" } } } ]
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Live query log",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 21 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"adguard-queries\", client=~\"$client\"} | json | line_format \"{{.IP}} {{.QT}} {{.QH}}{{ if eq .__error__ \\\"\\\" }}{{ end }} blocked={{.blocked}}\""
+        }
+      ]
+    }
+  ]
+}

@@ -39,6 +39,11 @@ services:
       - GF_ANALYTICS_REPORTING_ENABLED=false
     volumes:
       - /home/hughboi/data/grafana:/var/lib/grafana
+      # Git-tracked dashboard provisioning (file-based). Dashboards live in the
+      # repo and are loaded read-only; edits made in the UI to these are not saved
+      # back — change the JSON in the repo instead.
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards-provisioned:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.entrypoints=http"
@@ -198,6 +203,9 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./promtail/config.yaml:/etc/promtail/promtail-config.yml:ro
+      # AdGuard querylog (client IP -> domain, blocked/allowed) for the adguard-queries
+      # scrape job. Mounted ro; the file is root:0600 and promtail runs as root.
+      - /home/hughboi/data/adguard/work/data:/adguard-querylog:ro
       # NOTE: old unbound.log mount (/home/hughboi/adguard/unbound/unbound.log) was
       # removed here and in promtail config — that path was deleted in the adguard
       # migration. Unbound log shipping returns with the observability work.
