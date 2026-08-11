@@ -1,4 +1,4 @@
-# Semaphore
+# Semaphore (Currently running on Athena at 10.10.10.8)
 
 **URL:** https://semaphore.hughboi.cc
 **Docs:** https://docs.semaphoreui.com/

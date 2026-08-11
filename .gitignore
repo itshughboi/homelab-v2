@@ -85,6 +85,10 @@ bootstrap/netbootxyz/assets/proxmox/initrd.img
 bootstrap/netbootxyz/assets/asset-mirror/
 
 # ── App-specific ───────────────────────────────────────────────────────────────
+# ezbookkeeping bind-mounts its live MySQL datadir here (not matched by **/data/)
+apps/docker/ezbookkeeping/mysql-data/
+# Stray git artifact from a bind-mounted tube-archivist volume
+apps/docker/tube-archivist/FETCH_HEAD
 adguard/**/conf/*.yaml
 crowdsec/config/hub/
 promgraftail/grafana/
