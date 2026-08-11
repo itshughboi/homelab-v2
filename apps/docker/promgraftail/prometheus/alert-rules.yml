@@ -13,7 +13,7 @@ groups:
           severity: warning
         annotations:
           summary: "dock-prod root disk below 50GB free"
-          description: "Only {{ $value | humanize1024 }}B free on dock-prod /. Check `du -sh /home/hughboi/data/*` — Loki, backups, or media caches may be growing."
+          description: "Only {{ $value | humanize1024 }}B free on dock-prod /. See WHAT is using space in Grafana Explore (Loki): `{job=\"dock-prod_varlogs\"} |= \"disk-usage\"` — an hourly du breakdown of /home/hughboi/data, /home/hughboi, and docker volumes."
 
       - alert: DiskSpaceCritical
         expr: node_filesystem_avail_bytes{instance="dock-prod", mountpoint="/"} < 20e9
@@ -22,7 +22,7 @@ groups:
           severity: critical
         annotations:
           summary: "dock-prod root disk below 20GB free"
-          description: "Only {{ $value | humanize1024 }}B free on dock-prod /. Act now to avoid services failing on writes."
+          description: "Only {{ $value | humanize1024 }}B free on dock-prod /. Act now. Breakdown in Loki: `{job=\"dock-prod_varlogs\"} |= \"disk-usage\"`. Biggest usual culprit is /var/lib/docker/volumes."
 
   - name: log_volume_alerts
     rules:

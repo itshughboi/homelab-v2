@@ -108,3 +108,8 @@ docs/hugo/content/
 docs/hugo/public/
 docs/hugo/.hugo_build.lock
 docs/hugo/resources/
+
+# alertmanager.yml holds the Discord webhook (a secret). Committed encrypted as
+# alertmanager.yml.sops; the decrypted plaintext lives here but must never be
+# committed. See apps/docker/promgraftail/prometheus/alertmanager.yml.example.
+apps/docker/promgraftail/prometheus/alertmanager.yml

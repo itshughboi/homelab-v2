@@ -15,12 +15,13 @@ route:
         severity: .*
       continue: true
 
-
-
 receivers:
   - name: discord
     discord_configs:
-      - webhook_url: "https://discord.com/api/webhooks/1390457753000218676/owy3eJNhifSq8YWIKp7ypgy3bF5Ma9oIMhKqYw71RrnBlQooShvfEDDcBcGjmoTgRpMP"
+      # SECRET — do not commit the real value. The live alertmanager.yml is
+      # gitignored and stored encrypted as alertmanager.yml.sops. Put the real
+      # Discord webhook URL here in the decrypted file only.
+      - webhook_url: "https://discord.com/api/webhooks/REPLACE_ME/REPLACE_ME"
         send_resolved: true
         title: "{{ .CommonLabels.alertname }} - {{ .Status }}"
         message: "{{ .CommonAnnotations.summary }}"
