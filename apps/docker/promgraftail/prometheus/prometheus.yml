@@ -73,10 +73,18 @@ scrape_configs:
       - targets: ['intel-gpu-exporter:8080']
 
   # Jellyfin playback/transcode stats — home-built exporter
-  # (apps/docker/jellyfin-exporter). Needs its JELLYFIN_API_KEY set (SOPS) and the
-  # container running; until then this target will be down.
+  # (apps/docker/jellyfin/jellyfin-exporter). Needs its JELLYFIN_API_KEY set (SOPS)
+  # and the container running; until then this target will be down.
   - job_name: jellyfin
     scrape_interval: 15s
     static_configs:
       - targets: ['jellyfin-exporter:8080']
+
+  # Loki's own internal metrics (ingestion rate, chunks, etc.) — used by the
+  # LokiHighIngestionRate alert. Loki emits ~3000 series, over the global cap.
+  - job_name: loki
+    scrape_interval: 30s
+    sample_limit: 10000
+    static_configs:
+      - targets: ['loki:3100']
     

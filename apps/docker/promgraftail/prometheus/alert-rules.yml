@@ -1,4 +1,44 @@
-# groups:
+groups:
+  - name: storage_alerts
+    rules:
+      # Root filesystem holds everything incl. /home/hughboi/data/loki. There's no
+      # separate metric for "Loki folder size" (Loki doesn't export it and /data
+      # isn't its own filesystem), so watch free disk — this catches runaway log
+      # growth AND anything else filling the disk. Real Loki growth is ~150MB/day
+      # (45-day retention ≈ 5-7GB), so if free disk drops fast, something's wrong.
+      - alert: DiskSpaceLow
+        expr: node_filesystem_avail_bytes{instance="dock-prod", mountpoint="/"} < 50e9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "dock-prod root disk below 50GB free"
+          description: "Only {{ $value | humanize1024 }}B free on dock-prod /. Check `du -sh /home/hughboi/data/*` — Loki, backups, or media caches may be growing."
+
+      - alert: DiskSpaceCritical
+        expr: node_filesystem_avail_bytes{instance="dock-prod", mountpoint="/"} < 20e9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "dock-prod root disk below 20GB free"
+          description: "Only {{ $value | humanize1024 }}B free on dock-prod /. Act now to avoid services failing on writes."
+
+  - name: log_volume_alerts
+    rules:
+      # Sustained high log-ingestion is the leading indicator of Loki bloat, well
+      # before disk fills. Baseline is low; a container in a log/crash loop spikes
+      # this. Threshold intentionally generous — tune down once you see normal rate.
+      - alert: LokiHighIngestionRate
+        expr: sum(rate(loki_distributor_bytes_received_total[10m])) > 5e6
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Loki ingesting >5 MB/s for 30m"
+          description: "Loki has been ingesting {{ $value | humanize }}B/s for 30m — likely a chatty/looping container. Check the Logs — Overview dashboard for the top service by volume."
+
+# ── Reference examples (kept commented) ───────────────────────────────────────
 #   - name: example_alerts
 #     rules:
 #       - alert: InstanceDown
@@ -9,14 +49,3 @@
 #         annotations:
 #           summary: "Instance {{ $labels.instance }} down"
 #           description: "{{ $labels.instance }} has been down for more than 5 minutes."
-
-
-    ### Testing Alerts - will get annoying real quick I promise you :) 
-      # - alert: AlwaysFiring
-      #   expr: vector(1)
-      #   for: 1m
-      #   labels:
-      #     severity: info
-      #   annotations:
-      #     summary: "This alert always fires after 1 minute"
-      #     description: "This alert is for testing purposes and always fires."

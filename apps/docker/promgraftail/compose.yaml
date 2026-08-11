@@ -271,6 +271,23 @@ services:
     networks:
       - promgraftail
 
+  # Intel Arc A380 GPU exporter — home-built (see ./intel-gpu-exporter). Lives in
+  # this stack (no single app owns the GPU; it's shared by jellyfin + immich ML).
+  # Needs broad access to read GPU perf counters: privileged + /dev/dri + host PID.
+  intel-gpu-exporter:
+    container_name: intel-gpu-exporter
+    build:
+      context: ./intel-gpu-exporter
+      dockerfile: Dockerfile
+    image: homelab/intel-gpu-exporter:local
+    restart: unless-stopped
+    privileged: true
+    pid: host
+    devices:
+      - /dev/dri:/dev/dri
+    networks:
+      - promgraftail
+
 
 volumes:
   alloy_data:

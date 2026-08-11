@@ -52,6 +52,32 @@ services:
     networks:
       - proxy
 
+  # Home-built Jellyfin Prometheus exporter, co-located with the app it monitors.
+  # Polls Jellyfin's API (playback/transcode/library) and exposes :8080 for the
+  # `jellyfin` Prometheus job. Reaches jellyfin over `proxy`; scraped over
+  # `promgraftail`. Needs JELLYFIN_API_KEY from .env.sops — deploy this stack with
+  # ./scripts/sops-run.sh jellyfin up -d --build (not plain docker compose).
+  jellyfin-exporter:
+    container_name: jellyfin-exporter
+    build:
+      context: ./jellyfin-exporter
+      dockerfile: Dockerfile
+    image: homelab/jellyfin-exporter:local
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - JELLYFIN_URL=http://jellyfin:8096
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - POLL_SECONDS=15
+    depends_on:
+      - jellyfin
+    networks:
+      - proxy
+      - promgraftail
+
 networks:
   proxy:
+    external: true
+  promgraftail:
     external: true
