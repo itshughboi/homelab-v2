@@ -1,0 +1,146 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "title": "Unbound — Recursive DNS",
+  "uid": "unbound-recursive-dns",
+  "tags": ["unbound", "dns", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM",
+        "label": "Prometheus datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "prometheus", "value": "be3h9i5t3zoxsd" },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Up",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "unbound_up" } ],
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ], "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Uptime",
+      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "unbound_time_up_seconds_total" } ],
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "blue" } } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Cache hit ratio (5m)",
+      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "100 * sum(rate(unbound_cache_hits_total[5m])) / (sum(rate(unbound_cache_hits_total[5m])) + sum(rate(unbound_cache_misses_total[5m])))" } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 50 }, { "color": "green", "value": 80 } ] } } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Queries/sec (5m)",
+      "gridPos": { "h": 4, "w": 5, "x": 14, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(unbound_queries_total[5m]))" } ],
+      "fieldConfig": { "defaults": { "unit": "qps", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "purple" } } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Avg recursion time",
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "avg(unbound_recursion_time_seconds_avg)" } ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 3, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.5 } ] } } }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Queries per second — cache hits vs misses",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "cache hits", "expr": "sum(rate(unbound_cache_hits_total[$__rate_interval]))" },
+        { "refId": "B", "legendFormat": "cache misses", "expr": "sum(rate(unbound_cache_misses_total[$__rate_interval]))" },
+        { "refId": "C", "legendFormat": "total", "expr": "sum(rate(unbound_queries_total[$__rate_interval]))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "qps", "custom": { "drawStyle": "line", "fillOpacity": 20 } }, "overrides": [ { "matcher": { "id": "byName", "options": "cache hits" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }, { "matcher": { "id": "byName", "options": "cache misses" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] } ] }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Cache hit ratio %",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "hit ratio", "expr": "100 * sum(rate(unbound_cache_hits_total[$__rate_interval])) / clamp_min(sum(rate(unbound_cache_hits_total[$__rate_interval])) + sum(rate(unbound_cache_misses_total[$__rate_interval])), 1)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 30, "gradientMode": "opacity" }, "color": { "mode": "fixed", "fixedColor": "green" } } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Recursion time (avg / median)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "avg", "expr": "avg(unbound_recursion_time_seconds_avg)" },
+        { "refId": "B", "legendFormat": "median", "expr": "avg(unbound_recursion_time_seconds_median)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Response time p50 / p90 / p99 (histogram)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "p50", "expr": "histogram_quantile(0.50, sum(rate(unbound_response_time_seconds_bucket[$__rate_interval])) by (le))" },
+        { "refId": "B", "legendFormat": "p90", "expr": "histogram_quantile(0.90, sum(rate(unbound_response_time_seconds_bucket[$__rate_interval])) by (le))" },
+        { "refId": "C", "legendFormat": "p99", "expr": "histogram_quantile(0.99, sum(rate(unbound_response_time_seconds_bucket[$__rate_interval])) by (le))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Request list (queued work)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "current (all)", "expr": "sum(unbound_request_list_current_all)" },
+        { "refId": "B", "legendFormat": "current (user)", "expr": "sum(unbound_request_list_current_user)" },
+        { "refId": "C", "legendFormat": "exceeded/s", "expr": "sum(rate(unbound_request_list_exceeded_total[$__rate_interval]))" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Prefetches & expired served /s",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "prefetches", "expr": "sum(rate(unbound_prefetches_total[$__rate_interval]))" },
+        { "refId": "B", "legendFormat": "expired served", "expr": "sum(rate(unbound_expired_total[$__rate_interval]))" },
+        { "refId": "C", "legendFormat": "recursive replies", "expr": "sum(rate(unbound_recursive_replies_total[$__rate_interval]))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "cps", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
+    }
+  ]
+}

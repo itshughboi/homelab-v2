@@ -43,11 +43,9 @@ scrape_configs:
     - targets: ['10.10.10.10:9130']
 
 
-  - job_name: watchtower
-    scrape_interval: 30s
-    metrics_path: /v1/metrics
-    bearer_token: asdfijeijdf7389df9FJEI21113 #watchtower_api_token 
+  # unbound_exporter sidecar in the adguard stack — reached container-to-container
+  # over the shared promgraftail network (no host port published).
+  - job_name: unbound
     static_configs:
-      - targets:
-        - '10.10.10.10:8765'
+      - targets: ['unbound-exporter:9167']
     

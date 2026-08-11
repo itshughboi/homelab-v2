@@ -81,6 +81,30 @@ services:
       unbound:
         ipv4_address: 192.168.100.10
 
+  # Prometheus exporter for unbound stats (cache hit ratio, QPS, latency, etc.).
+  # Talks to unbound over the unix control socket at var/unbound.ctl (shared via
+  # the same /home/hughboi/data/adguard/unbound/var bind mount). Scraped by
+  # Prometheus in the promgraftail stack (job: unbound).
+  unbound-exporter:
+    container_name: unbound-exporter
+    image: sapcc/unbound_exporter:20250827111359
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - unbound
+    command:
+      - "-unbound.host=unix:///unbound-ctl/unbound.ctl"
+      - "-unbound.ca="
+      - "-unbound.cert="
+      - "-unbound.key="
+    volumes:
+      # Read the control socket unbound creates under var/.
+      - /home/hughboi/data/adguard/unbound/var:/unbound-ctl:ro
+    networks:
+      - unbound
+      - promgraftail
+
 
 networks:
   unbound:
@@ -89,4 +113,8 @@ networks:
       config:
         - subnet: 192.168.100.0/27
   proxy:
+    external: true
+  # Shared with the promgraftail stack so Prometheus can scrape the exporter
+  # container-to-container (no host port needed).
+  promgraftail:
     external: true
