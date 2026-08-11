@@ -50,6 +50,20 @@ endpoint-security: &security
     - type: ntfy
 
 
+endpoint-dns: &dns
+  group: DNS
+  interval: 60s
+  dns:
+    query-name: "cloudflare.com."
+    query-type: "A"
+  conditions:
+    - "[DNS_RCODE] == NOERROR"
+    - "[BODY] != 0.0.0.0"
+  alerts:
+    - type: discord
+    - type: ntfy
+
+
 
 
 endpoints:
@@ -93,6 +107,19 @@ endpoints:
     interval: 30s
     conditions:
       - "[CONNECTED] == true"
+
+### DNS resolution (the actual resolve path clients use, not just the web UI)
+  # Full chain: client -> AdGuard (:53) -> unbound. This is what breaks a whole
+  # network when it fails, so alert loudly on it.
+  - name: AdGuard - dns resolve
+    <<: *dns
+    url: "10.10.10.10"
+
+  # unbound directly on :5335 — isolates whether a DNS failure is AdGuard or the
+  # upstream recursive resolver. (unbound listens on 5335, not 53, by design.)
+  - name: Unbound - dns resolve
+    <<: *dns
+    url: "10.10.10.10:5335"
 
 ### Applications
   - name: Adguard - https

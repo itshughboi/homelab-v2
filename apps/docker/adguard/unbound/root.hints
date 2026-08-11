@@ -1,5 +1,3 @@
-;  MOVE ME TO /home/hughboi/docker/data/adguard/unbound !!!
-;
 ;       This file holds the information on root name servers needed to 
 ;       initialize cache of Internet domain name servers
 ;       (e.g. reference this file in the "cache  .  <file>"
@@ -11,8 +9,8 @@
 ;           on server           FTP.INTERNIC.NET
 ;       -OR-                    RS.INTERNIC.NET
 ;
-;       last update:     August 20, 2025
-;       related version of root zone:     2025082001
+;       last update:     December 17, 2025
+;       related version of root zone:     2025121701
 ; 
 ; FORMERLY NS.INTERNIC.NET 
 ;

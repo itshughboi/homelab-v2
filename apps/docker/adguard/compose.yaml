@@ -19,8 +19,9 @@ services:
       - TZ=America/Denver
       - ADGUARD_DNS_=192.168.100.10#5335   # IP of unbound on the unbound network
     volumes:
-      - /home/hughboi/adguard/adguard-data/work:/opt/adguardhome/work
-      - adguard_conf:/opt/adguardhome/conf
+      # App data lives outside the git repo, under /home/hughboi/data
+      - /home/hughboi/data/adguard/conf:/opt/adguardhome/conf
+      - /home/hughboi/data/adguard/work:/opt/adguardhome/work
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -51,26 +52,35 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "dig", "@127.0.0.1", "-p", "53", "cloudflare.com"]
+      # The mvance/unbound image ships `drill` (ldns), not `dig`, and unbound
+      # listens on port 5335 here (see `interface: 0.0.0.0@5335` in unbound.conf) —
+      # not 53. The old `dig ... -p 53` check could never pass, so the container
+      # sat "unhealthy" forever despite resolving fine. Alerting on DNS failures
+      # is handled externally by Gatus (dns:// checks); this check is just the
+      # local Docker/Portainer health signal.
+      test: ["CMD", "drill", "@127.0.0.1", "-p", "5335", "cloudflare.com"]
       interval: 600s
       timeout: 10s
       retries: 3
+      start_period: 30s
     volumes:
-      - /home/hughboi/adguard/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro
-      - /home/hughboi/adguard/unbound/forward-records.conf:/opt/unbound/etc/unbound/forward-records.conf:ro
-      - /home/hughboi/adguard/unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
-      - /home/hughboi/adguard/unbound:/opt/unbound/etc/unbound/var
+      # Config files are git-tracked and mounted read-only from this repo.
+      - ./unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro
+      - ./unbound/forward-records.conf:/opt/unbound/etc/unbound/forward-records.conf:ro
+      - ./unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
+      # Writable runtime state (auto-trust-anchor var/root.key) lives under /data.
+      - /home/hughboi/data/adguard/unbound/var:/opt/unbound/etc/unbound/var
     ports:
-      - "5335:53/tcp"
-      - "5335:53/udp"
+      # unbound listens on container port 5335 (interface: 0.0.0.0@5335), so the
+      # host mapping must target 5335, not 53. The old "5335:53" mapped to a dead
+      # container port — harmless only because AdGuard reaches unbound over the
+      # docker network (192.168.100.10#5335), never via the host port.
+      - "5335:5335/tcp"
+      - "5335:5335/udp"
     networks:
       unbound:
         ipv4_address: 192.168.100.10
 
-
-volumes:
-  adguard_conf:
-    external: true
 
 networks:
   unbound:

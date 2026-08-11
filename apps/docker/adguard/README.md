@@ -1,16 +1,45 @@
 # AdGuard Home + Unbound
 
-> [!NOTE] Real deployment path drift
-> Production runs this stack from `/home/hughboi/adguard/docker-compose.yaml` on
-> dock-prod, NOT from this repo checkout — this compose.yaml is a reference copy,
-> not what's actually deployed. Real mounts: `adguard_conf` named Docker volume
-> (not a bind mount), `/home/hughboi/adguard/adguard-data/work`, and
-> `/home/hughboi/adguard/unbound/*`. No SOPS migration was done for this service:
-> the only sensitive data is the admin login's bcrypt hash inside AdGuardHome.yaml
-> (in the named volume, not a mounted file), and this Docker instance is planned
-> to be replaced by the k3s AdGuard eventually — not worth the volume-to-bind-mount
-> conversion for something being retired. See docs/6-docker/index.md for current
-> AdGuard status (Docker instance is canonical today; k3s instance not yet live).
+> [!NOTE] Deployment paths
+> This repo checkout is canonical — production runs the stack from
+> `apps/docker/adguard/compose.yaml`. App code (compose + unbound configs) is
+> git-tracked here; runtime data lives outside the repo under
+> `/home/hughboi/data/adguard/`:
+> - `conf/AdGuardHome.yaml` — AdGuard config (bind mount; holds the admin
+>   login's bcrypt hash, so this path is not committed)
+> - `work/` — AdGuard runtime working dir
+> - `unbound/var/root.key` — unbound DNSSEC auto-trust-anchor (writable)
+>
+> Unbound's `unbound.conf`, `forward-records.conf`, and `root.hints` are mounted
+> read-only from `./unbound/` in this repo. This Docker instance is still
+> canonical today; a k3s AdGuard is planned but not yet live — see
+> docs/6-docker/index.md.
+
+> [!IMPORTANT] Unbound listens on port 5335, not 53
+> `unbound.conf` sets `interface: 0.0.0.0@5335`, so unbound listens on **5335**
+> *inside* the container. Two consequences that have bitten this stack:
+> - **Host port mapping is `5335:5335`** (not `5335:53`). The old `5335:53`
+>   mapped the host port to a dead container port — it only ever appeared to
+>   work because AdGuard reaches unbound over the docker network
+>   (`192.168.100.10#5335`), which bypasses the host mapping entirely.
+> - **The healthcheck uses `drill` on port 5335.** The `mvance/unbound` image
+>   ships `drill` (ldns), not `dig`, and querying port 53 hits nothing. The old
+>   `dig ... -p 53` healthcheck could never pass, so the container sat
+>   "unhealthy" indefinitely despite resolving fine.
+
+> [!NOTE] DNS monitoring / alerting lives in Gatus
+> The container healthcheck is only a local Docker/Portainer signal. Actual
+> "notify me when DNS breaks" alerting is in Gatus (`apps/docker/gatus`), which
+> runs scheduled `dns://` resolve checks against both the full AdGuard chain
+> (`10.10.10.10:53`) and unbound directly (`10.10.10.10:5335`) and pushes to
+> ntfy/Discord on failure. See the "DNS" group in gatus/config/config.yaml.
+
+> [!NOTE] Deploy flow (GitOps)
+> Changes are **commit → push to Gitea → deploy via Semaphore** (`sops-deploy`
+> template), which git-pulls on the host and runs the compose with SOPS secrets
+> injected. Editing files directly on the host without committing leaves the
+> host tree dirty and makes the Semaphore `git pull` fail
+> ("Local modifications exist in the destination"). Always commit + push first.
 
 ### Adguard Installation
 1. Remove stub listener on linux host
@@ -30,10 +59,16 @@ DNSStubListener=no
 sudo systemctl restart systemd-resolved
 ```
 
-!! Copy over the following to ${DATA_ROOT}/adguard/unbound (pick between 2 and 3. Not both):
-1. unbound/unbound.conf to ${DATA_ROOT}/adguard/unbound
-2. forward-records.con to ${DATA_ROOT}/adguard/unbound << IF USING DoT instead of Root-hints (what I always do). **REFERENCE ONLY. NOT USED!**
-3. unbound/root.hints to ${DATA_ROOT}/adguard/unbound << **MY GO TO. LOVE THIS OPTION!!!! PICK ME!**
+!! Unbound configs are now git-tracked in `./unbound/` and mounted read-only by
+`compose.yaml` — no manual copying to a data dir is needed anymore. The three
+files, and how they're used:
+1. `unbound/unbound.conf` — always mounted (the main config).
+2. `unbound/forward-records.conf` — only relevant IF USING DoT instead of
+   root-hints. **REFERENCE ONLY. NOT USED in the current setup!**
+3. `unbound/root.hints` — **MY GO TO. Root-server recursion, what's active now.**
+
+(Only the writable runtime dir `var/` — holding the DNSSEC `root.key` — lives
+outside the repo, under `/home/hughboi/data/adguard/unbound/var`.)
 
 
 ## Unbound
@@ -98,7 +133,7 @@ TL;DR
 2. figure out if i should move or set more permissive things on the unbound.log that is getting snatched by promtail
 3. play around with adguard log levels for loki
 4. automate root.hints update with n8n or ansible
-5. how to have these ci/cd oriented and then apply to container so i can push changes, commit, apply, rebuild.
+5. ~~how to have these ci/cd oriented and then apply to container so i can push changes, commit, apply, rebuild.~~ DONE — commit + push to Gitea, then Semaphore `sops-deploy` pulls on the host and redeploys (see the "Deploy flow" note at the top).
 6. lock down key files for bind9 to least access
 7. update my records
 8. Automate root hints file every few months or so

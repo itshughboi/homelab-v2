@@ -20,6 +20,8 @@ Config lives at `/home/hughboi/homelab/apps/docker/gatus/config` (mounted `:ro`)
 
 DNS for the container is set to `10.10.10.8` (Bind9, on Athena) and `10.10.10.10` (dock-prod, this host) so that internal hostnames resolve correctly when checking internal services.
 
+There is a dedicated **DNS** endpoint group that runs `dns://` resolve checks (not just HTTP): it verifies the AdGuard chain (`10.10.10.10:53`) and unbound directly (`10.10.10.10:5335`) actually resolve, asserting `[DNS_RCODE] == NOERROR`. This is the real alerting path for DNS outages — the container-level healthcheck in the adguard stack is only a local Docker signal. Note unbound listens on `5335`, not `53`; see `apps/docker/adguard/README.md`.
+
 ## Volumes
 
 | Host Path | Container Path | Purpose |
