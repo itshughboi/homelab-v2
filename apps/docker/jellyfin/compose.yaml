@@ -5,6 +5,15 @@ services:
     image: jellyfin/jellyfin:10.11.8
     restart: unless-stopped
     user: "1000:1000"
+    # GPU access for hardware transcoding (Intel Arc A380). The container user
+    # must be in the render + video groups to use /dev/dri.
+    group_add:
+      - "993"   # render  (stat -c '%g' /dev/dri/renderD128)
+      - "44"    # video
+    devices:
+      - /dev/dri/card0:/dev/dri/card0
+      - /dev/dri/card1:/dev/dri/card1
+      - /dev/dri/renderD128:/dev/dri/renderD128
     security_opt:
       - no-new-privileges:true
       - apparmor:unconfined
@@ -20,16 +29,14 @@ services:
     environment:
       - TZ=America/Denver
     volumes:
-      - /home/hughboi/data/jellyfinconfig:/config
-      - cache:/cache
-      - /home/hughboi/mnt/truenas/jellyfin/Films:/Films:ro
-      - /home/hughboi/mnt/truenas/jellyfin/TVShows:/TVShows:ro
-      - /home/hughboi/mnt/truenas/jellyfin/Music:/Music:ro
-      - /home/hughboi/mnt/truenas/jellyfin/Concerts:/Concerts:ro
-    # Uncomment and adjust for GPU-accelerated transcoding:
-    # devices:
-    #   - /dev/dri/renderD128:/dev/dri/renderD128
-    #   - /dev/dri/card0:/dev/dri/card0
+      # Runtime data under /home/hughboi/data (matches the live deployment).
+      - /home/hughboi/data/jellyfin/config:/config
+      - /home/hughboi/data/jellyfin/cache:/cache
+      # Media libraries from TrueNAS (read-only).
+      - /mnt/truenas/jellyfin/Films:/Films:ro
+      - /mnt/truenas/jellyfin/TVShows:/TVShows:ro
+      - /mnt/truenas/jellyfin/Music:/Music:ro
+      - /mnt/truenas/jellyfin/Concerts:/Concerts:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.jellyfin.entrypoints=http"
@@ -44,10 +51,6 @@ services:
       - "traefik.docker.network=proxy"
     networks:
       - proxy
-
-
-volumes:
-  cache:
 
 networks:
   proxy:
