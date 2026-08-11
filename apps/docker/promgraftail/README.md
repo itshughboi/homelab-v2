@@ -2,7 +2,7 @@
 
 The central metrics and logging stack for the homelab. All observability runs here.
 
-See [loki/README.md](loki/README.md) for detailed Loki + Promtail setup.
+See [loki/README.md](loki/README.md) for detailed Loki setup (log collection is via Alloy — see the Alloy section below).
 
 ## Services
 
@@ -12,7 +12,7 @@ See [loki/README.md](loki/README.md) for detailed Loki + Promtail setup.
 | `loki` | `grafana/loki` | https://loki.hughboi.cc | Log aggregation and query |
 | `prometheus` | `prom/prometheus` | `:9070` (host port, not via Traefik) | Metrics scraping and alerting |
 | `alertmanager` | `quay.io/prometheus/alertmanager` | `:9093` (host port, not via Traefik) | Alert routing |
-| `promtail` | `grafana/promtail` | — (no UI) | Log shipping to Loki |
+| `alloy` | `grafana/alloy` | `127.0.0.1:12345` UI / `alloy.hughboi.cc` | Log collection → Loki (replaced promtail) |
 | `influxdb` | `influxdb` | https://influxdb.hughboi.cc | Time-series DB for Telegraf/SNMP metrics |
 | `telegraf` | `telegraf` | — (no UI) | SNMP + host metrics collector → InfluxDB |
 
@@ -24,22 +24,25 @@ See [loki/README.md](loki/README.md) for detailed Loki + Promtail setup.
 > regenerate). Images were re-pinned to current stable versions. Config files are now
 > mounted with relative `./` paths from this dir.
 
-> [!NOTE] Alloy is not deployed yet
-> `compose.yaml` has no `alloy` service — `alloy/config.alloy` exists only as prep work.
-> Promtail is EOL, so swapping Promtail → Alloy is the planned Phase 2 (a deliberate
-> separate change: port the scrape jobs, wire Prometheus remote-write, verify each stream).
+> [!NOTE] Promtail → Alloy (done, 2026-08)
+> Log collection runs on **Grafana Alloy** (`alloy` service, config at
+> `alloy/config.alloy`). It replaced the EOL Promtail, which is archived at
+> `apps/docker/sunset/promtail/`. Alloy ships: dock-prod `/var/log/*`, bind9
+> syslog (`:1541→1514`), and the AdGuard query log (JSON). Container logs are
+> **not** scraped by Alloy — they ship via the Docker `loki` logging driver
+> already (scraping them too would double-ship every line).
 
 All services are on the `promgraftail` internal Docker network. Grafana, Loki, and InfluxDB also join the `proxy` network for Traefik routing.
 
 ## Network Layout
 
 ```
-Internet → Traefik → [grafana, loki, influxdb]
+Internet → Traefik → [grafana, loki, influxdb, alloy]
                             ↕
                     promgraftail network
-                  [prometheus, alertmanager, promtail, telegraf]
+                  [prometheus, alertmanager, alloy, telegraf]
                             ↕
-              Other stacks (unifi, promgraftail → shared network)
+              Other stacks (unifi, unbound-exporter → shared network)
 ```
 
 Prometheus and alertmanager are **not** exposed via Traefik. Access them via SSH tunnel if needed.
@@ -52,7 +55,7 @@ Prometheus and alertmanager are **not** exposed via Traefik. Access them via SSH
 | `prometheus/alert-rules.yml` | prometheus | Alert rule definitions |
 | `prometheus/alertmanager.yml` | alertmanager | Alert routing (receivers, routes) |
 | `loki/config.yaml` | loki | Loki storage and retention config |
-| `promtail/config.yaml` | promtail | Log scrape targets and Loki push config |
+| `alloy/config.alloy` | alloy | Log collection: varlogs, bind9 syslog, AdGuard querylog → Loki |
 | `telegraf/telegraf.conf` | telegraf | SNMP and host input configs |
 | `alloy/config.alloy` | — | Not yet deployed (see note above) — file exists in the repo as prep work only, nothing reads it |
 
@@ -96,17 +99,28 @@ alerting:
         - targets: ['alertmanager:9093']
 ```
 
-## Promtail
+## Alloy (log collector)
 
-Scrapes:
-- `/var/log` on dock-prod and the pve-srv-* hosts (syslog, auth.log, etc.)
-- Docker container logs via `docker.sock`
-- `bind9` syslog receiver on port `1514` (published as `1541:1514`)
+Grafana Alloy is this stack's log collector (replaced Promtail, which is now
+sunset — see `apps/docker/sunset/promtail/`). Config: `alloy/config.alloy`.
+UI at `127.0.0.1:12345` (also `alloy.hughboi.cc`).
 
-> The old `unbound_logs` scrape job was **removed** during the migration — its source
-> path (`/home/hughboi/adguard/unbound/unbound.log`) was deleted when AdGuard migrated.
-> Unbound log shipping returns with the AdGuard/unbound observability work (unbound
-> currently logs to a file inside its own container; needs a shared path or stdout first).
+Ships to Loki:
+- **dock-prod `/var/log/*log`** (`loki.source.file "varlogs"`, label `job=dock-prod_varlogs`)
+- **bind9 syslog** received on `:1514` (published `1541:1514`, TCP+UDP)
+- **AdGuard query log** JSON (`loki.process "adguard"`) — client/blocked/qtype labels,
+  raw JSON kept as the log body for `| json` in Grafana
+
+Deliberately **not** collected by Alloy:
+- **Container logs** — already shipped by the Docker `loki` logging driver on each
+  container (`container_name`/`compose_service` labels). Scraping them in Alloy too
+  would double-ship every line.
+- **unbound logs** — unbound logs to a file inside its own container; re-adding this
+  needs a shared path or stdout first (future work). unbound *metrics* are covered
+  separately by `unbound-exporter` (see the adguard stack + `unbound` Prometheus job).
+
+Optional host/docker **metrics** sections are present but commented out in
+`config.alloy` — enabling them is a separate decision from the log collection.
 
 ## Telegraf
 
@@ -122,16 +136,12 @@ Runs as `telegraf:988` (the telegraf group on the host, needed for docker.sock a
 
 Initial setup is done through the web UI — creates the org, bucket, and admin token on first run. Store the admin token in `.env` after generation.
 
-## Alloy (not yet deployed)
-
-Grafana Alloy is the planned next-gen OTel collector to replace Promtail — it can ingest logs, metrics, and traces. A config file exists at `alloy/config.alloy` as prep work, but there is no `alloy` service in `compose.yaml` yet, so none of this is live: no container, no `https://alloy.hughboi.cc` route, nothing listening on port 3100 or `12345`. Stand this up as part of the same dedicated future session as this stack's other real path/drift issues (see Troubleshooting below).
-
 ## Upgrade Notes
 
 - Grafana: back up `/home/hughboi/data/grafana` before upgrading — contains dashboards, data source configs, users.
 - Loki: back up `/home/hughboi/data/loki/data` — contains the log chunks and index.
 - InfluxDB: back up `/home/hughboi/data/influxdb`.
-- Prometheus, Alertmanager, Promtail, Telegraf: stateless config — no data to back up separately.
+- Prometheus, Alertmanager, Alloy, Telegraf: stateless config — no data to back up separately (Alloy keeps only file-tail positions in the `alloy_data` volume).
 
 ## Troubleshooting
 
@@ -146,8 +156,9 @@ version bumps required config fixes at the time: promtail's `bind9` syslog `labe
 **Still open (tracked as Gitea issues / future phases):**
 1. **Port hardening** — published ports are currently exposed as they were live (e.g. `3100`,
    `8086`, `9070`, `9093`); binding them to `127.0.0.1` is deferred. See the Gitea issue.
-2. **Promtail → Alloy** — Promtail is EOL; Phase 2 swaps it for Grafana Alloy (port scrape jobs,
-   enable Prometheus remote-write — already turned on via `--web.enable-remote-write-receiver`).
+2. ~~**Promtail → Alloy**~~ — DONE (2026-08). Alloy is the log collector; Promtail archived in
+   `apps/docker/sunset/promtail/`. Prometheus has `--web.enable-remote-write-receiver` enabled so
+   Alloy *could* also push host/docker metrics (sections are commented out in `config.alloy`).
 3. **Not yet SOPS-migrated** — no `.env.sops` for this stack yet.
 4. **Long-term uptime history** — a Blackbox exporter scraped by Prometheus would restore the
    historical uptime%/incident-timeline view that Uptime Kuma provided (Gatus only covers current
@@ -158,7 +169,10 @@ version bumps required config fixes at the time: promtail's `bind9` syslog `labe
 - Test from Grafana container: `docker exec grafana wget -qO- http://prometheus:9090/-/ready`
 
 **Logs not appearing in Loki:**
-- Check Promtail is running and can reach Loki: `docker logs promtail`
+- Check Alloy is running and its components are healthy: `docker logs alloy`, or the UI at
+  `http://localhost:12345` (component graph shows per-source health).
+- Container logs come from the Docker `loki` driver, not Alloy — if a container's logs are
+  missing, check its `logging:` block, not Alloy.
 - Check the Loki push endpoint: `curl http://localhost:3100/ready` (from host via port binding)
 
 **Prometheus targets showing as down:**

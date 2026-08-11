@@ -133,7 +133,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          # Bumped 512m -> 1500m: Loki 3.7.6 (up from 3.4.2 in the migration) uses
+          # more memory, and the whole fleet's loki-driver ingest pushed it into a
+          # restart loop (hit 512m -> graceful exit -> restart, ~every minute).
+          memory: 1500m
         reservations:
           memory: 128m
     networks:
@@ -190,30 +193,51 @@ services:
       - promgraftail
       - proxy
 
-  promtail:
-    container_name: promtail
-    image: grafana/promtail:3.6.11          # latest promtail (EOL line); Phase 2 swaps to Alloy
+  # Promtail was sunset (2026-08) in favor of Grafana Alloy (below). Its old
+  # service definition + config are archived at apps/docker/sunset/promtail/.
+
+  # Grafana Alloy — this stack's log collector, replacing the (EOL) Promtail.
+  # Ships: dock-prod /var/log/*, bind9 syslog (:1514), AdGuard query log (JSON).
+  # Docker container logs are NOT scraped here — they ship via the loki logging
+  # driver already (see config.alloy for the reasoning).
+  alloy:
+    container_name: alloy
+    image: grafana/alloy:v1.18.1
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
       - apparmor:unconfined
-    command: -config.file=/etc/promtail/promtail-config.yml
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
     volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
       - /var/log:/var/log:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./promtail/config.yaml:/etc/promtail/promtail-config.yml:ro
-      # AdGuard querylog (client IP -> domain, blocked/allowed) for the adguard-queries
-      # scrape job. Mounted ro; the file is root:0600 and promtail runs as root.
+      # Docker socket/containers dir intentionally NOT mounted: container logs
+      # ship via the loki logging driver, not Alloy (see config.alloy).
       - /home/hughboi/data/adguard/work/data:/adguard-querylog:ro
-      # NOTE: old unbound.log mount (/home/hughboi/adguard/unbound/unbound.log) was
-      # removed here and in promtail config — that path was deleted in the adguard
-      # migration. Unbound log shipping returns with the observability work.
     ports:
-      - "1541:1514"   # bind9 syslog receiver (live used 1541:1514)
+      - "127.0.0.1:12345:12345"   # Alloy UI (localhost only)
+      - "1541:1514/tcp"           # bind9 syslog receiver (was promtail's port)
+      - "1541:1514/udp"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alloy.entrypoints=http"
+      - "traefik.http.routers.alloy.rule=Host(`alloy.hughboi.cc`)"
+      - "traefik.http.middlewares.alloy-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.alloy.middlewares=alloy-https-redirect"
+      - "traefik.http.routers.alloy-secure.entrypoints=https"
+      - "traefik.http.routers.alloy-secure.rule=Host(`alloy.hughboi.cc`)"
+      - "traefik.http.routers.alloy-secure.tls=true"
+      - "traefik.http.routers.alloy-secure.service=alloy"
+      - "traefik.http.services.alloy.loadbalancer.server.port=12345"
+      - "traefik.docker.network=proxy"
     networks:
       - promgraftail
-      - promtail
+      - proxy
 
   telegraf:
     container_name: telegraf
@@ -248,10 +272,11 @@ services:
       - promgraftail
 
 
+volumes:
+  alloy_data:
+
 networks:
   promgraftail:
     name: promgraftail
   proxy:
-    external: true
-  promtail:
     external: true

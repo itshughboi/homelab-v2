@@ -1,0 +1,45 @@
+---
+# SUNSET — Promtail (archived 2026-08)
+#
+# Promtail was this homelab's log collector until it was replaced by Grafana
+# Alloy in the promgraftail stack. Promtail is EOL upstream (Grafana recommends
+# Alloy). This file is the standalone service definition as it last ran, kept
+# for reference — it is NOT deployed. The live collector is `alloy` in
+# apps/docker/promgraftail/compose.yaml.
+#
+# What Promtail did here (see config.yaml in this folder):
+#   - tailed dock-prod /var/log/*log
+#   - received bind9 syslog on :1514 (published 1541:1514)
+#   - shipped the AdGuard query log (JSON) to Loki
+#   - (also had a docker-log scrape, which was redundant — every container
+#     ships stdout via the loki logging driver already)
+#
+# To resurrect temporarily, you'd also need to stop Alloy's bind9 listener so
+# they don't both bind host port 1541.
+
+services:
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:3.6.11
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:unconfined
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config.yaml:/etc/promtail/promtail-config.yml:ro
+      - /home/hughboi/data/adguard/work/data:/adguard-querylog:ro
+    ports:
+      - "1541:1514"   # bind9 syslog receiver
+    networks:
+      - promgraftail
+      - promtail
+
+networks:
+  promgraftail:
+    external: true
+  promtail:
+    external: true

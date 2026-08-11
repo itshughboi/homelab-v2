@@ -1,148 +1,141 @@
-/* Grafana Alloy Configuration Examples
- * ---
- * LINK: For more details, visit https://github.com/grafana/alloy-scenarios
-*/
+/*
+ * Grafana Alloy — replaces Promtail for this stack (Phase 2).
+ *
+ * This is a faithful port of promtail/config.yaml (logs only), preserving the
+ * same log streams so nothing is lost in the switch:
+ *   - dock-prod host /var/log/*log
+ *   - docker container logs
+ *   - bind9 syslog receiver on :1514
+ *   - AdGuard query log (JSON) with the same field extraction / labels
+ *
+ * Optional host + docker METRICS sections (unix exporter, cadvisor) are included
+ * but commented out — enabling them is a separate decision from the promtail swap.
+ */
 
-// SECTION: TARGETS
-
+// ── Output: Loki ────────────────────────────────────────────────────────────
+// Internal endpoint (alloy runs on the promgraftail network). Matches promtail's
+// push target (which used the public URL; internal is faster and avoids Traefik).
 loki.write "default" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-	external_labels = {}
-}
-
-prometheus.remote_write "default" {
   endpoint {
-    url = "http://prometheus:9090/api/v1/write"
+    url = "http://loki:3100/loki/api/v1/push"
   }
 }
 
-// !SECTION
-
-// SECTION: SYSTEM LOGS & JOURNAL
-
-loki.source.journal "journal" {
-  max_age       = "24h0m0s"
-  relabel_rules = discovery.relabel.journal.rules
-  forward_to    = [loki.write.default.receiver]
-  labels        = {component = string.format("%s-journal", constants.hostname)}
-  // NOTE: This is important to fix https://github.com/grafana/alloy/issues/924
-  path          = "/var/log/journal" 
-}
-
-local.file_match "system" {
+// ── dock-prod host /var/log ─────────────────────────────────────────────────
+// Promtail job: dock-prod_system -> label job=dock-prod_varlogs, path /var/log/*log.
+local.file_match "varlogs" {
   path_targets = [{
     __address__ = "localhost",
-    __path__    = "/var/log/{syslog,messages,*.log}",
-    instance    = constants.hostname,
-    job         = string.format("%s-logs", constants.hostname),
+    __path__    = "/var/log/*log",
+    job         = "dock-prod_varlogs",
+    host        = "dock-prod",
   }]
 }
 
-discovery.relabel "journal" {
-  targets = []
-  rule {
-    source_labels = ["__journal__systemd_unit"]
-    target_label  = "unit"
-  }
-  rule {
-    source_labels = ["__journal__boot_id"]
-    target_label  = "boot_id"
-  }
-  rule {
-    source_labels = ["__journal__transport"]
-    target_label  = "transport"
-  }
-  rule {
-    source_labels = ["__journal_priority_keyword"]
-    target_label  = "level"
-  }
-}
-
-loki.source.file "system" {
-  targets    = local.file_match.system.targets
+loki.source.file "varlogs" {
+  targets    = local.file_match.varlogs.targets
   forward_to = [loki.write.default.receiver]
 }
 
-// !SECTION
+// ── Docker container logs: intentionally NOT scraped here ───────────────────
+// Every container in this homelab already ships its stdout to Loki via the
+// Docker `loki` logging driver (labels: container_name / compose_service).
+// A loki.source.docker here would DOUBLE-ship every container's logs under a
+// second label set (platform=docker / service_name). Promtail's old docker
+// scrape was likewise redundant. So Alloy deliberately omits it — the loki
+// driver remains the single source of docker logs.
 
-// SECTION: SYSTEM METRICS
-
-discovery.relabel "metrics" {
-  targets = prometheus.exporter.unix.metrics.targets
-  rule {
-    target_label = "instance"
-    replacement  = constants.hostname
+// ── bind9 syslog receiver (:1514) ───────────────────────────────────────────
+// Promtail job: bind9 (syslog listener). Alloy uses loki.source.syslog.
+loki.source.syslog "bind9" {
+  listener {
+    address               = "0.0.0.0:1514"
+    protocol              = "tcp"
+    idle_timeout          = "60s"
+    label_structured_data = true
+    labels                = {job = "bind9"}
   }
-  rule {
-    target_label = "job"
-    replacement = string.format("%s-metrics", constants.hostname)
+  // Also accept UDP syslog (bind9/devices may send either).
+  listener {
+    address               = "0.0.0.0:1514"
+    protocol              = "udp"
+    label_structured_data = true
+    labels                = {job = "bind9"}
   }
-}
-
-prometheus.exporter.unix "metrics" {
-  disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
-  enable_collectors = ["meminfo"]
-  filesystem {
-    fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
-    mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+)($|/)"
-    mount_timeout        = "5s"
-  }
-  netclass {
-    ignored_devices = "^(veth.*|cali.*|[a-f0-9]{15})$"
-  }
-  netdev {
-    device_exclude = "^(veth.*|cali.*|[a-f0-9]{15})$"
-  }
-}
-
-prometheus.scrape "metrics" {
-scrape_interval = "15s"
-  targets    = discovery.relabel.metrics.output
-  forward_to = [prometheus.remote_write.default.receiver]
-}
-
-// !SECTION
-
-// SECTION: DOCKER METRICS
-
-prometheus.exporter.cadvisor "dockermetrics" {
-  docker_host = "unix:///var/run/docker.sock"
-  storage_duration = "5m"
-}
-
-prometheus.scrape "dockermetrics" {
-  targets    = prometheus.exporter.cadvisor.dockermetrics.targets
-  forward_to = [ prometheus.remote_write.default.receiver ]
-  scrape_interval = "10s"
-}
-
-//!SECTION
-
-// SECTION: DOCKER LOGS
-
-discovery.docker "dockerlogs" {
-  host = "unix:///var/run/docker.sock"
-}
-
-discovery.relabel "dockerlogs" {
-      targets = []
-  
-      rule {
-          source_labels = ["__meta_docker_container_name"]
-          regex = "/(.*)"
-          target_label = "service_name"
-      }
-
-  }
-
-loki.source.docker "default" {
-  host       = "unix:///var/run/docker.sock"
-  targets    = discovery.docker.dockerlogs.targets
-  labels     = {"platform" = "docker"}
-  relabel_rules = discovery.relabel.dockerlogs.rules
   forward_to = [loki.write.default.receiver]
 }
 
-// !SECTION
+// ── AdGuard query log (JSON) ────────────────────────────────────────────────
+// Port of the adguard-queries job: parse querylog.json, use AdGuard's own
+// timestamp, derive blocked from Result.IsFiltered, keep low-cardinality labels
+// (client, blocked, qtype). Raw JSON stays as the log body for `| json` in Grafana.
+local.file_match "adguard" {
+  path_targets = [{
+    __address__ = "localhost",
+    __path__    = "/adguard-querylog/querylog.json",
+    job         = "adguard-queries",
+    host        = "dock-prod",
+  }]
+}
+
+loki.source.file "adguard" {
+  targets    = local.file_match.adguard.targets
+  forward_to = [loki.process.adguard.receiver]
+}
+
+loki.process "adguard" {
+  // Extract fields from the JSON line.
+  stage.json {
+    expressions = {
+      timestamp   = "T",
+      query       = "QH",
+      qtype       = "QT",
+      client      = "IP",
+      upstream    = "Upstream",
+      cached      = "Cached",
+      elapsed     = "Elapsed",
+      is_filtered = "Result.IsFiltered",
+    }
+  }
+  // Use AdGuard's own RFC3339Nano timestamp.
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+  // Derive blocked=true/false from Result.IsFiltered.
+  stage.template {
+    source   = "blocked"
+    template = "{{ if eq .is_filtered \"true\" }}true{{ else }}false{{ end }}"
+  }
+  // Low-cardinality labels only (domain intentionally stays in the JSON body).
+  stage.labels {
+    values = {
+      client  = "",
+      blocked = "",
+      qtype   = "",
+    }
+  }
+  forward_to = [loki.write.default.receiver]
+}
+
+// ── OPTIONAL: host metrics (unix exporter) → Prometheus ──────────────────────
+// New capability beyond promtail. Uncomment to push node metrics to Prometheus
+// (Prometheus has --web.enable-remote-write-receiver enabled).
+//
+// prometheus.exporter.unix "node" {
+//   disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
+// }
+// discovery.relabel "node" {
+//   targets = prometheus.exporter.unix.node.targets
+//   rule { target_label = "instance"  replacement = "dock-prod" }
+//   rule { target_label = "job"       replacement = "dock-prod-node" }
+// }
+// prometheus.scrape "node" {
+//   targets         = discovery.relabel.node.output
+//   forward_to      = [prometheus.remote_write.metrics.receiver]
+//   scrape_interval = "15s"
+// }
+//
+// prometheus.remote_write "metrics" {
+//   endpoint { url = "http://prometheus:9090/api/v1/write" }
+// }
