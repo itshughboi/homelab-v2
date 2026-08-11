@@ -14,6 +14,10 @@ route:
       match_re:
         severity: .*
       continue: true
+    - receiver: ntfy
+      match_re:
+        severity: .*
+      continue: true
 
 receivers:
   - name: discord
@@ -39,3 +43,11 @@ receivers:
            Status: {{ .Status }}<br/>
            Summary: {{ .CommonAnnotations.summary }}<br/>
            Description: {{ .CommonAnnotations.description }}
+
+  # ntfy — direct receiver (topic: alertmanager). ntfy natively parses the
+  # Alertmanager webhook payload into clean per-alert notifications. Anonymous
+  # publish is allowed on this ntfy, so no secret/URL to hide here.
+  - name: ntfy
+    webhook_configs:
+      - url: "https://ntfy.hughboi.cc/alertmanager"
+        send_resolved: true
