@@ -28,13 +28,18 @@ scrape_configs:
       - targets: ['10.10.10.10:6060']
 
 
+  # Immich "eros" instance — telemetry enabled (IMMICH_TELEMETRY_INCLUDE=all),
+  # API metrics on host :8091 -> container :8081. Immich emits >2000 series, so
+  # raise sample_limit above the global 2000 or the whole scrape is rejected
+  # ("sample limit exceeded" — the real reason this was previously "down", not
+  # unreachability).
   - job_name: immich_api
+    scrape_interval: 30s
+    sample_limit: 15000
     static_configs:
       - targets: ['10.10.10.10:8091']
-
-  # - job_name: immich_microservices
-  #   static_configs:
-  #     - targets: ['10.10.10.10:8082']
+        labels:
+          instance: eros
 
 
   - job_name: 'unifipoller'
@@ -59,4 +64,11 @@ scrape_configs:
       - targets: ['10.10.10.10:9100']
         labels:
           instance: dock-prod
+
+  # Intel Arc A380 GPU — home-built exporter (apps/docker/intel-gpu-exporter),
+  # reached container-to-container over the shared promgraftail network.
+  - job_name: intel_gpu
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['intel-gpu-exporter:8080']
     

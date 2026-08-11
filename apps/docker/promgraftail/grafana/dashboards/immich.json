@@ -1,0 +1,99 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "Immich — eros",
+  "uid": "immich-eros",
+  "tags": ["immich", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM", "label": "Prometheus", "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "prometheus", "value": "be3h9i5t3zoxsd" }, "hide": 0
+      },
+      {
+        "name": "op", "label": "Operation", "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+        "query": "metrics(immich_.+_duration_count)",
+        "regex": "/(immich_.+)_duration_count/",
+        "refresh": 2, "includeAll": false, "multi": false,
+        "current": { "text": "immich_asset_repository_get_by_id", "value": "immich_asset_repository_get_by_id" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 20, "type": "text", "title": "",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "**Immich (eros)** with `IMMICH_TELEMETRY_INCLUDE=all`. Immich exposes OpenTelemetry per-operation duration histograms + process resource metrics — this is a **performance/health** view (throughput, latency, resources), not asset-count gauges. **GPU-side ML inference load is on the Intel Arc dashboard** (Compute/Render engines). Pick an operation in the `op` variable to drill into its rate/latency. The non-telemetry regular `immich_server` is not scraped." }
+    },
+    {
+      "id": 1, "type": "stat", "title": "Up",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "up{job=\"immich_api\"}" } ],
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ], "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Process CPU",
+      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "process_cpu_utilization{job=\"immich_api\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.7 }, { "color": "red", "value": 0.9 } ] } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Process memory",
+      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "process_memory_usage{job=\"immich_api\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "blue" } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Process CPU time /s",
+      "gridPos": { "h": 4, "w": 5, "x": 14, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "rate(process_cpu_time_total{job=\"immich_api\"}[5m])" } ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 3, "color": { "mode": "fixed", "fixedColor": "purple" } } }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Selected op rate /s",
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "rate(${op}_duration_count{job=\"immich_api\"}[5m])" } ],
+      "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "orange" } } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Process CPU utilization",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "cpu", "expr": "process_cpu_utilization{job=\"immich_api\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "drawStyle": "line", "fillOpacity": 20 }, "color": { "mode": "fixed", "fixedColor": "orange" } } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Process memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "mem", "expr": "process_memory_usage{job=\"immich_api\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 20, "gradientMode": "opacity" }, "color": { "mode": "fixed", "fixedColor": "blue" } } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Selected operation — call rate /s ($op)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "$op", "expr": "rate(${op}_duration_count{job=\"immich_api\"}[$__rate_interval])" } ],
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15 } } }
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Selected operation — avg latency ($op)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "avg", "expr": "rate(${op}_duration_sum{job=\"immich_api\"}[$__rate_interval]) / rate(${op}_duration_count{job=\"immich_api\"}[$__rate_interval])" } ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 4, "custom": { "drawStyle": "line", "fillOpacity": 15 }, "color": { "mode": "fixed", "fixedColor": "red" } } }
+    }
+  ]
+}
