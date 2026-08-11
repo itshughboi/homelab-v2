@@ -1,0 +1,111 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "Jellyfin — Playback",
+  "uid": "jellyfin-playback",
+  "tags": ["jellyfin", "media", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM", "label": "Prometheus", "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "prometheus", "value": "be3h9i5t3zoxsd" }, "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 10, "type": "text", "title": "",
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "**Jellyfin** playback via the home-built jellyfin-exporter. GPU transcode load (the hardware side) is on the **Intel Arc** dashboard (Video/VideoEnhance engines). If everything reads 0/DOWN, the exporter needs its `JELLYFIN_API_KEY` set (SOPS) and the container running." }
+    },
+    {
+      "id": 1, "type": "stat", "title": "Exporter up",
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 2 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "jellyfin_up" } ],
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ], "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Active streams",
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 2 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "jellyfin_active_streams" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 6 } ] } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Transcoding now",
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 2 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "jellyfin_streams_by_method{method=\"transcode\"}" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 3 } ] } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Transcode bitrate",
+      "gridPos": { "h": 4, "w": 4, "x": 15, "y": 2 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "jellyfin_transcode_bitrate_bps" } ],
+      "fieldConfig": { "defaults": { "unit": "bps", "color": { "mode": "fixed", "fixedColor": "purple" } } }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Sessions connected",
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 2 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "jellyfin_sessions_total" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Streams — transcode vs direct play",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "{{method}}", "expr": "jellyfin_streams_by_method" } ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 70, "stacking": { "mode": "normal" } } }, "overrides": [
+        { "matcher": { "id": "byName", "options": "transcode" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+        { "matcher": { "id": "byName", "options": "directplay" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+      ] }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Active streams over time",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "active", "expr": "jellyfin_active_streams" },
+        { "refId": "B", "legendFormat": "sessions", "expr": "jellyfin_sessions_total" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 } } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Transcode bitrate over time",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "transcode bitrate", "expr": "jellyfin_transcode_bitrate_bps" } ],
+      "fieldConfig": { "defaults": { "unit": "bps", "custom": { "drawStyle": "line", "fillOpacity": 25, "gradientMode": "opacity" }, "color": { "mode": "fixed", "fixedColor": "purple" } } }
+    },
+    {
+      "id": 9, "type": "bargauge", "title": "Active streams by user",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "legendFormat": "{{user}}", "expr": "jellyfin_active_streams_by_user" } ],
+      "options": { "orientation": "horizontal", "displayMode": "gradient" }
+    },
+    {
+      "id": 11, "type": "bargauge", "title": "Active streams by client",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "legendFormat": "{{client}}", "expr": "jellyfin_active_streams_by_client" } ],
+      "options": { "orientation": "horizontal", "displayMode": "gradient" }
+    },
+    {
+      "id": 12, "type": "table", "title": "Library item counts",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "format": "table", "expr": "jellyfin_library_items" } ],
+      "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true, "job": true, "instance": true, "__name__": true }, "renameByName": { "Value": "count", "type": "item type" } } } ]
+    }
+  ]
+}

@@ -71,4 +71,12 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets: ['intel-gpu-exporter:8080']
+
+  # Jellyfin playback/transcode stats — home-built exporter
+  # (apps/docker/jellyfin-exporter). Needs its JELLYFIN_API_KEY set (SOPS) and the
+  # container running; until then this target will be down.
+  - job_name: jellyfin
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['jellyfin-exporter:8080']
     

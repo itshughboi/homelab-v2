@@ -1,0 +1,32 @@
+---
+# Jellyfin Prometheus exporter — home-built (see Dockerfile/exporter.py).
+# Polls the Jellyfin API for playback/transcode/library stats, exposes :8080 for
+# the `jellyfin` Prometheus job in the promgraftail stack.
+#
+# Secret: JELLYFIN_API_KEY comes from .env.sops (deploy via ./scripts/sops-run.sh).
+# Reaches Jellyfin over the `proxy` network (jellyfin:8096); scraped by Prometheus
+# over `promgraftail`.
+
+services:
+  jellyfin-exporter:
+    container_name: jellyfin-exporter
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: homelab/jellyfin-exporter:local
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - JELLYFIN_URL=http://jellyfin:8096
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - POLL_SECONDS=15
+    networks:
+      - proxy          # to reach the jellyfin container
+      - promgraftail   # so Prometheus can scrape it
+
+networks:
+  proxy:
+    external: true
+  promgraftail:
+    external: true
