@@ -37,12 +37,15 @@ services:
         mode: "non-blocking"
     environment:
       - GF_ANALYTICS_REPORTING_ENABLED=false
+      # For ${INFLUX_TOKEN} substitution in provisioning/datasources/influxdb.yaml.
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
     volumes:
       - /home/hughboi/data/grafana:/var/lib/grafana
       # Git-tracked dashboard provisioning (file-based). Dashboards live in the
       # repo and are loaded read-only; edits made in the UI to these are not saved
       # back — change the JSON in the repo instead.
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards-provisioned:ro
     labels:
       - "traefik.enable=true"
@@ -83,8 +86,21 @@ services:
         loki-timeout: 1s
         keep-file: "true"
         mode: "non-blocking"
+    environment:
+      # First-run auto-setup (only acts when the data dir is empty). Creates the
+      # org/bucket/admin token telegraf + Grafana authenticate with. Values from
+      # .env.sops. Deploy with ./scripts/sops-run.sh promgraftail up -d.
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
     volumes:
-      - /home/hughboi/data/influxdb:/var/lib/influxdb
+      # FIX (#61): 2.x stores data at /var/lib/influxdb2, not /var/lib/influxdb.
+      # The old wrong path meant 2.x ran on a throwaway anonymous volume (fresh,
+      # un-set-up) -> telegraf 401. Bind the correct 2.x path under /data.
+      - /home/hughboi/data/influxdb2:/var/lib/influxdb2
     ports:                                  # LIVE exposure (not localhost-bound yet)
       - 8086:8086
       - 8089:8089/udp
@@ -268,6 +284,8 @@ services:
       - HOST_VAR=/hostfs/var
       - HOST_RUN=/hostfs/run
       - HOST_MOUNT_PREFIX=/hostfs
+      # telegraf.conf uses token = "${INFLUX_TOKEN}" for influxdb_v2 output.
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
     networks:
       - promgraftail
 
