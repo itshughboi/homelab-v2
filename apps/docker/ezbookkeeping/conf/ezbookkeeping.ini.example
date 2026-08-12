@@ -52,7 +52,7 @@ type = mysql
 host = 127.0.0.1:3306
 name = ezbookkeeping
 user = ezbookkeeping
-passwd = CHANGEME
+passwd = REPLACE_ME
 
 # For "postgres" database only, Either "disable", "require" or "verify-full"
 ssl_mode = disable
@@ -125,7 +125,7 @@ local_filesystem_path = storage/
 minio_endpoint = 127.0.0.1:9000
 minio_location =
 minio_access_key_id =
-minio_secret_access_key =
+minio_secret_access_key = REPLACE_ME
 
 # For "minio" storage only, whether enable ssl for minio connection
 minio_use_ssl = false
@@ -146,7 +146,7 @@ webdav_url =
 webdav_username =
 
 # For "webdav" storage only, the webdav password
-webdav_password =
+webdav_password = REPLACE_ME
 
 # For "webdav" storage only, the webdav root path to store files
 webdav_root_path = /
@@ -173,7 +173,7 @@ max_ai_recognition_picture_size = 10485760
 llm_provider =
 
 # For "openai" llm provider only, OpenAI API secret key, please visit https://platform.openai.com/api-keys for more information
-openai_api_key =
+openai_api_key = REPLACE_ME
 
 # For "openai" llm provider only, receipt image recognition model for creating transactions from images
 openai_model_id =
@@ -182,19 +182,19 @@ openai_model_id =
 openai_compatible_base_url =
 
 # For "openai_compatible" llm provider only, OpenAI compatible API secret key
-openai_compatible_api_key =
+openai_compatible_api_key = REPLACE_ME
 
 # For "openai_compatible" llm provider only, receipt image recognition model for creating transactions from images
 openai_compatible_model_id =
 
 # For "anthropic" llm provider only, Anthropic API key, please visit https://platform.claude.com/settings/keys for more information
-anthropic_api_key =
+anthropic_api_key = REPLACE_ME
 
 # For "anthropic" llm provider only, receipt image recognition model for creating transactions from images
 anthropic_model_id =
 
 # For "anthropic" llm provider only, maximum allowed number of generated tokens for creating transactions from images, default is 1024
-anthropic_max_tokens = 1024
+anthropic_max_tokens  = REPLACE_ME
 
 # For "anthropic_compatible" llm provider only, Anthropic compatible API base url, e.g. "https://api.anthropic.com/v1/"
 anthropic_compatible_base_url =
@@ -203,16 +203,16 @@ anthropic_compatible_base_url =
 anthropic_compatible_api_version =
 
 # For "anthropic_compatible" llm provider only, Anthropic compatible API secret key
-anthropic_compatible_api_key =
+anthropic_compatible_api_key = REPLACE_ME
 
 # For "anthropic_compatible" llm provider only, receipt image recognition model for creating transactions from images
 anthropic_compatible_model_id =
 
 # For "anthropic_compatible" llm provider only, maximum allowed number of generated tokens for creating transactions from images, default is 1024
-anthropic_compatible_max_tokens = 1024
+anthropic_compatible_max_tokens  = REPLACE_ME
 
 # For "openrouter" llm provider only, OpenRouter API key, please visit https://openrouter.ai/settings/keys for more information
-openrouter_api_key =
+openrouter_api_key = REPLACE_ME
 
 # For "openrouter" llm provider only, receipt image recognition model for creating transactions from images
 openrouter_model_id =
@@ -227,13 +227,13 @@ ollama_model_id =
 lm_studio_server_url =
 
 # For "lm_studio" llm provider only, LM Studio API token, if "require authentication" is not enabled in LM Studio, leave it blank
-lm_studio_token =
+lm_studio_token  = REPLACE_ME
 
 # For "lm_studio" llm provider only, receipt image recognition model for creating transactions from images
 lm_studio_model_id =
 
 # For "google_ai" llm provider only, Google AI Studio API key, please visit https://aistudio.google.com/apikey for more information
-google_ai_api_key =
+google_ai_api_key = REPLACE_ME
 
 # For "google_ai" llm provider only, receipt image recognition model for creating transactions from images
 google_ai_model_id =
@@ -268,36 +268,36 @@ duplicate_submissions_interval = 300
 
 [cron]
 # Set to true to clean up expired tokens periodically
-enable_remove_expired_tokens = true
+enable_remove_expired_tokens  = REPLACE_ME
 
 # Set to true to create scheduled transactions based on the user's templates
 enable_create_scheduled_transaction = true
 
 [security]
 # Used for signing, you must change it to keep your user data safe before you first run ezBookkeeping
-secret_key = e9c19dc50f2153ff0efb983fc48466c00697d7a3079d93b4f9a890b469f47dde
+secret_key = REPLACE_ME
 
 # Token expired seconds (60 - 4294967295), default is 2592000 (30 days)
-token_expired_time = 2592000
+token_expired_time  = REPLACE_ME
 
 # Token minimum refresh interval (0 - 4294967295), the value should be less than token expired time
 # Set to 0 to refresh the token every time when refreshing the front end, default is 86400 (1 day)
-token_min_refresh_interval = 86400
+token_min_refresh_interval  = REPLACE_ME
 
 # Temporary token expired seconds (60 - 4294967295), default is 300 (5 minutes)
-temporary_token_expired_time = 300
+temporary_token_expired_time  = REPLACE_ME
 
 # Email verify token expired seconds (60 - 4294967295), default is 3600 (60 minutes)
-email_verify_token_expired_time = 3600
+email_verify_token_expired_time  = REPLACE_ME
 
 # Password reset token expired seconds (60 - 4294967295), default is 3600 (60 minutes)
-password_reset_token_expired_time = 3600
+password_reset_token_expired_time  = REPLACE_ME
 
 # Set to true to enable API token generation
-enable_api_token = false
+enable_api_token  = REPLACE_ME
 
 # Allowed remote IPs for using the API token, a comma-separated list of allowed remote IPs (asterisk * for any addresses, e.g. 192.168.1.* means any IPs in the 192.168.1.x subnet), leave blank to allow all remote IPs
-api_token_allowed_remote_ips =
+api_token_allowed_remote_ips  = REPLACE_ME
 
 # Maximum count of password / token check failures (0 - 4294967295) per IP per minute (use the above duplicate checker), default is 5, set to 0 to disable
 max_failures_per_ip_per_minute = 5
@@ -316,7 +316,7 @@ enable_oauth2_auth = false
 enable_two_factor = true
 
 # For "internal" authentication only, set to true to allow users to reset password
-enable_forget_password = true
+enable_forget_password = REPLACE_ME
 
 # For "internal" authentication only, set to true to require email must be verified when use forget password
 forget_password_require_email_verify = false
@@ -485,13 +485,13 @@ map_data_fetch_proxy = false
 proxy = system
 
 # For "tomtom" map provider only, TomTom map API key, please visit https://developer.tomtom.com/how-to-get-tomtom-api-key for more information
-tomtom_map_api_key =
+tomtom_map_api_key = REPLACE_ME
 
 # For "tianditu" map provider only, TianDiTu map application key, please visit https://console.tianditu.gov.cn/api/register for more information
 tianditu_map_app_key =
 
 # For "googlemap" map provider only, Google map JavaScript API key, please visit https://developers.google.com/maps/get-started for more information
-google_map_api_key =
+google_map_api_key = REPLACE_ME
 
 # For "baidumap" map provider only, Baidu map JavaScript API application key, please visit https://lbsyun.baidu.com/index.php?title=jspopular3.0/guide/getkey for more information
 baidu_map_ak =

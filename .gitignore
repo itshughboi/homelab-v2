@@ -117,3 +117,8 @@ apps/docker/promgraftail/prometheus/alertmanager.yml
 # Traefik Cloudflare DNS token — decrypted at deploy from cf_api_token.txt.sops.
 # The plaintext must never be committed; only the .sops version is tracked.
 apps/docker/traefik/cf_api_token.txt
+
+# ezbookkeeping.ini is NOT used by the container (it reads secrets from env /
+# .env.sops). The old committed copy held stale plaintext secret_key + DB creds.
+# Keep it out of git; the app config comes from .env.sops.
+apps/docker/ezbookkeeping/conf/ezbookkeeping.ini
