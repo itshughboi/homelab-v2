@@ -18,6 +18,11 @@ the source of truth — see [index.md](../index.md) for the rationale). Runs as 
 > `/etc/fstab` (never use quotes there) and **quoted** in other configs (k8s NFS `path:`, etc.).
 > Server-side, datasets live at `/mnt/The Archive/<Dataset>`.
 
+> [!IMPORTANT] Client mount options
+> dock-prod's fstab NFS lines **must** use `_netdev,nofail,hard` — never bare `defaults`.
+> Bare defaults caused the #44 restic data loss (unmounted share → app writes to an empty
+> local dir). Canonical fstab + rationale: [NFS-Client-Mounts.md](NFS-Client-Mounts.md).
+
 **Rebuild order:** provision VM → passthrough SSDs → create pool → datasets → NFS/SMB shares →
 networking + jumbo → mount on clients. Do this **after** the network (VLANs 10 + 40) exists and
 **before** anything that consumes storage (PBS offsite, Docker apps, k3s NFS PVs).

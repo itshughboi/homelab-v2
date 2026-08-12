@@ -8,6 +8,7 @@ pve-srv-1 — TrueNAS as a VM with disk passthrough, **PBS as a VM that owns its
 | Doc | Contents |
 | --- | --- |
 | [TrueNAS/README.md](TrueNAS/README.md) | TrueNAS setup, disk passthrough, NFS exports |
+| [TrueNAS/NFS-Client-Mounts.md](TrueNAS/NFS-Client-Mounts.md) | dock-prod fstab — the required `_netdev,nofail,hard` options (why bare `defaults` caused #44) |
 | [TrueNAS/ZFS.md](TrueNAS/ZFS.md) | ZFS concepts, VDEV types, pool layout, maintenance |
 | [TrueNAS/Networking.md](TrueNAS/Networking.md) | Bridge interface (`br0`) — the swap-friendly NIC setup |
 | [PBS/README.md](PBS/README.md) | PBS VM: passthrough → local ZFS datastore → offsite to Synology |
