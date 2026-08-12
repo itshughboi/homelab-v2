@@ -101,9 +101,8 @@ services:
       # The old wrong path meant 2.x ran on a throwaway anonymous volume (fresh,
       # un-set-up) -> telegraf 401. Bind the correct 2.x path under /data.
       - /home/hughboi/data/influxdb2:/var/lib/influxdb2
-    ports:                                  # LIVE exposure (not localhost-bound yet)
-      - 8086:8086
-      - 8089:8089/udp
+    ports:                                  # localhost-bound (Traefik reaches via proxy net) — #50
+      - "127.0.0.1:8086:8086"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.influxdb.entrypoints=http"
@@ -132,8 +131,8 @@ services:
     volumes:
       - ./loki/config.yaml:/etc/loki/config.yaml:ro
       - /home/hughboi/data/loki:/loki:rw
-    ports:                                  # LIVE exposure
-      - 3100:3100
+    ports:                                  # localhost-bound (#50)
+      - "127.0.0.1:3100:3100"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.loki.entrypoints=http"
@@ -171,8 +170,8 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-    ports:                                  # LIVE exposure
-      - 9070:9090
+    ports:                                  # localhost-bound (#50)
+      - "127.0.0.1:9070:9090"
     deploy:
       resources:
         limits:
@@ -203,8 +202,8 @@ services:
         mode: "non-blocking"
     volumes:
       - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    ports:                                  # LIVE exposure
-      - 9093:9093
+    ports:                                  # localhost-bound (#50)
+      - "127.0.0.1:9093:9093"
     networks:
       - promgraftail
       - proxy
