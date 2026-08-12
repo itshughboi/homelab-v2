@@ -1,18 +1,18 @@
----
+
 name: immich-eros
 
 services:
   immich-server:
-    container_name: immich_server-eros
-    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-v2.7.5}
-    restart: unless-stopped
-    # GPU transcoding: apparmor=unconfined + group_add render required for /dev/dri access
-    devices:
-      - /dev/dri:/dev/dri
-    security_opt:
-      - apparmor=unconfined
-    group_add:
-      - "993"   # render/video group on host: stat -c "%g" /dev/dri/renderD128
+    container_name: immich_server_eros
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    command: [ "start.sh", "immich" ]
+    extends:
+      file: hwaccel.transcoding.yml
+      service: vaapi
+    depends_on:
+      - redis
+      - database
+    restart: always
     logging:
       driver: loki
       options:
@@ -22,13 +22,11 @@ services:
         loki-timeout: 1s
         keep-file: "true"
         mode: "non-blocking"
-    depends_on:
-      - redis
-      - database
     volumes:
-      - ${UPLOAD_LOCATION}:/usr/src/app/upload
+      # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
+      - /mnt/truenas/liyah/immich:/usr/src/app/upload # DON'T SET THIS AS THE SAME SPOT AS THE EXTERAN LIBRARY ON THE NEXT LINE OR ELSE IT WILL LOOP ITSELF
+      - /mnt/truenas/liyah:/mnt/media/liyah
       - /etc/localtime:/etc/localtime:ro
-      - /mnt/truenas/eros:/mnt/media/eros:rw
     env_file:
       - .env
     healthcheck:
@@ -44,20 +42,22 @@ services:
       - "traefik.http.routers.eros-secure.tls=true"
       - "traefik.http.routers.eros-secure.service=eros"
       - "traefik.http.services.eros.loadbalancer.server.port=2283"
-      - "traefik.docker.network=proxy"
+      - "traefik.docker.network=proxy"    
     networks:
       - proxy
       - eros
+    ports:
+      - 8091:8081
+
 
   immich-machine-learning:
     container_name: immich_machine_learning-eros
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-v2.7.5}-openvino
-    restart: unless-stopped
-    # SYS_ADMIN and apparmor=unconfined required for OpenVINO GPU acceleration
-    cap_add:
-      - SYS_ADMIN
-    security_opt:
-      - apparmor=unconfined
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-openvino
+    restart: always
+    cap_add:                       ## Needed for GPU usage
+      - SYS_ADMIN                  ## Needed for GPU usage
+    security_opt:                  ## Needed for GPU usage
+      - apparmor=unconfined        ## Needed for GPU usage
     logging:
       driver: loki
       options:
@@ -69,9 +69,9 @@ services:
         mode: "non-blocking"
     extends:
       file: hwaccel.ml.yml
-      service: openvino
+      service: hwaccel
     volumes:
-      - /mnt/truenas/eros/cache:/cache
+      - immich-cache:/cache
     env_file:
       - .env
     healthcheck:
@@ -82,9 +82,7 @@ services:
   redis:
     container_name: immich_redis-eros
     image: docker.io/valkey/valkey:8-bookworm
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+    restart: always
     healthcheck:
       test: redis-cli ping || exit 1
     networks:
@@ -93,9 +91,7 @@ services:
   database:
     container_name: immich_postgres-eros
     image: ghcr.io/immich-app/postgres:16-vectorchord0.5.3
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+    restart: always
     logging:
       driver: loki
       options:
@@ -105,6 +101,8 @@ services:
         loki-timeout: 1s
         keep-file: "true"
         mode: "non-blocking"
+    volumes:
+      - immich-postgres-eros:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_USER: ${DB_USERNAME}
@@ -112,16 +110,16 @@ services:
       POSTGRES_INITDB_ARGS: '--data-checksums'
     env_file:
       - .env
-    volumes:
-      - immich-postgres-eros:/var/lib/postgresql/data
     networks:
       - eros
 
-
 volumes:
+  immich-cache:
   immich-postgres-eros:
+ # immich-upload:
 
 networks:
   proxy:
     external: true
   eros:
+

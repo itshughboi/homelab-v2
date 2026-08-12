@@ -1,23 +1,18 @@
----
+
 name: immich
 
 services:
   immich-server:
     container_name: immich_server
-    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-v2.7.5}
-    restart: unless-stopped
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     command: [ "start.sh", "immich" ]
-    # GPU transcoding: apparmor=unconfined + group_add render required for /dev/dri access
-    # (matches the working pattern already proven in immich/eros/compose.yaml — the
-    # hwaccel.transcoding.yml this used to extend doesn't exist anywhere in the repo.
-    # apparmor=unconfined and no-new-privileges:true are not combined here, matching
-    # eros exactly — eros's security_opt is apparmor=unconfined alone)
-    devices:
-      - /dev/dri:/dev/dri
-    security_opt:
-      - apparmor=unconfined
-    group_add:
-      - "993"   # render/video group on host: stat -c "%g" /dev/dri/renderD128
+    extends:
+      file: hwaccel.transcoding.yml
+      service: vaapi
+    depends_on:
+      - redis
+      - database
+    restart: always
     logging:
       driver: loki
       options:
@@ -27,11 +22,9 @@ services:
         loki-timeout: 1s
         keep-file: "true"
         mode: "non-blocking"
-    depends_on:
-      - redis
-      - database
     volumes:
-      - /home/hughboi/data/immich/upload/:/usr/src/app/upload
+      # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
+      - /home/hughboi/data/immich/upload/:/usr/src/app/upload  # may want to change to a bind mount. This is like if you uploaded from your phone to Immich where the files would be stored
       - /mnt/truenas/immich:/external-media:ro
       - /etc/localtime:/etc/localtime:ro
     env_file:
@@ -49,20 +42,20 @@ services:
       - "traefik.http.routers.immich-secure.tls=true"
       - "traefik.http.routers.immich-secure.service=immich"
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
-      - "traefik.docker.network=proxy"
+      - "traefik.docker.network=proxy"    
     networks:
       - proxy
       - immich
 
+
   immich-machine-learning:
     container_name: immich_machine_learning
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-v2.7.5}-openvino
-    restart: unless-stopped
-    # SYS_ADMIN and apparmor=unconfined required for OpenVINO GPU acceleration
-    cap_add:
-      - SYS_ADMIN
-    security_opt:
-      - apparmor=unconfined
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-openvino
+    restart: always
+    cap_add:                       ## Needed for GPU usage
+      - SYS_ADMIN                  ## Needed for GPU usage
+    security_opt:                  ## Needed for GPU usage
+      - apparmor=unconfined        ## Needed for GPU usage
     logging:
       driver: loki
       options:
@@ -74,7 +67,7 @@ services:
         mode: "non-blocking"
     extends:
       file: hwaccel.ml.yml
-      service: openvino
+      service: hwaccel
     volumes:
       - immich-cache:/cache
     env_file:
@@ -87,9 +80,7 @@ services:
   redis:
     container_name: immich_redis
     image: docker.io/valkey/valkey:8-bookworm
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+    restart: always
     healthcheck:
       test: redis-cli ping || exit 1
     networks:
@@ -97,10 +88,8 @@ services:
 
   database:
     container_name: immich_postgres
-    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvector0.8.0-pgvectors0.3.0
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvector0.8.0-pgvectors0.3.0 
+    restart: always
     logging:
       driver: loki
       options:
@@ -110,19 +99,18 @@ services:
         loki-timeout: 1s
         keep-file: "true"
         mode: "non-blocking"
+    volumes:
+      - immich-postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_DB: ${DB_DATABASE_NAME}
       POSTGRES_INITDB_ARGS: '--data-checksums'
-      DB_STORAGE_TYPE: ${DB_STORAGE_TYPE:-SSD}
+      DB_STORAGE_TYPE : ${DB_STORAGE_TYPE:-SSD}
     env_file:
       - .env
-    volumes:
-      - immich-postgres:/var/lib/postgresql/data
     networks:
       - immich
-
 
 volumes:
   immich-cache:
@@ -133,3 +121,4 @@ networks:
   proxy:
     external: true
   immich:
+

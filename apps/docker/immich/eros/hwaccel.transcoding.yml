@@ -1,0 +1,5 @@
+  services:
+    cpu: {}
+    vaapi:
+      devices:
+        - /dev/dri:/dev/dri
