@@ -20,7 +20,7 @@ services:
       - PGID=1000
       - TZ=America/Denver
     volumes:
-      - /home/hughboi/data/rss:/config
+      - /home/hughboi/data/freshrss/config:/config
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.freshrss.entrypoints=http"

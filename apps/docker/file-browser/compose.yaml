@@ -19,8 +19,12 @@ services:
     environment:
       - FB_BASEURL=/filebrowser
     volumes:
-      - /mnt/truenas:/data
-      - /home/hughboi/data/filebrowser/db:/config
+      # Match the live/working layout: browse root = /home/hughboi/data/filebrowser,
+      # with the Jellyfin Concerts share mounted under it; config DB in the existing
+      # filebrowser_db named volume.
+      - filebrowser_db:/config
+      - /home/hughboi/data/filebrowser:/data
+      - /mnt/truenas/jellyfin/Concerts:/data/Jellyfin
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.file.entrypoints=http"
@@ -35,6 +39,10 @@ services:
     networks:
       - proxy
 
+
+volumes:
+  filebrowser_db:
+    external: true
 
 networks:
   proxy:

@@ -17,7 +17,11 @@ services:
         mode: "non-blocking"
     volumes:
       - /run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
+      # Data migrated from the old portainer_portainer-data named volume to a bind
+      # mount under /data (matches the homelab convention; part of #55).
+      - /home/hughboi/data/portainer:/data
+    ports:
+      - "9445:9000"   # direct UI access (kept from live), Traefik also fronts it
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.entrypoints=http"
@@ -31,10 +35,6 @@ services:
     networks:
       - proxy
 
-
-volumes:
-  portainer-data:
-    driver: local
 
 networks:
   proxy:
