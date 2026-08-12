@@ -1,0 +1,93 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "Storage — Deep Dive",
+  "uid": "storage-deep-dive",
+  "tags": ["storage", "infrastructure"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM", "label": "Prometheus", "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "prometheus", "value": "be3h9i5t3zoxsd" }, "hide": 0
+      },
+      {
+        "name": "DS_LOKI", "label": "Loki", "type": "datasource",
+        "query": "loki",
+        "current": { "text": "loki", "value": "feq5ypvk39gqoe" }, "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Root disk used %",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "100*(1-node_filesystem_avail_bytes{instance=\"dock-prod\",mountpoint=\"/\"}/node_filesystem_size_bytes{instance=\"dock-prod\",mountpoint=\"/\"})" } ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 } ] } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Root disk free",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "node_filesystem_avail_bytes{instance=\"dock-prod\",mountpoint=\"/\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 10737418240 }, { "color": "green", "value": 21474836480 } ] } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Root disk total",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "node_filesystem_size_bytes{instance=\"dock-prod\",mountpoint=\"/\"}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "decimals": 1, "color": { "mode": "fixed", "fixedColor": "blue" } } }
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Free space over time (capacity runway)",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "free", "expr": "node_filesystem_avail_bytes{instance=\"dock-prod\",mountpoint=\"/\"}" },
+        { "refId": "B", "legendFormat": "total", "expr": "node_filesystem_size_bytes{instance=\"dock-prod\",mountpoint=\"/\"}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10 } } },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["min", "last"] } }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Disk I/O",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "{{device}} read", "expr": "rate(node_disk_read_bytes_total{instance=\"dock-prod\",device!~\"dm-.*|loop.*\"}[$__rate_interval])" },
+        { "refId": "B", "legendFormat": "{{device}} write", "expr": "-rate(node_disk_written_bytes_total{instance=\"dock-prod\",device!~\"dm-.*|loop.*\"}[$__rate_interval])" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "fillOpacity": 10 } } },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } }
+    },
+    {
+      "id": 6, "type": "text", "title": "About the disk-usage breakdown",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 13 },
+      "options": {
+        "mode": "markdown",
+        "content": "Prometheus node-exporter only exposes the **root filesystem** (`mountpoint=\"/\"`) as a metric — there is **no per-folder metric**. To see which directories are consuming disk, an **hourly cron job runs `du`** and writes its output to `/var/log`, where it is collected into **Loki** (`job=\"dock-prod_varlogs\"`). The panels below surface the most recent `disk-usage` breakdown — the newest lines at the top show the current top folders by size. Data is at most one hour old."
+      }
+    },
+    {
+      "id": 7, "type": "logs", "title": "Latest disk-usage breakdown (top folders by size)",
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 17 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending", "enableLogDetails": true },
+      "targets": [ { "refId": "A", "expr": "{job=\"dock-prod_varlogs\"} |= \"disk-usage\"" } ]
+    },
+    {
+      "id": 8, "type": "logs", "title": "disk-usage — /home/hughboi/data only",
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 17 },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "options": { "showTime": true, "wrapLogMessage": true, "dedupStrategy": "none", "sortOrder": "Descending", "enableLogDetails": true },
+      "targets": [ { "refId": "A", "expr": "{job=\"dock-prod_varlogs\"} |= \"disk-usage\" |= \"/home/hughboi/data\"" } ]
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "title": "Crowdsec — Threat Landscape",
+  "uid": "crowdsec-threats",
+  "tags": ["crowdsec", "security"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROM",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "prometheus", "value": "be3h9i5t3zoxsd" },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "text", "title": "What this dashboard shows",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "### The internet threat landscape I'm shielded against\n\n**These are not attacks on my network.** ~100% of the active decisions here have `origin=CAPI` — they come from the **CrowdSec Community Blocklist (CAPI)**, a curated feed of IPs that are attacking *other* people across the internet. My services are double-NAT'd and reachable only over Tailscale, so this traffic never actually reaches me.\n\nWhat you're seeing is the **shape of malicious activity on the internet right now** — the pool of hostile IPs I proactively drop — broken down by the *reason* CrowdSec flagged them (scans, bruteforce, exploits) and how that pool grows over time. There is no GeoIP / country label on these metrics, so breakdowns are by **reason** and **origin** rather than a map.\n\n> Companion to the **Crowdsec — Security** dashboard (`crowdsec-security`), which covers the same feed at a glance; this one goes deeper into the threat mix, blocklist growth, and LAPI/parser health."
+      }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Active decisions (total)",
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "sum(cs_active_decisions)" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Bans enforced",
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "sum(cs_active_decisions{action=\"ban\"})" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "dark-red" } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Distinct attack types",
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "count(count by (reason) (cs_active_decisions))" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" }, "unit": "short" } }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Parser throughput /s (5m)",
+      "gridPos": { "h": 4, "w": 5, "x": 15, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(cs_parser_hits_ok_total[$__rate_interval]))" } ],
+      "fieldConfig": { "defaults": { "decimals": 2, "color": { "mode": "fixed", "fixedColor": "green" }, "unit": "ops" } }
+    },
+    {
+      "id": 6, "type": "stat", "title": "LAPI decisions KO /s (5m)",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(cs_lapi_decisions_ko_total[$__rate_interval]))" } ],
+      "fieldConfig": { "defaults": { "decimals": 3, "color": { "mode": "thresholds" }, "unit": "ops", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.001 } ] } } }
+    },
+    {
+      "id": 7, "type": "piechart", "title": "Threat mix — bans by reason",
+      "gridPos": { "h": 9, "w": 8, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "legendFormat": "{{reason}}", "expr": "sum by (reason) (cs_active_decisions{action=\"ban\"})" } ],
+      "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 8, "type": "bargauge", "title": "Bans by reason (ranked)",
+      "gridPos": { "h": 9, "w": 8, "x": 8, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "legendFormat": "{{reason}}", "expr": "sort_desc(sum by (reason) (cs_active_decisions{action=\"ban\"}))" } ],
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "color": { "mode": "continuous-YlRd" }, "unit": "short" } }
+    },
+    {
+      "id": 9, "type": "table", "title": "Threat catalogue (reason -> blocked IPs)",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "format": "table", "expr": "sort_desc(sum by (reason, origin) (cs_active_decisions{action=\"ban\"}))" } ],
+      "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true, "job": true, "instance": true, "action": true, "__name__": true }, "renameByName": { "Value": "blocked IPs", "reason": "reason", "origin": "origin" } } } ],
+      "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "blocked IPs" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "gauge", "mode": "gradient" } } ] } ] }
+    },
+    {
+      "id": 10, "type": "piechart", "title": "Bans by origin (feed source)",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "instant": true, "legendFormat": "{{origin}}", "expr": "sum by (origin) (cs_active_decisions{action=\"ban\"})" } ],
+      "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }, "pieType": "pie", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Blocklist growth — active decisions by reason over time",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "{{reason}}", "expr": "sum by (reason) (cs_active_decisions{action=\"ban\"})" } ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 25, "stacking": { "mode": "normal" }, "showPoints": "never" }, "unit": "short" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Parser hits /s — ok vs ko",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "ok", "expr": "sum(rate(cs_parser_hits_ok_total[$__rate_interval]))" },
+        { "refId": "B", "legendFormat": "ko", "expr": "sum(rate(cs_parser_hits_ko_total[$__rate_interval]))" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" }, "unit": "ops" }, "overrides": [ { "matcher": { "id": "byName", "options": "ko" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }, { "matcher": { "id": "byName", "options": "ok" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] } ] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "LAPI request latency (p50 / p95 / p99)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [
+        { "refId": "A", "legendFormat": "p50", "expr": "histogram_quantile(0.50, sum by (le) (rate(cs_lapi_request_duration_seconds_bucket[$__rate_interval])))" },
+        { "refId": "B", "legendFormat": "p95", "expr": "histogram_quantile(0.95, sum by (le) (rate(cs_lapi_request_duration_seconds_bucket[$__rate_interval])))" },
+        { "refId": "C", "legendFormat": "p99", "expr": "histogram_quantile(0.99, sum by (le) (rate(cs_lapi_request_duration_seconds_bucket[$__rate_interval])))" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }, "unit": "s" } },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "LAPI requests /s (by route)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "{{route}}", "expr": "sum by (route) (rate(cs_lapi_route_requests_total[$__rate_interval]))" } ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }, "unit": "reqps" } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "last"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 15, "type": "timeseries", "title": "Bouncer request rate /s",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "targets": [ { "refId": "A", "legendFormat": "bouncer requests", "expr": "sum(rate(cs_lapi_bouncer_requests_total[$__rate_interval]))" } ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "showPoints": "never" }, "unit": "reqps", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    }
+  ]
+}
