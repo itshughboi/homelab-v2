@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Pre-commit hook: block secrets BEFORE they enter a commit.
+#
+# CI (.gitea/workflows/ci.yaml + .github/workflows/validate.yaml) also runs gitleaks,
+# but CI is post-push — by then the secret is already leaked and mirrored. This hook is
+# the real prevention: it scans only the STAGED changes and refuses the commit on a hit.
+#
+# Install once:  ./scripts/install-hooks.sh
+# Bypass (rare, deliberate): git commit --no-verify
+#
+# Uses the repo's .gitleaks.toml (same rules/allowlist as CI). If gitleaks is not
+# installed, the hook warns and lets the commit through (CI is the backstop) rather than
+# blocking work on a missing tool — install it to get real protection.
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "⚠️  gitleaks not found on PATH — skipping local secret scan."
+  echo "    Install it for pre-commit protection:  https://github.com/gitleaks/gitleaks"
+  echo "    (CI still scans on push, but that is AFTER the secret has left your machine.)"
+  exit 0
+fi
+
+# --staged scans only what's about to be committed (fast; matches the diff, not history).
+# --redact keeps any matched secret out of the terminal output.
+if ! gitleaks protect --staged --redact --config .gitleaks.toml; then
+  echo ""
+  echo "❌ gitleaks found a secret in your staged changes — commit blocked."
+  echo "   • Remove the secret and store it in the service's .env.sops instead."
+  echo "   • If it is a verified false positive, add a narrow rule to .gitleaks.toml."
+  echo "   • NEVER commit a real secret and 'fix it later' — history is permanent and this repo is public."
+  echo "   • To bypass for a genuine non-secret (you are sure): git commit --no-verify"
+  exit 1
+fi

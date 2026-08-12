@@ -12,6 +12,22 @@ Docker Compose services need `.env` files with real credentials. These can't be 
 
 ## Scripts
 
+### `install-hooks.sh` — one-time setup per clone
+
+Points `core.hooksPath` at the committed `.githooks/` directory so you get the repo's
+git hooks. Run once after cloning:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+Installs a **pre-commit** hook that runs `gitleaks` against your staged changes and
+blocks the commit if it finds a secret — the real prevention (CI's gitleaks is
+post-push, i.e. after the secret has already left your machine). Requires `gitleaks`
+on `PATH`; without it the hook warns and lets commits through (CI is the backstop).
+Bypass a false positive with `git commit --no-verify`, but prefer a narrow rule in
+`.gitleaks.toml`.
+
 ### `age-setup.sh` — one-time setup per machine
 
 Run this once on any machine that needs to encrypt or decrypt secrets:

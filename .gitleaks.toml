@@ -14,3 +14,17 @@ paths = [
   # on base64 blobs. The path is gone from HEAD; this silences the history hits.
   '''docs/hugo/public/.*''',
 ]
+
+# Rotated-and-dead historical leaks. gitleaks scans full history, so already-rotated
+# secrets fail CI forever unless their specific commit fingerprints are allowlisted.
+# EACH entry below was verified dead (value absent from HEAD *and* from the live
+# .env.sops) before being added. NEVER allowlist a live secret — rotate it first.
+commits = [
+  # watchtower bearer_token in prometheus.yml (commit 6be2a92). Removed from HEAD;
+  # the job now reads its token from env/.env.sops. Verified absent from HEAD.
+  "6be2a92b31d0d6637fabe4b876fe829e5077754e",
+  # ezbookkeeping.ini DB passwd + secret_key (commit f0ad719, #58). The .ini is no
+  # longer mounted (container reads EBK_* from .env.sops); both values were rotated —
+  # verified they do NOT match the live .env.sops.
+  "f0ad719690d1b461eb5d62c11e451fa05eef6cef",
+]

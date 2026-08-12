@@ -2,7 +2,8 @@ name: CI
 
 # Single consolidated pipeline (replaces the old ci.yaml + lint.yml pair, which had drifted
 # into two conflicting configs). Mirrors .github/workflows/validate.yaml for the shared jobs;
-# Gitea-only extras here: sops-coverage, docs-build, trivy (informational).
+# Gitea-only extras here: sops-coverage, docs-build, trivy (informational), and
+# notify-failure (ntfy ping on red — GitHub emails on failure natively, Gitea does not).
 # Keep job logic in sync with the GitHub workflow when editing either.
 
 on:
@@ -204,3 +205,30 @@ jobs:
             echo "Unresolved internal .md links (broken source links):"; echo "$bad"; exit 1
           fi
           echo "All internal doc links resolve."
+
+  notify-failure:
+    name: Notify on Failure (ntfy)
+    runs-on: ubuntu-latest
+    # Depends on every other job; `if: failure()` fires only when at least one of them
+    # failed (and only for this workflow run). GitHub emails on failure by default, but
+    # Gitea does not — this restores parity so a red pipeline actually pings you (#59).
+    needs:
+      - yaml-lint
+      - kubeconform
+      - terraform
+      - ansible-lint
+      - secret-scan
+      - trivy-scan
+      - sops-coverage
+      - docs-build
+    if: failure()
+    steps:
+      - name: Ping ntfy
+        # Anonymous publish is allowed on this ntfy (topic: ci). No secret needed.
+        run: |
+          curl -sf \
+            -H "Title: CI failed: ${GITHUB_REPOSITORY} (${GITHUB_REF_NAME})" \
+            -H "Priority: high" \
+            -H "Tags: rotating_light" \
+            -d "Workflow '${GITHUB_WORKFLOW}' failed on ${GITHUB_SHA}. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions" \
+            https://ntfy.hughboi.cc/ci
