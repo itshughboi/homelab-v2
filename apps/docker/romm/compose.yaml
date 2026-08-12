@@ -33,8 +33,10 @@ services:
       - romm_resources:/romm/resources
       - romm_redis_data:/redis-data
       - /mnt/truenas/romm/library:/romm/library
-      - /home/hughboi/romm/assets:/romm/assets
-      - /home/hughboi/homelab/apps/docker/romm/config.yml:/romm/config/config.yml:ro
+      # User assets = saves, save states, screenshots. Moved out of the home dir
+      # into /data (romm data lives under /home/hughboi/data/romm).
+      - /home/hughboi/data/romm/assets:/romm/assets
+      - ./config.yml:/romm/config/config.yml:ro
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.romm.entrypoints=http"
