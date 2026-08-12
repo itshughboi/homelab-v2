@@ -139,12 +139,12 @@ All changes go through PRs. ArgoCD's access is read-only pull.
 for all zones. If the cluster is compromised and an attacker reads secrets, they can:
 - Create DNS records pointing your domains at their servers
 - Issue their own TLS certificates for your domains
-- Intercept all traffic to `*.hughboi.cc` and `*.hughboi.cc`
+- Intercept all traffic to `*.hughboi.cc`
 
 **Fix (manual):**
 1. In Cloudflare dashboard → My Profile → API Tokens → Edit your cert-manager token
 2. Change "Zone permissions" from `Zone:Edit` to only `DNS:Edit`
-3. Restrict the token to only the specific zones (`hughboi.cc`, `hughboi.cc`) — not all zones
+3. Restrict the token to only the specific zone (`hughboi.cc`) — not all zones
 4. Set an IP filter on the token to only allow requests from your k3s node IPs
 5. Rotate the token and update the k8s secret:
    ```sh

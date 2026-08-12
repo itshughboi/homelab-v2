@@ -57,11 +57,17 @@ creation_rules:
 
 **4. Encrypt and commit:**
 ```sh
-sops --encrypt secrets.yaml > secrets.sops.yaml          # encrypt plaintext → committed copy
+# --filename-override is REQUIRED: SOPS matches .sops.yaml creation_rules against the INPUT
+# filename. `secrets.yaml` does not match `.*secrets\.sops\.yaml$`, so without the override you
+# get "no matching creation rules found" (or an encrypt with the wrong/no key). The override
+# makes SOPS evaluate the rules against the target name instead.
+sops --encrypt --filename-override secrets.sops.yaml secrets.yaml > secrets.sops.yaml
 sops secrets.sops.yaml                                    # later: edit in place ($EDITOR, re-encrypts on save)
 sops --decrypt secrets.sops.yaml                          # print plaintext to stdout
 git add secrets.sops.yaml                                 # the encrypted file is safe to commit
 ```
+> Same rule for Terraform: `sops --encrypt --filename-override secrets.sops.tfvars secrets.tfvars > secrets.sops.tfvars`.
+> (For Docker `.env` files, `./scripts/sops-migrate.sh` already passes `--filename-override` for you.)
 
 Ansible/Terraform read the decrypted values at runtime via the SOPS plugin or a pre-run decrypt
 step, using the Age key on Athena.

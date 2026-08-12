@@ -23,7 +23,9 @@ dock-prod Telegraf → dock-prod InfluxDB   ← stays; SNMP + Proxmox push have 
 ```
 
 **What's retired once k3s is live:**
-- `grafana.hughboi.cc` — Docker Grafana (replaced by `grafana.hughboi.cc`)
+- Docker Grafana (promgraftail) — the k3s Grafana takes over the **same** `grafana.hughboi.cc`
+  hostname (single pane of glass); the DNS/Traefik route cuts over from the Docker instance to
+  the k3s IngressRoute, so the URL is unchanged
 - dock-prod Prometheus (`localhost:9070`) — barely used, only scraped 2 targets
 - dock-prod Promtail — replaced by Alloy
 

@@ -29,7 +29,7 @@ echo ".env" >> .gitignore
 
 1. Clone repo without checkout (creates folder and .git only). 
 ```
-git clone --no-checkout git@gitea.hughboi.cc:hughboi/Homelab.git code
+git clone --no-checkout git@gitea.hughboi.cc:hughboi/homelab.git code
 cd code
 ```
 
@@ -42,7 +42,7 @@ git sparse-checkout init --cone
 ```
 3. Set the files/folders I want
 ```
-git sparse-checkout set docker-compose ansible .gitea/workflows dotfiles kubernetes
+git sparse-checkout set apps/docker apps/kubernetes ansible .gitea/workflows
 ```
 4. Checkout the branch (main/master)
 ```

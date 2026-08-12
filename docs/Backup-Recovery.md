@@ -19,19 +19,22 @@
 The **3-2-1 view**: Longhorn replicas (on-host) → PBS/Velero (second copy) → Synology/B2 (offsite,
 in progress). See [storage 3-2-1](4-storage/index.md#backup-strategy-3-2-1).
 
-> [!WARNING] Known gap — Docker `.env` files are NOT in the repo (yet)
-> The repo ships `.env.example` for ~25 Docker services, but the **real `.env` files exist only
-> on dock-prod's disk**. They are *not* committed (by design — plaintext) and the SOPS migration
-> that would commit them **encrypted** (`.env.sops`) has not run yet (`.sops.yaml` is still the
-> placeholder). Until that lands, a **repo-only rebuild of dock-prod cannot recover service
-> credentials**. Recovery paths today, in order:
-> 1. **PBS restore** of the dock-prod VM (the `.env` files come back with the disk), or
-> 2. **Vaultwarden** entries (`homelab/<service>/…`) re-typed into fresh `.env` files, or
-> 3. The paper/cloud age key is irrelevant here *until* `.env.sops` files exist.
+> [!NOTE] Docker secrets ARE in the repo (SOPS + age) — mostly
+> The SOPS migration is **live**: `.sops.yaml` holds the real age public key (no placeholder),
+> and **24 of 27** Docker services have their secrets committed **encrypted** as `.env.sops`
+> (plus config-as-secret files like `cf_api_token.txt.sops`, `alertmanager.yml.sops`). For those
+> services, a **repo-only rebuild recovers credentials**: clone the repo + restore the one age
+> private key, and `./scripts/sops-run.sh <service>` decrypts and deploys.
 >
-> **Closing the gap** = run `./scripts/age-setup.sh` on Athena, then `./scripts/sops-migrate.sh
-> <service>` per service ([scripts/README](../scripts/README.md)). The Gitea CI `sops-coverage`
-> job fails until every `.env.example` has a matching `.env.sops` — that's intentional.
+> **Residual gap** — 3 services not yet migrated (`sops-coverage` CI job stays red until all are):
+> `jellyfin` (exporter, [#54](https://gitea.hughboi.cc/hughboi/homelab/issues/54)),
+> `promgraftail/prometheus`, `wazuh`. For these only, recovery still depends on:
+> 1. **PBS restore** of the dock-prod VM (their live `.env`/config comes back with the disk), or
+> 2. **Vaultwarden** entries (`homelab/<service>/…`) re-typed.
+>
+> **The age private key is the linchpin** for the migrated majority — guard it (paper + offsite
+> copies, `./scripts/age-setup.sh` restores it on a new machine). Migrate the rest with
+> `./scripts/sops-migrate.sh <service>` ([scripts/README](../scripts/README.md)).
 > Note the circularity: Vaultwarden itself runs **on dock-prod** — export an encrypted
 > Vaultwarden backup offsite so the credential store survives the host it protects.
 

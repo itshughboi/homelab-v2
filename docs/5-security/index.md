@@ -198,14 +198,30 @@ the strict profile.
 
 ---
 
-## CI Security Scanning
+## Secret & Misconfig Scanning
 
-Every PR runs two security scans automatically (`.gitea/workflows/ci.yaml`):
+Two layers — a local pre-commit hook (prevention) and CI (backstop).
 
-**gitleaks** — scans the full git history for accidentally committed secrets (API keys, passwords, tokens):
+### Local pre-commit hook (run this on every clone)
+
+```sh
+./scripts/install-hooks.sh   # points core.hooksPath at .githooks/
+```
+
+Installs a **pre-commit gitleaks scan** (`.githooks/pre-commit`) that blocks a commit
+containing a secret **before it leaves your machine**. This is the real prevention — CI only
+catches a leak *after* it's pushed and mirrored. Needs `gitleaks` on `PATH`; degrades to a
+warning (commit allowed) if it's missing. Bypass a false positive with `git commit --no-verify`,
+but prefer a narrow rule in `.gitleaks.toml`.
+
+### CI scans (`.gitea/workflows/ci.yaml`)
+
+**gitleaks** — scans the full git history for accidentally committed secrets:
 ```sh
 gitleaks detect --source . --log-level warn
 ```
+Rotated-and-dead historical leaks are allowlisted by commit fingerprint in `.gitleaks.toml`
+(never allowlist a live secret — rotate it). A red pipeline pings ntfy topic `ci`.
 
 **Trivy** — scans k8s manifests for misconfigurations and Dockerfiles for known CVEs:
 ```sh
