@@ -86,8 +86,9 @@ This installs Docker, OpenTofu, SOPS, age, and all management services on Athena
 > ```
 >
 > Verify with `resolvectl status eth0` — `Current DNS Server` should show `10.10.10.8`. If Athena
-> is ever rebuilt from scratch, this drop-in should go in the `setup-athena` Ansible playbook,
-> not be a manual post-install step (not yet done — see `Next.md`).
+> is ever rebuilt from scratch, this systemd-resolved drop-in is applied automatically by the
+> `setup-athena` Ansible playbook (`ansible/playbooks/ubuntu/setup-athena/main.yaml`, "Pin bind9
+> as the preferred DNS resolver") — no manual post-install step needed.
 
 ---
 
