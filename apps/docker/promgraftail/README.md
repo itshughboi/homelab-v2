@@ -69,20 +69,35 @@ default) but hit a write-permission issue on the data dir, so it runs as `0`. Re
 alongside the port-hardening work — ideally `chown -R 472:472 /home/hughboi/data/grafana` and
 switch back to `user: "472"`.
 
-### Data Sources
+### Data Sources (provisioned as code)
 
-Add these in Grafana UI → Connections → Data Sources:
+Data sources are **provisioned**, not added in the UI — files in
+`grafana/provisioning/datasources/` (mounted read-only into the container):
 - **Prometheus:** `http://prometheus:9090`
-- **Loki:** `http://loki:3100` (or `https://loki.hughboi.cc` with basic auth if auth is enabled)
-- **InfluxDB:** `http://influxdb:8086` (internal) or `https://influxdb.hughboi.cc`
+- **Loki:** `http://loki:3100`
+- **InfluxDB:** `http://influxdb:8086` — Flux, org `homelab`, bucket `telegraf`, token from
+  `${INFLUX_TOKEN}` (env-substituted at load; keeps the datasource token in sync with the
+  InfluxDB admin token). UID is pinned so dashboards referencing it keep resolving.
 
-### Useful Dashboards
+### Dashboards (provisioned as code)
 
-Import by ID from grafana.com:
-- **Node Exporter Full:** 1860
-- **UniFi Poller:** 11315
-- **Docker:** 179
-- **Loki Logs:** 13639
+Dashboards are provisioned from `grafana/dashboards/` (folder-per-subdirectory via
+`foldersFromFilesStructure: true`). Do **not** import via the UI and leave it there — it
+lives only in `grafana.db` and is lost on rebuild. Instead drop the JSON into the right
+subfolder (strip `id`/`version`, keep a stable `uid`) and it's picked up within 30s.
+
+Grafana-13 provisioning gotchas (learned in
+[#51](https://gitea.hughboi.cc/hughboi/homelab/issues/51)):
+- **A UID already owned by a UI-imported dashboard blocks provisioning** — the file won't
+  take over that uid. To git-back an existing UI dashboard you must delete the UI copy from
+  `grafana.db` first (stop grafana, `DELETE FROM dashboard WHERE uid=...`, restart) so the
+  file provider can claim the uid.
+- **Don't create a folder named `General`** under `grafana/dashboards/` — it collides with
+  Grafana's built-in General folder and **aborts the entire provisioning walk** (every
+  dashboard silently fails to load, not just that folder).
+- Grafana 13 stores file-provisioned dashboards via the new provisioning backend, so they
+  won't necessarily show up in the legacy `dashboard` SQLite table — verify in the UI, not
+  by querying `grafana.db`.
 
 ## Prometheus
 
@@ -130,11 +145,30 @@ Runs as `telegraf:988` (the telegraf group on the host, needed for docker.sock a
 
 ## InfluxDB
 
-- Web UI on https://influxdb.hughboi.cc
-- Also accessible on `127.0.0.1:8086` from the host
-- Port `8089/udp` is for the InfluxDB line protocol UDP listener
+InfluxDB **2.x** (not 1.x). Two things about 2.x that have bitten us:
 
-Initial setup is done through the web UI — creates the org, bucket, and admin token on first run. Store the admin token in `.env` after generation.
+- **Data path is `/var/lib/influxdb2`** — NOT `/var/lib/influxdb` (that's the 1.x path).
+  The compose bind is `/home/hughboi/data/influxdb2:/var/lib/influxdb2`. Getting this
+  wrong is exactly what caused [#61](https://gitea.hughboi.cc/hughboi/homelab/issues/61):
+  the old bind pointed at the 1.x path, so 2.x silently ran on a fresh anonymous volume
+  and telegraf got 401s writing to a repo with no matching org/token.
+- **Setup is automated via env, not the web UI.** `DOCKER_INFLUXDB_INIT_MODE=setup` plus
+  `DOCKER_INFLUXDB_INIT_{USERNAME,PASSWORD,ORG,BUCKET,ADMIN_TOKEN}` (all from `.env.sops`
+  as `INFLUX_*`) create the org (`homelab`), bucket (`telegraf`), and admin token on first
+  run. Do NOT set these up by hand in the UI — that path is only used if the init env is
+  missing. The same `INFLUX_TOKEN` is injected into telegraf, grafana (for the provisioned
+  datasource), and any other writer.
+
+- Web UI on https://influxdb.hughboi.cc, also `127.0.0.1:8086` from the host (bound to
+  localhost only per the #50 port hardening; the old `8089/udp` line-protocol listener was
+  removed in the same pass).
+
+> **After any fresh InfluxDB init, external writers must be re-pointed.** Proxmox pushes
+> metrics via its own Datacenter → Metric Servers config (on the PVE host, not this repo).
+> When InfluxDB was rebuilt in #61 with a new org/bucket/token, Proxmox kept writing to the
+> old target and its Grafana dashboards went empty — tracked in
+> [#65](https://gitea.hughboi.cc/hughboi/homelab/issues/65). If you ever re-init InfluxDB,
+> re-point every external writer (Proxmox, SNMP sources, etc.), not just the in-repo ones.
 
 ## Log Retention (Loki)
 
@@ -154,7 +188,7 @@ and `/home/hughboi/data/loki` grows unbounded (it hit ~19G once and was wiped).
 
 - Grafana: back up `/home/hughboi/data/grafana` before upgrading — contains dashboards, data source configs, users.
 - Loki: back up `/home/hughboi/data/loki` — contains the log chunks and index (bounded by the 45-day retention above).
-- InfluxDB: back up `/home/hughboi/data/influxdb`.
+- InfluxDB: back up `/home/hughboi/data/influxdb2` (2.x path — note the `2` suffix).
 - Prometheus, Alertmanager, Alloy, Telegraf: stateless config — no data to back up separately (Alloy keeps only file-tail positions in the `alloy_data` volume).
 
 ## Troubleshooting
