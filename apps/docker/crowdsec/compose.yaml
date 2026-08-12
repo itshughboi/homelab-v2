@@ -1,8 +1,16 @@
 ---
+# CrowdSec + Traefik bouncer. ⚠️ The bouncer's forwardAuth (applied globally in
+# traefik's config.yml) fails CLOSED — if the bouncer can't reach/authenticate to
+# crowdsec, every request through Traefik 403s homelab-wide (incl. Gitea/Semaphore).
+# Never leave Traefik routing without a running, authenticated bouncer.
+#
+# Data lives under /home/hughboi/data/crowdsec (config + db bind mounts — NOT empty
+# named volumes, which would wipe the ban DB + the registered bouncer key). The
+# bouncer key is the real, DB-registered key, injected from .env.sops.
 services:
   crowdsec:
     container_name: crowdsec
-    image: crowdsecurity/crowdsec:v1.7.8
+    image: crowdsecurity/crowdsec:v1.7.4   # pinned to the running version (no DB migration on cutover)
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -20,18 +28,22 @@ services:
       - COLLECTIONS=crowdsecurity/linux crowdsecurity/traefik
     volumes:
       - ./acquis.yaml:/etc/crowdsec/acquis.yaml:ro
-      - crowdsec-config:/etc/crowdsec/
-      - crowdsec-db:/var/lib/crowdsec/data/
-      - /home/hughboi/traefik/logs:/var/log/traefik/:ro
+      - /home/hughboi/data/crowdsec/config:/etc/crowdsec/
+      - /home/hughboi/data/crowdsec/db:/var/lib/crowdsec/data/
+      # Reads Traefik's access logs for acquisition (see acquis.yaml). Path must
+      # match where the traefik service writes its logs (/home/hughboi/data/traefik/logs).
+      - /home/hughboi/data/traefik/logs:/var/log/traefik/:ro
     ports:
-      - "127.0.0.1:6060:6060"   # Prometheus metrics
+      - "6060:6060"       # Prometheus metrics (scraped by the `crowdsec` job)
+      - "8099:8080"       # LAPI (kept as live; bouncer uses the docker network)
     labels:
+      - "diun.enable=true"
     networks:
       - proxy
 
   bouncer-traefik:
     container_name: bouncer-traefik
-    image: docker.io/fbonalair/traefik-crowdsec-bouncer:0.5.0
+    image: docker.io/fbonalair/traefik-crowdsec-bouncer:latest
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -39,16 +51,13 @@ services:
       crowdsec:
         condition: service_started
     environment:
+      # Real, DB-registered key from .env.sops (reusing it = zero bouncer re-registration).
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
       - CROWDSEC_AGENT_HOST=crowdsec:8080
     labels:
+      - "diun.enable=true"
     networks:
       - proxy
-
-
-volumes:
-  crowdsec-config:
-  crowdsec-db:
 
 networks:
   proxy:

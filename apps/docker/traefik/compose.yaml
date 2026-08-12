@@ -1,7 +1,9 @@
 ---
+# Cloudflare DNS-challenge token. Stored encrypted as cf_api_token.txt.sops;
+# the deploy decrypts it to cf_api_token.txt (gitignored) before `up`.
 secrets:
   cf_api_token:
-    file: /home/hughboi/traefik/cf_api_token.txt   # create and paste CF API token
+    file: ./cf_api_token.txt
 
 services:
   traefik:
@@ -28,10 +30,12 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/hughboi/traefik/data/traefik.yml:/traefik.yml:ro
-      - /home/hughboi/traefik/data/acme.json:/acme.json
-      - /home/hughboi/traefik/data/config.yml:/config.yml:ro
-      - /home/hughboi/traefik/logs:/var/log/traefik
+      # Config-as-code: static + dynamic config are git-tracked, mounted read-only.
+      - ./data/traefik.yml:/traefik.yml:ro
+      - ./data/config.yml:/config.yml:ro
+      # Runtime data: TLS certs (acme.json) + access logs live under /data, not git.
+      - /home/hughboi/data/traefik/acme.json:/acme.json
+      - /home/hughboi/data/traefik/logs:/var/log/traefik
     ports:
       - "80:80"
       - "443:443"
