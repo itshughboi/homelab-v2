@@ -41,12 +41,23 @@ The restic repository lives at `/mnt/truenas/restic` on the host (NFS mount). Al
 
 2026-07-17: the repository at `/mnt/truenas/restic` was found completely empty despite container
 logs showing a successful 96GiB backup as recently as two days prior — no ZFS snapshots existed
-to recover the lost history from. Root cause was never conclusively identified. Real source data
-(`/home/hughboi`) was independently verified intact throughout; only the backup archive itself was
-lost. A fresh full backup was taken and confirmed successful. See
-[Gitea issue #44](https://gitea.hughboi.cc/hughboi/homelab/issues/44) for the full writeup and
-open follow-up items (verify `restic-check`/`restic-prune` actually fire on schedule, investigate
-TrueNAS-side root cause if evidence still exists).
+to recover the lost history from. Real source data (`/home/hughboi`) was independently verified
+intact throughout; only the backup archive itself was lost. A fresh full backup was taken and
+confirmed successful.
+
+**Root cause (identified 2026-08-12):** the fstab entry for this mount used bare `defaults`
+(no `_netdev` / `nofail`) — unlike the immich mounts which correctly had `_netdev`. When the NFS
+share was not mounted at container start (boot race before networking, or a transient NFS drop),
+`/mnt/truenas/restic` was just an **empty local directory** on dock-prod's root filesystem, so
+restic saw an empty repo (and left a local `tmp-for-restore/`). The real repo on TrueNAS was
+never deleted — there was nothing to recover with a ZFS snapshot because nothing was deleted; the
+old history was only lost once the empty local path got re-initialized as a new repo on redeploy.
+This also explains the `exit 128` and the `RestartCount: 0` (restart loop hit the same broken
+state). **Fix:** the fstab entry now uses `defaults,_netdev,nofail,hard` (see below) and was
+remounted. Verified 2026-08-12: 21 healthy snapshots, `restic-check` passing daily,
+`restic-prune` running daily.
+
+See [Gitea issue #44](https://gitea.hughboi.cc/hughboi/homelab/issues/44) for the full writeup.
 
 ## Checking Backup Status
 
@@ -99,7 +110,14 @@ sudo mount "truenas:/mnt/The Archive/Restic" /mnt/truenas/restic
 ```
 2. Mount upon reboot ``` nano /etc/fstab ```
 ```sh
-"truenas:/mnt/The Archive/Restic" /mnt/truenas/restic nfs defaults 0 0
+# Use _netdev,nofail,hard — NOT bare `defaults`. Bare defaults caused the 2026-07-17
+# data-loss incident: on a boot race / NFS drop the share silently stayed unmounted and
+# restic backed up into (and re-init'd) an empty local dir. See Incident History above.
+#   _netdev : wait for the network before mounting (and unmount before network down)
+#   nofail  : don't hang boot if TrueNAS is unreachable
+#   hard    : block (rather than error out) on an NFS timeout, so restic never sees a
+#             half-there mount as "empty"
+10.10.10.5:/mnt/The\040Archive/Restic /mnt/truenas/restic nfs defaults,_netdev,nofail,hard 0 0
 ```
 
 ## TrueNAS Permissions
